@@ -185,8 +185,6 @@ public:
 	TrackedDevicePoseData m_LeftControllerPose;
 	TrackedDevicePoseData m_RightControllerPose;
 
-	bool m_ApplyPortalRotationOffset = false;
-	QAngle m_PortalRotationOffset = {0, 0, 0};
 	QAngle m_RotationOffset = { 0, 0, 0 };
 	bool m_OverrideEyeAngles = false;
 	std::chrono::steady_clock::time_point m_PrevFrameTime;
@@ -205,7 +203,6 @@ public:
 	float m_HudSize = 4.0;
 	bool m_HudAlwaysVisible = false;
 	int m_AimMode = 2;
-	float m_PortallingDetectionDistanceThreshold = 35.f; // The distance threshold used to detect portalling
 	bool m_ApplyPitchAndRollPortalRotationOffset = false; // If `true`, the camera pitch/roll follows the exit portal's orientation when portalling
 	float m_CameraUprightRecoverySpeed = 0.2f; // If the above is `true`, this controls how quickly the camera turns back upright after portalling
 

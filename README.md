@@ -16,10 +16,10 @@ VR mod for Portal: Revolution, playable but work in progress.
 * Menu as an overlay in the headset, used with laser pointer or stick
 * Walking relative to the left controller, snap turning, jumping, crouching
 * Portal gun in the right hand with aim laser, shots start at its muzzle
+* View turns with the portal when passing through it
 * Picking up cubes
 
 ## What's missing
-* Camera rotation when passing through a portal
 * HUD and crosshair
 * Roomscale
 * `AntiAliasing` from `config.txt` has no effect

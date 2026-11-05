@@ -2,6 +2,7 @@
 #include "strata_hooks.h"
 #include <Windows.h>
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -41,6 +42,26 @@ namespace
     tCalcViewModelLag oCalcViewModelLag = nullptr;
     using tCalcViewModelView = void (*)(void *thisptr, void *owner, const Vector &eyePosition, const QAngle &eyeAngles);
     tCalcViewModelView oCalcViewModelView = nullptr;
+
+    // C_Portal_Player (client.dll): [379] ApplyPortalTeleportation(matThisToLinked, time, undo,
+    // forcedDuck). Every portal passage of a player runs through it; a predicted one that is taken
+    // back runs through it again with undo set and the inverse matrix.
+    constexpr int kPlayer_ApplyPortalTeleportation = 379;
+
+    using tApplyPortalTeleportation = void (*)(void *thisptr, const float (*matrix)[4], float time, bool undo, bool forcedDuck);
+    tApplyPortalTeleportation oApplyPortalTeleportation = nullptr;
+
+    // The player passes a portal before the view does: falling into a floor portal, the eyes follow
+    // up to 8 frames later (measured). Until then the passage waits here. Without a view jump, it
+    // is applied after this many frames, so that the player never stays turned the wrong way.
+    constexpr int kPortalPassage_MaxFrames = 180;
+
+    struct PortalPassage
+    {
+        bool waiting = false;
+        int frames = 0;
+        float matrix[3][4] = {};
+    } g_PortalPassage;
 
     // C_WeaponPortalgun [332] AddViewmodelBob(viewModel, origin, angles): moves and turns the gun
     // with the walking speed, called by CalcViewModelView.
@@ -367,6 +388,101 @@ namespace
             oAddViewmodelBob(thisptr, viewModel, origin, angles);
     }
 
+    Vector RotatedByPortal(const float (*m)[4], const Vector &v)
+    {
+        return { m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z,
+                 m[1][0] * v.x + m[1][1] * v.y + m[1][2] * v.z,
+                 m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z };
+    }
+
+    // The heading of a head pose, also when it looks straight up or down: the top of the head then
+    // points along the heading (looking down) or against it (looking up).
+    float Heading(const Vector &forward, const Vector &up)
+    {
+        const float flat = std::sqrt(forward.x * forward.x + forward.y * forward.y);
+        return RAD2DEG(std::atan2(forward.y * flat - up.y * forward.z, forward.x * flat - up.x * forward.z));
+    }
+
+    // The game turns its view angles with the portal, but those are overwritten with the head's
+    // each frame; so the head's offset has to turn instead.
+    void TurnWithPortal(const float (*matrix)[4])
+    {
+        VR *vr = g_StrataGame->m_VR;
+
+        const Vector forward = RotatedByPortal(matrix, vr->m_HmdForward);
+        const Vector up = RotatedByPortal(matrix, vr->m_HmdUp);
+        const float yaw = Heading(forward, up) - Heading(vr->m_HmdForward, vr->m_HmdUp);
+        vr->m_RotationOffset.y += yaw;
+        vr->m_RotationOffset.y -= 360 * std::floor(vr->m_RotationOffset.y / 360);
+
+        if (vr->m_ApplyPitchAndRollPortalRotationOffset)
+        {
+            QAngle before, after;
+            QAngle::VectorAngles(vr->m_HmdForward, vr->m_HmdUp, before);
+            QAngle::VectorAngles(forward, up, after);
+            QAngle turn(after.x - before.x, 0, after.z - before.z);
+            turn.Normalize();
+            vr->m_RotationOffset.x += turn.x;
+            vr->m_RotationOffset.z += turn.z;
+        }
+
+        vr->UpdateHMDAngles();
+
+        std::cout << "[VR] portal passage: yaw " << yaw << " after " << g_PortalPassage.frames << " frames\n";
+    }
+
+    void hkApplyPortalTeleportation(void *thisptr, const float (*matrix)[4], float time, bool undo, bool forcedDuck)
+    {
+        oApplyPortalTeleportation(thisptr, matrix, time, undo, forcedDuck);
+
+        Game *game = g_StrataGame;
+        if (!VRViewActive() || thisptr != game->GetClientEntity(game->m_EngineClient->GetLocalPlayer()))
+            return;
+
+        if (g_PortalPassage.waiting)
+        {
+            // Taken back before the view has followed: nothing to turn.
+            if (undo)
+            {
+                std::cout << "[VR] portal passage taken back after " << g_PortalPassage.frames << " frames\n";
+                g_PortalPassage.waiting = false;
+                return;
+            }
+            TurnWithPortal(g_PortalPassage.matrix);
+        }
+
+        memcpy(g_PortalPassage.matrix, matrix, sizeof(g_PortalPassage.matrix));
+        g_PortalPassage.frames = 0;
+        g_PortalPassage.waiting = true;
+    }
+
+    // Turns with a waiting passage as soon as the view has jumped through the portal, i.e. it's
+    // closer to where the portal takes the last position than to that position itself.
+    void FollowPortalPassage(const Vector &position, const Vector &lastPosition)
+    {
+        if (!g_PortalPassage.waiting)
+            return;
+
+        const float (*matrix)[4] = g_PortalPassage.matrix;
+        Vector behindPortal = RotatedByPortal(matrix, lastPosition);
+        behindPortal.x += matrix[0][3];
+        behindPortal.y += matrix[1][3];
+        behindPortal.z += matrix[2][3];
+
+        ++g_PortalPassage.frames;
+        const auto squaredDistance = [&position](const Vector &to)
+        {
+            const Vector d = position - to;
+            return d.x * d.x + d.y * d.y + d.z * d.z;
+        };
+        const bool jumped = squaredDistance(behindPortal) < squaredDistance(lastPosition);
+        if (jumped || g_PortalPassage.frames >= kPortalPassage_MaxFrames)
+        {
+            TurnWithPortal(matrix);
+            g_PortalPassage.waiting = false;
+        }
+    }
+
     // Where the viewmodel's muzzle is now. Only with the player hkCalcViewModelView has seen, as
     // GetClientEntity's result isn't verified to be the entity pointer on Strata Source.
     bool GetMuzzle(Vector &origin)
@@ -609,6 +725,7 @@ namespace
         }
 
         const Vector position = view.origin;
+        FollowPortalPassage(position, vr->m_SetupOrigin);
         vr->m_SetupOrigin = position;
 
         // The player looks where the HMD looks (movement direction, aiming).
@@ -769,6 +886,14 @@ bool StrataHooks::Init(Game *game)
         return false;
     }
     ok &= InstallHook("AddViewmodelBob", g_PortalgunVTable[kPortalgun_AddViewmodelBob], &hkAddViewmodelBob, oAddViewmodelBob);
+
+    void **player = FindVTable("client.dll", "C_Portal_Player");
+    if (!player)
+    {
+        std::cout << "[Hooks] C_Portal_Player vtable not found, the view doesn't turn with portals\n";
+        return false;
+    }
+    ok &= InstallHook("ApplyPortalTeleportation", player[kPlayer_ApplyPortalTeleportation], &hkApplyPortalTeleportation, oApplyPortalTeleportation);
 
     auto client = reinterpret_cast<uint8_t *>(GetModuleHandleA("client.dll"));
 
