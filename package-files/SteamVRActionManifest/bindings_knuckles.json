@@ -61,7 +61,7 @@
                "parameters" : {
                   "deadzone_pct" : "10"
                },
-               "path" : "/user/hand/left/input/joystick"
+               "path" : "/user/hand/left/input/thumbstick"
             },
             {
                "inputs" : {
@@ -76,7 +76,7 @@
                "parameters" : {
                   "deadzone_pct" : "10"
                },
-               "path" : "/user/hand/right/input/joystick"
+               "path" : "/user/hand/right/input/thumbstick"
             },
             {
                "inputs" : {
@@ -85,7 +85,12 @@
                   }
                },
                "mode" : "button",
-               "path" : "/user/hand/left/input/trigger"
+                "parameters" : {
+                   "force_input" : "force",
+                   "click_activate_threshold": "0.45",
+                   "click_deactivate_threshold": "0.4"
+                },
+               "path" : "/user/hand/left/input/grip"
             },
             {
                "inputs" : {
@@ -126,7 +131,7 @@
                   "overlap_pct" : "0",
                   "sub_mode" : "touch"
                },
-               "path" : "/user/hand/right/input/joystick"
+               "path" : "/user/hand/right/input/thumbstick"
             },
             {
                "inputs" : {
@@ -194,7 +199,7 @@
                   "overlap_pct" : "0",
                   "sub_mode" : "touch"
                },
-               "path" : "/user/hand/left/input/joystick"
+               "path" : "/user/hand/left/input/thumbstick"
             },
 			{
                "inputs" : {
@@ -203,7 +208,7 @@
                   }
                },
                "mode" : "button",
-               "path" : "/user/hand/left/input/x"
+               "path" : "/user/hand/left/input/a"
             },
 			{
                "inputs" : {
@@ -212,7 +217,7 @@
                   }
                },
                "mode" : "button",
-               "path" : "/user/hand/left/input/x"
+               "path" : "/user/hand/left/input/a"
             },
 			{
                "inputs" : {
@@ -221,7 +226,7 @@
                   }
                },
                "mode" : "button",
-               "path" : "/user/hand/left/input/y"
+               "path" : "/user/hand/left/input/b"
             },
             {
                "inputs" : {
@@ -230,6 +235,11 @@
                   }
                },
                "mode" : "button",
+               "parameters" : {
+                  "force_input" : "force",
+                  "click_activate_threshold": "0.45",
+                  "click_deactivate_threshold": "0.4"
+               },
                "path" : "/user/hand/left/input/grip"
             },
             {
@@ -239,15 +249,20 @@
                   }
                },
                "mode" : "button",
+               "parameters" : {
+                  "force_input" : "force",
+                  "click_activate_threshold": "0.45",
+                  "click_deactivate_threshold": "0.4"
+               },
                "path" : "/user/hand/right/input/grip"
             }
          ]
       }
    },
    "category" : "steamvr_input",
-   "controller_type" : "vive_cosmos_controller",
+   "controller_type" : "knuckles",
    "description" : "",
-   "name" : "Portal Reloaded VR bindings for Vive Cosmos Controllers",
+   "name" : "Portal Revolution VR bindings for Index Controllers",
    "options" : {},
    "simulated_actions" : []
 }

@@ -185,7 +185,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="d3d11.def" />
-    <Text Include="config.txt" />
+    <Text Include="..\package-files\config.txt" />
   </ItemGroup>
   <!-- MinHook (thirdparty\minhook, synced with git-filesync), built as part of the mod -->
   <ItemGroup>
