@@ -1584,9 +1584,11 @@ void VR::ParseConfigFile()
         {
             std::string value;
             if (std::getline(sLine, value, '#'))
+            {
+                // Without this, "true # comment" would not count as true.
+                value.erase(value.find_last_not_of(" \t\r") + 1);
                 userConfig[key] = value;
-            else if (std::getline(sLine, value))
-                userConfig[key] = value;
+            }
         }
     }
 
