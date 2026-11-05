@@ -5,32 +5,36 @@
   </p>
 </div>
 
-# Portal Revolution VR Mod - **CURRENTLY NOT WORKING!**
-
-# *** HELP NEEDED! ***
+# Portal Revolution VR Mod
 
 [<img src="https://www.paypalobjects.com/en_US/DK/i/btn/btn_donateCC_LG.gif" align="right" />](https://www.paypal.com/donate/?hosted_button_id=HLFSYXSE3SDVE)
 
-This Repo is intended as a **starting point** for implementation of a VR Mod for Portal Revolution. Feel free to contribute!
+VR mod for Portal: Revolution, playable but work in progress. Help is welcome, feel free to contribute!
 
+## What works
+* Stereo view with head tracking; portals, smoke and glass render correctly
+* Menu as an overlay in the headset, used with laser pointer or stick
+* Walking relative to the left controller, snap turning, jumping, crouching
+* Portal gun in the right hand with aim laser, shots start at its muzzle
+* Picking up cubes
 
-## Things that work
-* The mod is loaded as a slim `d3d11.dll` wrapper (no dxvk anymore; OpenVR takes D3D11 textures directly)
-* Hooks into D3D11 (device, swap chain, render targets), OpenVR is initialized
-
-## Things that need fixing
-* Update Source-SDK related files (x64, Strata Source)
-* Re-establish hooks into game engine
+## What's missing
+* Camera rotation when passing through a portal
+* HUD and crosshair
+* Roomscale
+* `AntiAliasing` from `config.txt` has no effect
+* The menu is nearly square, not 16:9
+* No release package yet
 
 ## Build instructions
-1. Clone Repository
-2. Open portal_revolution_vr.sln, set to x64 (Debug, Release or RelWithDebInfo), build
+1. Clone the repository
+2. Open `portal_revolution_vr.sln`, set to x64 (Debug, Release or RelWithDebInfo), build
 
-Note: After building, it will attempt to copy the new ```d3d11.dll``` to your ```Portal Revolution/bin/win64``` directory.
+After building, `d3d11.dll` is copied to `Portal Revolution/bin/win64` (default Steam path), so the game must not be running.
 
 ## How to use
-* Copy the contents of ```src``` (```config.txt```, ```manifest.vrmanifest```, ```SteamVRActionManifest```) and ```thirdparty/openvr/bin/win64/openvr_api.dll``` to ```Portal Revolution/VR/```
-* The mod sets the required launch options itself.
+* Copy the contents of `package-files` and `thirdparty/openvr/bin/win64/openvr_api.dll` to `Portal Revolution/VR/`
+* Start the game with SteamVR. The mod sets the required launch options itself.
 
 ## Based on
 * Brilliant Portal 2 VR mod from [Gistix](https://github.com/Gistix/portal2vr)
@@ -46,6 +50,7 @@ Note: After building, it will attempt to copy the new ```d3d11.dll``` to your ``
 ## License
 The mod's code is licensed under the [GNU GPL v3](COPYING), like [portal2vr](https://github.com/Gistix/portal2vr) it is based on. Exceptions:
 * `src/sdk/`: Valve's [Source 1 SDK License](src/sdk/LICENSE.txt). It allows distribution only for free, so this mod must stay free of charge.
+* The Portal: Revolution logo (`imgs/logo.png`, `package-files/portal_revolution_vr_capsule.png`) isn't covered by the GPL and belongs to the game's makers.
 * l4d2vr, VirtualFortress2 and gmcl_openvr state no license; their authors keep their rights. If you are one of them and object to something here, please open an issue.
 
 ## Third-party licenses
