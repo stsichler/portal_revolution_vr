@@ -21,7 +21,7 @@ struct Offset
 
         int newOffset = SigScanner::VerifyOffset(moduleName, currentOffset, signature, sigOffset);
 
-#ifdef L4D2VR_DIAGNOSTICS
+#ifdef PRVR_DIAGNOSTICS
         // Diagnostics: was the hard-coded offset still valid, and is the signature unique?
         std::cout << "[Offset] " << moduleName << " 0x" << std::hex << currentOffset << ": ";
         if (newOffset == 0)

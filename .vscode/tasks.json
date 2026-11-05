@@ -1,5 +1,5 @@
 {
-	// Builds l4d2vr.sln (x64) with the MSBuild of Visual Studio 2022. The post-build event
+	// Builds portal_revolution_vr.sln (x64) with the MSBuild of Visual Studio 2022. The post-build event
 	// copies d3d11.dll into Portal Revolution's bin\win64, so the game must not be running.
 	"version": "2.0.0",
 	"tasks": [
@@ -9,7 +9,7 @@
 			"type": "process",
 			"command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",
 			"args": [
-				"l4d2vr.sln",
+				"portal_revolution_vr.sln",
 				"/m",
 				"/nologo",
 				"/p:Configuration=RelWithDebInfo",
@@ -28,7 +28,7 @@
 			"type": "process",
 			"command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",
 			"args": [
-				"l4d2vr.sln",
+				"portal_revolution_vr.sln",
 				"/m",
 				"/nologo",
 				"/p:Configuration=Debug",
@@ -44,7 +44,7 @@
 			"type": "process",
 			"command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",
 			"args": [
-				"l4d2vr.sln",
+				"portal_revolution_vr.sln",
 				"/m",
 				"/nologo",
 				"/p:Configuration=Release",

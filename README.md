@@ -24,12 +24,12 @@ This Repo is intended as a **starting point** for implementation of a VR Mod for
 
 ## Build instructions
 1. Clone Repository
-2. Open l4d2vr.sln, set to x64 (Debug, Release or RelWithDebInfo), build
+2. Open portal_revolution_vr.sln, set to x64 (Debug, Release or RelWithDebInfo), build
 
 Note: After building, it will attempt to copy the new ```d3d11.dll``` to your ```Portal Revolution/bin/win64``` directory.
 
 ## How to use
-* Copy the contents of ```L4D2VR``` (```config.txt```, ```manifest.vrmanifest```, ```SteamVRActionManifest```) and ```thirdparty/openvr/bin/win64/openvr_api.dll``` to ```Portal Revolution/VR/```
+* Copy the contents of ```src``` (```config.txt```, ```manifest.vrmanifest```, ```SteamVRActionManifest```) and ```thirdparty/openvr/bin/win64/openvr_api.dll``` to ```Portal Revolution/VR/```
 * The mod sets the required launch options itself.
 
 ## Based on
@@ -45,7 +45,7 @@ Note: After building, it will attempt to copy the new ```d3d11.dll``` to your ``
 
 ## License
 The mod's code is licensed under the [GNU GPL v3](COPYING), like [portal2vr](https://github.com/Gistix/portal2vr) it is based on. Exceptions:
-* `L4D2VR/sdk/`: Valve's [Source 1 SDK License](L4D2VR/sdk/LICENSE.txt). It allows distribution only for free, so this mod must stay free of charge.
+* `src/sdk/`: Valve's [Source 1 SDK License](src/sdk/LICENSE.txt). It allows distribution only for free, so this mod must stay free of charge.
 * l4d2vr, VirtualFortress2 and gmcl_openvr state no license; their authors keep their rights. If you are one of them and object to something here, please open an issue.
 
 ## Third-party licenses

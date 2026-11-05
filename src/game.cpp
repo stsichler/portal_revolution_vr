@@ -77,7 +77,7 @@ void *Game::GetInterface(const char *dllname, const char *interfacename)
 
 void Game::errorMsg(const char *msg)
 {
-    MessageBox(0, msg, "L4D2VR", MB_ICONERROR | MB_OK);
+    MessageBox(0, msg, "Portal Revolution VR", MB_ICONERROR | MB_OK);
 }
 
 CBaseEntity *Game::GetClientEntity(int entityIndex)

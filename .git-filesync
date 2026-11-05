@@ -68,7 +68,7 @@
 	blob = ee83337d7fcb726d14cc10f7dd2fda6799d8a135
 	tag = v2.5.1
 
-# MinHook: license, header and sources (compiled in L4D2VR/l4d2vr.vcxproj),
+# MinHook: license, header and sources (compiled in src/portal_revolution_vr.vcxproj),
 # following master
 [source "TsudaKageyu/minhook"]
 	url = https://github.com/TsudaKageyu/minhook.git

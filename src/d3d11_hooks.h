@@ -26,7 +26,7 @@ namespace D3D11Hooks
     extern std::function<void(IDXGISwapChain *swapChain)> Present_Post_Callback;
 
     // Writes a marker into the frame trace, if one is running (F11, see d3d11_hooks.cpp; only
-    // with L4D2VR_DIAGNOSTICS, i.e. not in Release).
+    // with PRVR_DIAGNOSTICS, i.e. not in Release).
     void TraceNote(const char *note);
 
     // Called by the proxy after the system's D3D11CreateDevice succeeded.

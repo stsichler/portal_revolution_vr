@@ -1,7 +1,7 @@
 #include "d3d11_hooks.h"
 #include "MinHook.h"
 #include <iostream>
-#ifdef L4D2VR_DIAGNOSTICS
+#ifdef PRVR_DIAGNOSTICS
 #include <fstream>
 #include <string>
 #endif
@@ -104,9 +104,9 @@ namespace
         return hr;
     }
 
-#ifdef L4D2VR_DIAGNOSTICS
-    // Diagnostic frame trace: F11 writes the D3D11 calls of the next frames to l4d2vr_frame_N.txt and
-    // what each of them presents to l4d2vr_frame_N_K.bmp.
+#ifdef PRVR_DIAGNOSTICS
+    // Diagnostic frame trace: F11 writes the D3D11 calls of the next frames to prvr_frame_N.txt and
+    // what each of them presents to prvr_frame_N_K.bmp.
     constexpr int kTraceFrames = 3;
     constexpr int kContext_PSSetShaderResources = 8;
     constexpr int kContext_DrawIndexed = 12;
@@ -223,7 +223,7 @@ namespace
     {
         if (g_Trace || !(GetAsyncKeyState(VK_F11) & 1))
             return;
-        const std::string fileName = "l4d2vr_frame_" + std::to_string(++g_TraceIndex) + ".txt";
+        const std::string fileName = "prvr_frame_" + std::to_string(++g_TraceIndex) + ".txt";
         g_TraceFile.open(fileName);
         g_TraceDraws = 0;
         g_TraceDepthState = nullptr;
@@ -283,7 +283,7 @@ namespace
             return;
         TraceFlushDraws();
         g_TraceFile << "=== present " << g_TraceFrame << " of back buffer " << TraceBackBufferName(swapChain) << "\n";
-        TraceScreenshot(swapChain, "l4d2vr_frame_" + std::to_string(g_TraceIndex) + "_" + std::to_string(g_TraceFrame) + ".bmp");
+        TraceScreenshot(swapChain, "prvr_frame_" + std::to_string(g_TraceIndex) + "_" + std::to_string(g_TraceFrame) + ".bmp");
         if (++g_TraceFrame < kTraceFrames)
             return;
         g_TraceFile.close();
@@ -448,7 +448,7 @@ namespace
 
     void STDMETHODCALLTYPE hkRSSetViewports(ID3D11DeviceContext *context, UINT count, const D3D11_VIEWPORT *viewports)
     {
-#ifdef L4D2VR_DIAGNOSTICS
+#ifdef PRVR_DIAGNOSTICS
         if (TraceActive(context) && viewports && count > 0 && memcmp(&viewports[0], &g_TraceViewport, sizeof(D3D11_VIEWPORT)))
         {
             g_TraceViewport = viewports[0];
@@ -597,7 +597,7 @@ void D3D11Hooks::OnDeviceCreated(ID3D11Device *device, ID3D11DeviceContext *cont
     Hook(device, kDevice_CreateTexture2D, (void *)&hkCreateTexture2D, oCreateTexture2D, "ID3D11Device::CreateTexture2D");
     Hook(g_Context, kContext_RSSetViewports, (void *)&hkRSSetViewports, oRSSetViewports,
         "ID3D11DeviceContext::RSSetViewports");
-#ifdef L4D2VR_DIAGNOSTICS
+#ifdef PRVR_DIAGNOSTICS
     Hook(g_Context, kContext_PSSetShaderResources, (void *)&hkPSSetShaderResources, oPSSetShaderResources, "PSSetShaderResources");
     Hook(g_Context, kContext_DrawIndexed, (void *)&hkDrawIndexed, oDrawIndexed, "DrawIndexed");
     Hook(g_Context, kContext_Draw, (void *)&hkDraw, oDraw, "Draw");
@@ -617,7 +617,7 @@ void D3D11Hooks::OnDeviceCreated(ID3D11Device *device, ID3D11DeviceContext *cont
 
 void D3D11Hooks::TraceNote(const char *note)
 {
-#ifdef L4D2VR_DIAGNOSTICS
+#ifdef PRVR_DIAGNOSTICS
     if (!g_Trace)
         return;
     TraceFlushDraws();

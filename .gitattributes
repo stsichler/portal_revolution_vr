@@ -16,7 +16,7 @@
 *.vcxproj.filters  text eol=crlf
 *.bat              text eol=crlf
 *.cmd              text eol=crlf
-L4D2VR/config.txt  text eol=crlf
+src/config.txt     text eol=crlf
 
 # Binary
 *.png   binary

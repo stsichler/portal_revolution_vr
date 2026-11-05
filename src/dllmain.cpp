@@ -8,7 +8,7 @@
 #include "vr.h"
 #include "sdk.h"
 
-#ifdef L4D2VR_DIAGNOSTICS
+#ifdef PRVR_DIAGNOSTICS
 #include <fstream>
 #include <cstdint>
 
@@ -156,7 +156,7 @@ static bool AddLaunchOptions()
         append("-height", "720");
     if (!hasAny({"-novid"}))
         append("-novid", nullptr);
-#ifdef L4D2VR_DIAGNOSTICS
+#ifdef PRVR_DIAGNOSTICS
     // The game's console, in <game>\revolution\console.log.
     if (!hasAny({"-condebug"}))
         append("-condebug", nullptr);
@@ -178,16 +178,16 @@ static bool AddLaunchOptions()
     return true;
 }
 
-#ifdef L4D2VR_DIAGNOSTICS
+#ifdef PRVR_DIAGNOSTICS
 static void SetupDiagnostics()
 {
-    // Everything written to std::cout goes to l4d2vr_debug.log, flushed after every write, so it
+    // Everything written to std::cout goes to prvr_debug.log, flushed after every write, so it
     // survives a crash. A console window is only opened if the environment variable
-    // L4D2VR_CONSOLE is set: the window takes the focus from the game, and with Steam Link that
+    // PRVR_CONSOLE is set: the window takes the focus from the game, and with Steam Link that
     // made SteamVR open its dashboard right when the game menu appeared.
-    static std::ofstream logFile("l4d2vr_debug.log", std::ios::trunc);
+    static std::ofstream logFile("prvr_debug.log", std::ios::trunc);
     static TeeBuf teeBuf(nullptr, logFile.rdbuf());
-    if (GetEnvironmentVariableA("L4D2VR_CONSOLE", nullptr, 0) > 0)
+    if (GetEnvironmentVariableA("PRVR_CONSOLE", nullptr, 0) > 0)
     {
         AllocConsole();
         FILE *fp;
@@ -200,7 +200,7 @@ static void SetupDiagnostics()
 }
 #endif
 
-DWORD WINAPI InitL4D2VR(HMODULE hModule)
+DWORD WINAPI InitPRVR(HMODULE hModule)
 {
     g_Game->init();
     return 0;
@@ -223,13 +223,13 @@ BOOL APIENTRY DllMain( HMODULE hModule,
                     ExitProcess(0);
                 g_LaunchOptionsLog = "[LaunchOptions] tier0 CommandLine() not found, nothing added\n";
             }
-#ifdef L4D2VR_DIAGNOSTICS
+#ifdef PRVR_DIAGNOSTICS
             SetupDiagnostics();
             std::cout << g_LaunchOptionsLog;
 #endif
             // Synchronously: the D3D11 callbacks must be set before shaderapidx11 creates the device.
             g_Game = new Game();
-            CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)InitL4D2VR, hModule, 0, NULL);
+            CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)InitPRVR, hModule, 0, NULL);
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
     case DLL_PROCESS_DETACH:
