@@ -84,7 +84,6 @@ public:
 	Vector m_HmdPosRelative = { 0,0,0 };
 	Vector m_HmdPosRelativePrev = { 0,0,0 };
 
-	Vector m_AimPos = { 0, 0, 0 };
 	bool m_Traced = false;
 
 	Vector m_Center = { 0,0,0 };
@@ -137,7 +136,6 @@ public:
 	bool m_RenderedNewFrame = false;
 	bool m_RenderedHud = false;
 	bool m_CreatedVRTextures = false;
-	bool m_DrawCrosshair = false;
 	TextureID m_CreatingTextureID = Texture_None;
 
 	bool m_PressedTurn = false;
@@ -244,7 +242,6 @@ public:
 	void UpdateHMDAngles();
 	void UpdateHeadTracking();
 	void UpdateHandTracking();
-	void UpdateTracking();
 	Vector GetViewAngle();
 	Vector GetViewOrigin(Vector setupOrigin);
 	Vector GetViewOriginLeft(Vector setupOrigin);
@@ -255,6 +252,4 @@ public:
 	void GetPoseData(vr::TrackedDevicePose_t &poseRaw, TrackedDevicePoseData &poseOut);
 	void ParseConfigFile();
 	void WaitForConfigUpdate();
-	Vector Trace(uint32_t* localPlayer);
-	Vector TraceEye(uint32_t* localPlayer, Vector cameraPos, Vector eyePos, QAngle& eyeAngle);
 };

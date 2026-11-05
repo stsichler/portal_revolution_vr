@@ -3,9 +3,6 @@
 #include <iostream>
 #include "sdk.h"
 #include "vr.h"
-#include "hooks.h"
-#include "offsets.h"
-#include "sigscanner.h"
 #include "strata_hooks.h"
 
 // Runs in DllMain: the D3D11 callbacks must be in place before the game creates its device.
@@ -46,13 +43,8 @@ void Game::init()
     std::cout << "[Game] interfaces: EngineClient=" << m_EngineClient << " EngineVGui=" << m_EngineVGui << " ClientEntityList=" << m_ClientEntityList
               << " MaterialSystem=" << m_MaterialSystem << " VguiInput=" << m_VguiInput << " VguiSurface=" << m_VguiSurface << "\n";
 
-//    m_Offsets = new Offsets();
-
-//    m_ClientMode = **(IClientMode***)(m_Offsets->g_pClientMode.address);
-
     m_VR->init();
     StrataHooks::Init(this);
-//    m_Hooks = new Hooks(this);
 
     m_Initialized = true;
 }

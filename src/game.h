@@ -22,9 +22,7 @@ class C_BasePlayer;
 struct model_t;
 
 class Game;
-class Offsets;
 class VR;
-class Hooks;
 
 inline Game *g_Game;
 
@@ -69,9 +67,7 @@ public:
 
     Vector m_singlePlayerPortalColors[3] = { Vector(255.0f, 255.0f, 255.0f), Vector(64.0f, 160.0f, 255.0f), Vector(255.0f, 160.0f, 32.0f) };
 
-    Offsets *m_Offsets = nullptr;
     VR *m_VR = nullptr;
-    Hooks *m_Hooks = nullptr;
 
     bool m_Initialized = false;
 

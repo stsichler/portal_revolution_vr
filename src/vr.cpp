@@ -2,7 +2,6 @@
 #include <Windows.h>
 #include "sdk.h"
 #include "game.h"
-#include "hooks.h"
 #include "trace.h"
 #include <iostream>
 #include <fstream>
@@ -431,17 +430,8 @@ void VR::Update()
 
     SubmitVRTextures();
     UpdatePosesAndActions();
-    // UpdateTracking reads the local player with the Portal 2 layout (controllers, aim laser);
-    // for Strata Source it needs the gameplay hooks first. Until then head and hands only.
-    if (m_Game->m_Hooks)
-    {
-        UpdateTracking();
-    }
-    else
-    {
-        UpdateHeadTracking();
-        UpdateHandTracking();
-    }
+    UpdateHeadTracking();
+    UpdateHandTracking();
 
     if (!m_InitialPosReset)
     {
@@ -1490,46 +1480,6 @@ void VR::UpdateHandTracking()
     m_ViewmodelUp = VectorRotate(m_ViewmodelUp, m_ViewmodelForward, m_ViewmodelAngOffset.z);
 }
 
-void VR::UpdateTracking()
-{
-    UpdateHeadTracking();
-    UpdateHandTracking();
-
-    int playerIndex = m_Game->m_EngineClient->GetLocalPlayer();
-    C_BasePlayer* localPlayer = (C_BasePlayer*)m_Game->GetClientEntity(playerIndex);
-    if (!localPlayer)
-        return;
-
-    // The aim trace needs the controller pose of this frame (position relative to the HMD and
-    // direction, both rotated by m_RotationOffset). Done before they were updated, the laser was
-    // one frame behind, which showed after a snap turn.
-    m_AimPos = Trace((uint32_t*)localPlayer);
-
-    if (m_AimMode == 2) {
-        C_Portal_Player* portalPlayer = (C_Portal_Player*)localPlayer;
-
-        auto activeWeaponAddr = (*(int(__thiscall**)(void*))(*(uintptr_t*)portalPlayer + 968))(portalPlayer);
-        //auto activeWeaponAddr = (*(int(__thiscall**)(void*))(*(uintptr_t*)m_Game->m_Offsets->GetActivePortalWeapon.address))(portalPlayer);
-
-        if (activeWeaponAddr && m_DrawCrosshair) {
-            CWeaponPortalBase* activeWeapon = (CWeaponPortalBase*)activeWeaponAddr;
-
-            if (portalPlayer->m_PointLaser) {
-                portalPlayer->m_PointLaser->SetControlPoint(1, m_AimPos);
-                portalPlayer->m_PointLaser->SetControlPoint(2, m_Game->m_singlePlayerPortalColors[activeWeapon->m_iLastFiredPortal] * 0.5f);
-            }
-            else {
-                std::cout << "Creating Point Laser Beam Sight Thingy" << "\n";
-                m_Game->m_Hooks->CreatePingPointer(localPlayer, m_AimPos);
-            }
-        }
-        else if (portalPlayer->m_PointLaser){
-            portalPlayer->m_PointLaser->StopEmission(false, true, false);
-            portalPlayer->m_PointLaser = NULL;
-        }
-    }
-}
-
 Vector VR::GetViewAngle()
 {
     return Vector( m_HmdAngAbs.x, m_HmdAngAbs.y, m_HmdAngAbs.z );
@@ -1559,198 +1509,6 @@ Vector VR::GetViewOriginRight(Vector setupOrigin)
     viewOriginRight += m_HmdRight * ((m_Ipd * m_IpdScale * m_VRScale) / 2);
 
     return viewOriginRight;
-}
-
-Vector VR::Trace(uint32_t* localPlayer) {
-    Vector vecStart = GetRightControllerAbsPos();
-    Vector vecEnd = vecStart + m_RightControllerForward * MAX_TRACE_LENGTH;
-
-    CGameTrace trace;
-    Ray_t ray;
-    CTraceFilterSkipNPCsAndPlayers tracefilter((IHandleEntity*)localPlayer, 0);
-
-    ray.Init(vecStart, vecEnd);
-
-    m_Game->m_EngineTrace->TraceRay(ray, MASK_SHOT | MASK_SHOT_HULL, &tracefilter, &trace);
-
-    return trace.endpos;
-}
-
-void AngleMatrix(const QAngle& angles, matrix3x4_t& matrix)
-{
-    float sr, sp, sy, cr, cp, cy;
-
-    SinCos(DEG2RAD(angles[YAW]), &sy, &cy);
-    SinCos(DEG2RAD(angles[PITCH]), &sp, &cp);
-    SinCos(DEG2RAD(angles[ROLL]), &sr, &cr);
-
-    // matrix = (YAW * PITCH) * ROLL
-    matrix[0][0] = cp * cy;
-    matrix[1][0] = cp * sy;
-    matrix[2][0] = -sp;
-
-    // NOTE: Do not optimize this to reduce multiplies! optimizer bug will screw this up.
-    matrix[0][1] = sr * sp * cy + cr * -sy;
-    matrix[1][1] = sr * sp * sy + cr * cy;
-    matrix[2][1] = sr * cp;
-    matrix[0][2] = (cr * sp * cy + -sr * -sy);
-    matrix[1][2] = (cr * sp * sy + -sr * cy);
-    matrix[2][2] = cr * cp;
-
-    matrix[0][3] = 0.0f;
-    matrix[1][3] = 0.0f;
-    matrix[2][3] = 0.0f;
-}
-
-void MatrixCopy(const matrix3x4_t& in, matrix3x4_t& out)
-{
-    memcpy(out.Base(), in.Base(), sizeof(float) * 3 * 4);
-}
-
-
-/*
-================
-R_ConcatTransforms
-================
-*/
-
-void ConcatTransforms(const matrix3x4_t& in1, const matrix3x4_t& in2, matrix3x4_t& out)
-{
-    if (&in1 == &out)
-    {
-        matrix3x4_t in1b;
-        MatrixCopy(in1, in1b);
-        ConcatTransforms(in1b, in2, out);
-        return;
-    }
-    if (&in2 == &out)
-    {
-        matrix3x4_t in2b;
-        MatrixCopy(in2, in2b);
-        ConcatTransforms(in1, in2b, out);
-        return;
-    }
-    out[0][0] = in1[0][0] * in2[0][0] + in1[0][1] * in2[1][0] +
-        in1[0][2] * in2[2][0];
-    out[0][1] = in1[0][0] * in2[0][1] + in1[0][1] * in2[1][1] +
-        in1[0][2] * in2[2][1];
-    out[0][2] = in1[0][0] * in2[0][2] + in1[0][1] * in2[1][2] +
-        in1[0][2] * in2[2][2];
-    out[0][3] = in1[0][0] * in2[0][3] + in1[0][1] * in2[1][3] +
-        in1[0][2] * in2[2][3] + in1[0][3];
-    out[1][0] = in1[1][0] * in2[0][0] + in1[1][1] * in2[1][0] +
-        in1[1][2] * in2[2][0];
-    out[1][1] = in1[1][0] * in2[0][1] + in1[1][1] * in2[1][1] +
-        in1[1][2] * in2[2][1];
-    out[1][2] = in1[1][0] * in2[0][2] + in1[1][1] * in2[1][2] +
-        in1[1][2] * in2[2][2];
-    out[1][3] = in1[1][0] * in2[0][3] + in1[1][1] * in2[1][3] +
-        in1[1][2] * in2[2][3] + in1[1][3];
-    out[2][0] = in1[2][0] * in2[0][0] + in1[2][1] * in2[1][0] +
-        in1[2][2] * in2[2][0];
-    out[2][1] = in1[2][0] * in2[0][1] + in1[2][1] * in2[1][1] +
-        in1[2][2] * in2[2][1];
-    out[2][2] = in1[2][0] * in2[0][2] + in1[2][1] * in2[1][2] +
-        in1[2][2] * in2[2][2];
-    out[2][3] = in1[2][0] * in2[0][3] + in1[2][1] * in2[1][3] +
-        in1[2][2] * in2[2][3] + in1[2][3];
-}
-
-void MatrixAngles(const matrix3x4_t& matrix, float* angles)
-{
-    float forward[3];
-    float left[3];
-    float up[3];
-
-    //
-    // Extract the basis vectors from the matrix. Since we only need the Z
-    // component of the up vector, we don't get X and Y.
-    //
-    forward[0] = matrix[0][0];
-    forward[1] = matrix[1][0];
-    forward[2] = matrix[2][0];
-    left[0] = matrix[0][1];
-    left[1] = matrix[1][1];
-    left[2] = matrix[2][1];
-    up[2] = matrix[2][2];
-
-    float xyDist = sqrtf(forward[0] * forward[0] + forward[1] * forward[1]);
-
-    // enough here to get angles?
-    if (xyDist > 0.001f)
-    {
-        // (yaw)	y = ATAN( forward.y, forward.x );		-- in our space, forward is the X axis
-        angles[1] = RAD2DEG(atan2f(forward[1], forward[0]));
-
-        // (pitch)	x = ATAN( -forward.z, sqrt(forward.x*forward.x+forward.y*forward.y) );
-        angles[0] = RAD2DEG(atan2f(-forward[2], xyDist));
-
-        // (roll)	z = ATAN( left.z, up.z );
-        angles[2] = RAD2DEG(atan2f(left[2], up[2]));
-    }
-    else	// forward is mostly Z, gimbal lock-
-    {
-        // (yaw)	y = ATAN( -left.x, left.y );			-- forward is mostly z, so use right for yaw
-        angles[1] = RAD2DEG(atan2f(-left[0], left[1]));
-
-        // (pitch)	x = ATAN( -forward.z, sqrt(forward.x*forward.x+forward.y*forward.y) );
-        angles[0] = RAD2DEG(atan2f(-forward[2], xyDist));
-
-        // Assume no roll in this case as one degree of freedom has been lost (i.e. yaw == roll)
-        angles[2] = 0;
-    }
-}
-
-inline void MatrixAngles(const matrix3x4_t& matrix, QAngle& angles)
-{
-    MatrixAngles(matrix, &angles.x);
-}
-
-
-
-// transform a set of angles in the input space of parentMatrix to the output space
-QAngle TransformAnglesToWorldSpace(const QAngle& angles, const matrix3x4_t& parentMatrix)
-{
-    matrix3x4_t angToParent, angToWorld;
-    AngleMatrix(angles, angToParent);
-    ConcatTransforms(parentMatrix, angToParent, angToWorld);
-    QAngle out;
-    MatrixAngles(angToWorld, out);
-    return out;
-}
-
-
-Vector VR::TraceEye(uint32_t* localPlayer, Vector cameraPos, Vector eyePos, QAngle& eyeAngle) {
-    CGameTrace trTestObstructionsNearPortals;
-    Ray_t ray;
-    CTraceFilterSkipNPCsAndPlayers tracefilter((IHandleEntity*)localPlayer, 0);
-
-    ray.Init(cameraPos, eyePos);
-    m_Game->m_EngineTrace->TraceRay(ray, MASK_SHOT | MASK_SHOT_HULL, &tracefilter, &trTestObstructionsNearPortals);
-
-    float flWallHitFraction = trTestObstructionsNearPortals.fraction + 0.01f;
-    CPortal_Base2D* pPortal = (CPortal_Base2D*)m_Game->m_Hooks->UTIL_Portal_FirstAlongRay(ray, flWallHitFraction);
-
-    if (trTestObstructionsNearPortals.DidHit() && pPortal) {
-        float flRayHitFraction = m_Game->m_Hooks->UTIL_IntersectRayWithPortal(ray, pPortal);
-        //Vector vNewEye;
-        Vector vHitPoint = ray.m_Start + ray.m_Delta * flRayHitFraction;
-        //vNewEye = m_Game->m_Hooks->UTIL_Portal_PointTransform(pPortal->MatrixThisToLinked(), vHitPoint, vNewEye);
-
-        //VMatrix matrix = *(VMatrix*)((uintptr_t)pPortal + 0x4C4);
-        VMatrix matrix = pPortal->MatrixThisToLinked();
-
-   
-        /*QAngle newAngle;
-        m_Game->m_Hooks->UTIL_Portal_AngleTransform(matrix, eyeAngle, newAngle);*/
-        eyeAngle = TransformAnglesToWorldSpace(eyeAngle, matrix.As3x4());
-
-        return matrix * vHitPoint;
-
-        //return pPortal->MatrixThisToLinked() * vHitPoint;
-    }
-
-    return eyePos;
 }
 
 // [CONFIG PARSING UTILITY FUNCTION]

@@ -32,19 +32,10 @@
     <ClCompile Include="strata_hooks.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="hooks.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="vr.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="sdk\bitbuf.cpp">
-      <Filter>SDK</Filter>
-    </ClCompile>
     <ClCompile Include="sdk\checksum_crc.cpp">
-      <Filter>SDK</Filter>
-    </ClCompile>
-    <ClCompile Include="sdk\newbitbuf.cpp">
       <Filter>SDK</Filter>
     </ClCompile>
   </ItemGroup>
@@ -58,43 +49,16 @@
     <ClInclude Include="strata_hooks.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="hooks.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="offsets.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="sigscanner.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="vr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="sdk\bitbuf.h">
-      <Filter>SDK</Filter>
-    </ClInclude>
     <ClInclude Include="sdk\checksum_crc.h">
-      <Filter>SDK</Filter>
-    </ClInclude>
-    <ClInclude Include="sdk\cnewparticleeffect.h">
-      <Filter>SDK</Filter>
-    </ClInclude>
-    <ClInclude Include="sdk\common_defs.h">
-      <Filter>SDK</Filter>
-    </ClInclude>
-    <ClInclude Include="sdk\coordsize.h">
       <Filter>SDK</Filter>
     </ClInclude>
     <ClInclude Include="sdk\material.h">
       <Filter>SDK</Filter>
     </ClInclude>
-    <ClInclude Include="sdk\platform.h">
-      <Filter>SDK</Filter>
-    </ClInclude>
     <ClInclude Include="sdk\sdk.h">
-      <Filter>SDK</Filter>
-    </ClInclude>
-    <ClInclude Include="sdk\sdk_server.h">
       <Filter>SDK</Filter>
     </ClInclude>
     <ClInclude Include="sdk\texture.h">

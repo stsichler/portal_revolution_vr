@@ -4,8 +4,6 @@
 
 #include <math.h>
 #include "game.h"
-#include "offsets.h"
-#include "cnewparticleeffect.h"
 #include "usercmd.h"
 #include "material.h"
 #include "worldsize.h"
@@ -2079,35 +2077,6 @@ public:
 	virtual void ResetFontCaches() = 0;
 	virtual bool IsScreenSizeOverrideActive() = 0;
 };
-/*
-		typedef Server_WeaponCSBase *(__thiscall *tGetActiveWep)(void *thisptr);
-		static tGetActiveWep oGetActiveWep = (tGetActiveWep)(m_Game->m_Offsets->GetActiveWeapon.address);
-		Server_WeaponCSBase *curWep = oGetActiveWep(pPlayer);
-*/
-class CWeaponPortalBase
-{
-public:
-	//char pad_0000[3740]; //0000
-	char pad_0000[300];
-	CBaseEntity* m_hOwner;
-	char pad_0001[3436];
-	int m_iLastFiredPortal; //0xE9C
-}; //static_assert(sizeof(CWeaponPortalBase) == 0xEA0);
-
-class C_Portal_Player
-{
-public:
-	inline CWeaponPortalBase* GetActivePortalWeapon() {
-		typedef CWeaponPortalBase* (__thiscall* tGetActivePortalWeapon)(void* thisptr);
-		//static tGetActivePortalWeapon oGetActivePortalWeapon = (tGetActivePortalWeapon)(g_Game->m_Offsets->GetActivePortalWeapon.address);
-		static tGetActivePortalWeapon oGetActivePortalWeapon = (tGetActivePortalWeapon)(*(uintptr_t*)this + 968);
-		return oGetActivePortalWeapon(this);
-	};
-
-	char pad_0000[9152]; //0000
-	CNewParticleEffect* m_PointLaser; //0x23C0
-};
-
 class VPanel
 {
 public:

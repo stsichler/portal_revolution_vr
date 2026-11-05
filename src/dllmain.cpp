@@ -4,7 +4,6 @@
 #include <initializer_list>
 #include <string>
 #include "game.h"
-#include "hooks.h"
 #include "vr.h"
 #include "sdk.h"
 
