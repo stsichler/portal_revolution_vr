@@ -1,7 +1,7 @@
 <div align="center">
   <p>
     <a align="center">
-      <img width="auto" src="https://raw.githubusercontent.com/stsichler/portal_reloaded_vr/revolution/imgs/logo.png"></a>
+      <img width="auto" src="imgs/logo.png"></a>
   </p>
 </div>
 
@@ -36,11 +36,17 @@ Note: After building, it will attempt to copy the new ```d3d11.dll``` to your ``
 * Brilliant Portal 2 VR mod from [Gistix](https://github.com/Gistix/portal2vr)
 * Portal Reloaded adaptions from [Scriptor25](https://github.com/Scriptor25)
 * [l4d2vr](https://github.com/sd805/l4d2vr)
+* Development history before Portal Revolution: [portal_reloaded_vr](https://github.com/stsichler/portal_reloaded_vr)
   
 ## Utilizes code from
 * [VirtualFortress2](https://github.com/PinkMilkProductions/VirtualFortress2)
 * [gmcl_openvr](https://github.com/Planimeter/gmcl_openvr/)
 * [source-sdk-2013](https://github.com/ValveSoftware/source-sdk-2013/)
+
+## License
+The mod's code is licensed under the [GNU GPL v3](COPYING), like [portal2vr](https://github.com/Gistix/portal2vr) it is based on. Exceptions:
+* `L4D2VR/sdk/`: Valve's [Source 1 SDK License](L4D2VR/sdk/LICENSE.txt). It allows distribution only for free, so this mod must stay free of charge.
+* l4d2vr, VirtualFortress2 and gmcl_openvr state no license; their authors keep their rights. If you are one of them and object to something here, please open an issue.
 
 ## Third-party licenses
 * [MinHook](https://github.com/TsudaKageyu/minhook): Copyright (C) 2009-2017 Tsuda Kageyu; Hacker Disassembler Engine: Copyright (c) 2008-2009 Vyacheslav Patkov. BSD 2-Clause License, see [thirdparty/minhook/LICENSE.txt](thirdparty/minhook/LICENSE.txt).
