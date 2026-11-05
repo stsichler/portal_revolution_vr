@@ -9,7 +9,7 @@
 
 [<img src="https://www.paypalobjects.com/en_US/DK/i/btn/btn_donateCC_LG.gif" align="right" />](https://www.paypal.com/donate/?hosted_button_id=HLFSYXSE3SDVE)
 
-VR mod for Portal: Revolution, playable but work in progress. Help is welcome, feel free to contribute!
+VR mod for Portal: Revolution, playable but work in progress.
 
 ## What works
 * Stereo view with head tracking; portals, smoke and glass render correctly
