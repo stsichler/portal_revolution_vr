@@ -1,0 +1,20 @@
+# git-assetsync: files and directories of this repository that are taken
+# from release assets of other projects. Maintained by 'git assetsync';
+# synced/digest/blob/tree record what each one comes from.
+[filter "openvr"]
+	step = extract
+	step = strip 1
+	step = include headers/openvr.h bin/win64/openvr_api.dll lib/win64/openvr_api.lib LICENSE
+	step = move headers/openvr.h include/openvr.h
+[source "ValveSoftware/openvr"]
+	url = https://github.com/ValveSoftware/openvr
+[dir "thirdparty/openvr"]
+	source = ValveSoftware/openvr
+	release = v2.5.1
+	sourcecode = zip
+	filter = openvr
+	synced = v2.5.1
+	digest = sha256:8e22edfe6f1b07ffed4ede099b7cd2c5f4199f769f86015c98a86f9e71c70147
+	assetid = sha256:9ee076827190488e629001f5a77df33efaf990f12fffaafb9b39ba07fdae7908
+	filterhash = 496852848b6c089b
+	tree = 514b943f9ba9db44bc7b48d3060d1f5ec3dcc884

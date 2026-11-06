@@ -1,5 +1,8 @@
 # Third-party files
 
-The files below `minhook/` and `openvr/` are managed by
-[git-filesync](https://github.com/stsichler/git-filesync) (see `.git-filesync` in the repository
-root). Don't edit them here; update them with `git filesync pull --all`.
+Don't edit these files here, update them with the tool that manages them:
+
+- `minhook/`: [git-filesync](https://github.com/stsichler/git-filesync), see `.git-filesync`;
+  `git filesync pull --all`
+- `openvr/`: [git-assetsync](https://github.com/stsichler/git-assetsync), see `.git-assetsync`;
+  `git assetsync pull --all`

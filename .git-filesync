@@ -2,36 +2,6 @@
 # files in other repositories. Maintained by 'git filesync'; [file]
 # commit/blob record the upstream version each file is based on.
 
-# OpenVR (Valve): headers, runtime, import libraries and license,
-# pinned to release v2.5.1
-[source "ValveSoftware/openvr"]
-	url = https://github.com/ValveSoftware/openvr
-	branch = master
-[file "thirdparty/openvr/include/openvr.h"]
-	source = ValveSoftware/openvr
-	path = headers/openvr.h
-	commit = ae46a8dd0172580648c8922658a100439115d3eb
-	blob = 336094b0ce63f602505b4a8684622cb1f04498db
-	tag = v2.5.1
-[file "thirdparty/openvr/bin/win64/openvr_api.dll"]
-	source = ValveSoftware/openvr
-	path = bin/win64/openvr_api.dll
-	commit = ae46a8dd0172580648c8922658a100439115d3eb
-	blob = 5c70fd194ab4560f0b0a60b5318f08bf474fcfcc
-	tag = v2.5.1
-[file "thirdparty/openvr/lib/win64/openvr_api.lib"]
-	source = ValveSoftware/openvr
-	path = lib/win64/openvr_api.lib
-	commit = 15f0838a0487feb7da60acd39aab8099b994234c
-	blob = 76523aceca8101109014dbb8d17e1ac9b09042e2
-	tag = v2.5.1
-[file "thirdparty/openvr/LICENSE"]
-	source = ValveSoftware/openvr
-	path = LICENSE
-	commit = f87667074cabc24f643170069d176dadb390dbb7
-	blob = ee83337d7fcb726d14cc10f7dd2fda6799d8a135
-	tag = v2.5.1
-
 # MinHook: license, header and sources (compiled in src/portal_revolution_vr.vcxproj),
 # following master
 [source "TsudaKageyu/minhook"]
