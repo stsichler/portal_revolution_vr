@@ -1319,7 +1319,12 @@ void VR::ResetPosition()
 void VR::UpdateHeadTracking()
 {
     GetPoses();
+    UpdateHeadPose();
+}
 
+// The pose read last, with the current rotation offset.
+void VR::UpdateHeadPose()
+{
     Vector hmdPosLocal = m_HmdPose.TrackedDevicePos;
     Vector hmdPosCentered = hmdPosLocal - m_Center;
 

@@ -238,6 +238,7 @@ public:
 	QAngle GetRecommendedViewmodelAbsAngle();
 	void UpdateHMDAngles();
 	void UpdateHeadTracking();
+	void UpdateHeadPose();
 	void UpdateHandTracking();
 	Vector GetViewAngle();
 	Vector GetViewOrigin(Vector setupOrigin);

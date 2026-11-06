@@ -56,6 +56,23 @@ namespace
     // is applied after this many frames, so that the player never stays turned the wrong way.
     constexpr int kPortalPassage_MaxFrames = 180;
 
+    // C_Prop_Portal fields; forward of the angles is the portal's normal.
+    constexpr int kPortal_MatrixToLinked = 0x3188;
+    constexpr int kPortal_Origin = 0x33e8;
+    constexpr int kPortal_Angles = 0x3418;
+    constexpr int kPortal_LinkedPortal = 0x3448;
+    constexpr int kPortal_Activated = 0x5d80;
+    constexpr int kPortal_HalfWidth = 0x5d84;
+    constexpr int kPortal_HalfHeight = 0x5d88;
+    constexpr int kEntityList_GetHighestEntityIndex = 6;
+    void **g_PropPortalVTable = nullptr;
+
+    // C_Portal_Player: the view is on the other side of a portal than the player, through the portal
+    // named here. Set by [387] for its own eye; the player and its copies in portals are drawn by it.
+    constexpr int kPlayer_ViewThroughPortal = 0x3aaa;
+    constexpr int kPlayer_ViewExitPortal = 0x3ab0;
+    void **g_PortalPlayerVTable = nullptr;
+
     struct PortalPassage
     {
         bool waiting = false;
@@ -213,6 +230,15 @@ namespace
     Vector g_ShotStart; // where the shot starts, see UpdateShotStart
     bool g_ShotFromEyes = false; // see UpdateShotStart
 
+    // The gun as placed for this frame.
+    struct GunPlacement
+    {
+        void *viewModel = nullptr;
+        void *owner = nullptr;
+        Vector position;
+        QAngle angles;
+    } g_Gun;
+
     // The eyes are rendered and the viewmodel is in the hand.
     bool VRViewActive()
     {
@@ -353,48 +379,27 @@ namespace
         return false;
     }
 
-    // The viewmodel (portal gun) sits in the right hand instead of in front of the head.
-    void hkCalcViewModelView(void *thisptr, void *owner, const Vector &eyePosition, const QAngle &eyeAngles)
-    {
-        g_ViewModelOwner = owner;
-        g_EyePosition = eyePosition;
-        if (!VRViewActive())
-            return oCalcViewModelView(thisptr, owner, eyePosition, eyeAngles);
-
-        VR *vr = g_StrataGame->m_VR;
-        const Vector position = vr->GetRecommendedViewmodelAbsPos(eyePosition);
-        const QAngle angles = vr->GetRecommendedViewmodelAbsAngle();
-        oCalcViewModelView(thisptr, owner, position, angles);
-    }
-
-    // The engine moves viewmodel attachments (muzzle, gun lights) to where they appear on screen,
-    // as the viewmodel is drawn with a different FOV than the world. It uses the flat view for
-    // that, while the eyes draw both with the same FOV: there the attachments are right as they are.
-    void hkFormatViewModelAttachment(void *player, Vector &origin, bool inverse)
-    {
-        if (!VRViewActive())
-            oFormatViewModelAttachment(player, origin, inverse);
-    }
-
-    // The game's lag lets the gun drift after the hand for about a second.
-    void hkCalcViewModelLag(void *thisptr, Vector &origin, QAngle &angles, QAngle &originalAngles)
-    {
-        if (!VRViewActive())
-            oCalcViewModelLag(thisptr, origin, angles, originalAngles);
-    }
-
-    // The gun stays in line with the controller and with the laser.
-    void hkAddViewmodelBob(void *thisptr, void *viewModel, Vector &origin, QAngle &angles)
-    {
-        if (!VRViewActive())
-            oAddViewmodelBob(thisptr, viewModel, origin, angles);
-    }
-
     Vector RotatedByPortal(const float (*m)[4], const Vector &v)
     {
         return { m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z,
                  m[1][0] * v.x + m[1][1] * v.y + m[1][2] * v.z,
                  m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z };
+    }
+
+    Vector MovedByPortal(const float (*m)[4], const Vector &v)
+    {
+        const Vector rotated = RotatedByPortal(m, v);
+        return { rotated.x + m[0][3], rotated.y + m[1][3], rotated.z + m[2][3] };
+    }
+
+    // The angles of a pose seen through the portal.
+    QAngle TurnedByPortal(const float (*m)[4], const QAngle &angles)
+    {
+        Vector forward, right, up;
+        QAngle::AngleVectors(angles, &forward, &right, &up);
+        QAngle turned;
+        QAngle::VectorAngles(RotatedByPortal(m, forward), RotatedByPortal(m, up), turned);
+        return turned;
     }
 
     // The heading of a head pose, also when it looks straight up or down: the top of the head then
@@ -428,7 +433,9 @@ namespace
             vr->m_RotationOffset.z += turn.z;
         }
 
-        vr->UpdateHMDAngles();
+        // At once, not with the next tracking update: the gun and the eyes are placed in this frame.
+        vr->UpdateHeadPose();
+        vr->UpdateHandTracking();
 
         std::cout << "[VR] portal passage: yaw " << yaw << " after " << g_PortalPassage.frames << " frames\n";
     }
@@ -466,12 +473,8 @@ namespace
             return;
 
         const float (*matrix)[4] = g_PortalPassage.matrix;
-        Vector behindPortal = RotatedByPortal(matrix, lastPosition);
-        behindPortal.x += matrix[0][3];
-        behindPortal.y += matrix[1][3];
-        behindPortal.z += matrix[2][3];
+        const Vector behindPortal = MovedByPortal(matrix, lastPosition);
 
-        ++g_PortalPassage.frames;
         const auto squaredDistance = [&position](const Vector &to)
         {
             const Vector d = position - to;
@@ -483,6 +486,82 @@ namespace
             TurnWithPortal(matrix);
             g_PortalPassage.waiting = false;
         }
+    }
+
+    // The open portal whose hole the line passes from the front, nullptr if there is none.
+    const uint8_t *FindPortalBetween(const Vector &from, const Vector &to)
+    {
+        const auto dot = [](const Vector &a, const Vector &b) { return a.x * b.x + a.y * b.y + a.z * b.z; };
+        Game *game = g_StrataGame;
+        const int highest = CallVirtual<int>(game->m_ClientEntityList, kEntityList_GetHighestEntityIndex);
+        for (int i = 1; i <= highest; ++i)
+        {
+            auto portal = reinterpret_cast<const uint8_t *>(game->GetClientEntity(i));
+            if (!portal || *reinterpret_cast<void **const *>(portal) != g_PropPortalVTable
+                || !portal[kPortal_Activated] || *reinterpret_cast<const int *>(portal + kPortal_LinkedPortal) == -1)
+                continue;
+
+            const Vector origin = *reinterpret_cast<const Vector *>(portal + kPortal_Origin);
+            Vector forward, right, up;
+            QAngle::AngleVectors(*reinterpret_cast<const QAngle *>(portal + kPortal_Angles), &forward, &right, &up);
+            const float fromDistance = dot(from - origin, forward);
+            const float toDistance = dot(to - origin, forward);
+            if (fromDistance <= 0 || toDistance >= 0)
+                continue;
+
+            const float along = fromDistance / (fromDistance - toDistance);
+            const Vector delta = to - from;
+            const Vector hit = Vector(from.x + delta.x * along, from.y + delta.y * along, from.z + delta.z * along) - origin;
+            if (std::abs(dot(hit, right)) <= *reinterpret_cast<const float *>(portal + kPortal_HalfWidth)
+                && std::abs(dot(hit, up)) <= *reinterpret_cast<const float *>(portal + kPortal_HalfHeight))
+                return portal;
+        }
+        return nullptr;
+    }
+
+    // The viewmodel (portal gun) sits in the right hand instead of in front of the head.
+    void hkCalcViewModelView(void *thisptr, void *owner, const Vector &eyePosition, const QAngle &eyeAngles)
+    {
+        g_ViewModelOwner = owner;
+        g_EyePosition = eyePosition;
+        if (!VRViewActive())
+            return oCalcViewModelView(thisptr, owner, eyePosition, eyeAngles);
+
+        VR *vr = g_StrataGame->m_VR;
+        FollowPortalPassage(eyePosition, vr->m_SetupOrigin);
+        const Vector position = vr->GetRecommendedViewmodelAbsPos(eyePosition);
+        const QAngle angles = vr->GetRecommendedViewmodelAbsAngle();
+        oCalcViewModelView(thisptr, owner, position, angles);
+        if (thisptr == CallVirtual<void *>(owner, kPlayer_GetViewModel, 0))
+        {
+            g_Gun.viewModel = thisptr;
+            g_Gun.owner = owner;
+            g_Gun.position = position;
+            g_Gun.angles = angles;
+        }
+    }
+
+    // The engine moves viewmodel attachments (muzzle, gun lights) to where they appear on screen,
+    // as the viewmodel is drawn with a different FOV than the world. It uses the flat view for
+    // that, while the eyes draw both with the same FOV: there the attachments are right as they are.
+    void hkFormatViewModelAttachment(void *player, Vector &origin, bool inverse)
+    {
+        if (!VRViewActive())
+            oFormatViewModelAttachment(player, origin, inverse);
+    }
+
+    // The game's lag lets the gun drift after the hand for about a second.
+    void hkCalcViewModelLag(void *thisptr, Vector &origin, QAngle &angles, QAngle &originalAngles)
+    {
+        if (!VRViewActive())
+            oCalcViewModelLag(thisptr, origin, angles, originalAngles);
+    }
+
+    // The gun stays in line with the controller and with the laser.
+    void hkAddViewmodelBob(void *thisptr, void *viewModel, Vector &origin, QAngle &angles)
+    {
+        if (!VRViewActive())
+            oAddViewmodelBob(thisptr, viewModel, origin, angles);
     }
 
     // Where the viewmodel's muzzle is now. Only with the player hkCalcViewModelView has seen, as
@@ -737,6 +816,7 @@ namespace
         }
 
         const Vector position = view.origin;
+        ++g_PortalPassage.frames;
         FollowPortalPassage(position, vr->m_SetupOrigin);
         vr->m_SetupOrigin = position;
 
@@ -763,17 +843,60 @@ namespace
         // The engine renders each eye as it renders the flat view; only the result in the back
         // buffer is complete (parts like the portal views go to an internal target, which is
         // drawn into the back buffer last). So it's copied from there, no redirected target.
+        //
+        // An eye can be through a portal while the player isn't yet: it's beside and in front of the
+        // game's eye. Behind the portal's wall it would see nothing, so it looks from the other side,
+        // with the gun moved along. The game is told, or it draws its copy of the player right there.
         auto renderEye = [&](SharedTextureHolder &eye, const Vector &origin)
         {
             eyeView.origin = origin;
+            eyeView.angles = hmdAngle;
+
+            const uint8_t *portal = g_PropPortalVTable ? FindPortalBetween(position, origin) : nullptr;
+            const bool moveGun = portal && g_Gun.viewModel;
+            uint8_t *player = nullptr;
+            bool savedThrough = false;
+            uint8_t *savedExit = nullptr;
+            if (portal)
+            {
+                player = reinterpret_cast<uint8_t *>(g_StrataGame->GetClientEntity(g_StrataGame->m_EngineClient->GetLocalPlayer()));
+                if (player && *reinterpret_cast<void ***>(player) != g_PortalPlayerVTable)
+                    player = nullptr;
+                if (player)
+                {
+                    // Already set if the game's eye is through a portal: this eye is back on the player's side then.
+                    uint8_t *&exit = *reinterpret_cast<uint8_t **>(player + kPlayer_ViewExitPortal);
+                    savedThrough = player[kPlayer_ViewThroughPortal] != 0;
+                    savedExit = exit;
+                    player[kPlayer_ViewThroughPortal] = !savedThrough;
+                    exit = reinterpret_cast<uint8_t *>(g_StrataGame->GetClientEntity(*reinterpret_cast<const int *>(portal + kPortal_LinkedPortal) & 0xFFFF));
+                }
+
+                auto matrix = reinterpret_cast<const float (*)[4]>(portal + kPortal_MatrixToLinked);
+                eyeView.origin = MovedByPortal(matrix, origin);
+                const QAngle turned = TurnedByPortal(matrix, inGameAngle);
+                eyeView.angles = Vector(turned.x, turned.y, turned.z);
+                if (moveGun)
+                    oCalcViewModelView(g_Gun.viewModel, g_Gun.owner, MovedByPortal(matrix, g_Gun.position), TurnedByPortal(matrix, g_Gun.angles));
+            }
+
             oRenderView(thisptr, eyeView, hudView, nClearFlags, eyeWhatToDraw);
             vr->CopyBackBufferToEye(eye);
+
+            if (moveGun)
+                oCalcViewModelView(g_Gun.viewModel, g_Gun.owner, g_Gun.position, g_Gun.angles);
+            if (player)
+            {
+                player[kPlayer_ViewThroughPortal] = savedThrough;
+                *reinterpret_cast<uint8_t **>(player + kPlayer_ViewExitPortal) = savedExit;
+            }
         };
         D3D11Hooks::TraceNote("left eye");
         renderEye(vr->m_VKLeftEye, vr->GetViewOriginLeft(position));
         D3D11Hooks::TraceNote("right eye");
         renderEye(vr->m_VKRightEye, vr->GetViewOriginRight(position));
         D3D11Hooks::TraceNote("eyes done");
+        g_Gun.viewModel = nullptr; // placed again in the next frame, if there still is one
 
         static bool logged = false;
         if (!logged)
@@ -899,7 +1022,11 @@ bool StrataHooks::Init(Game *game)
     }
     ok &= InstallHook("AddViewmodelBob", g_PortalgunVTable[kPortalgun_AddViewmodelBob], &hkAddViewmodelBob, oAddViewmodelBob);
 
+    g_PropPortalVTable = FindVTable("client.dll", "C_Prop_Portal");
+    std::cout << "[Hooks] C_Prop_Portal vtable " << (g_PropPortalVTable ? "found" : "not found, an eye in a portal sees black") << "\n";
+
     void **player = FindVTable("client.dll", "C_Portal_Player");
+    g_PortalPlayerVTable = player;
     if (!player)
     {
         std::cout << "[Hooks] C_Portal_Player vtable not found, the view doesn't turn with portals\n";
