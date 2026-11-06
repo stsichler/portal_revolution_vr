@@ -48,7 +48,6 @@ void VR::init()
     m_System = vr::OpenVRInternal_ModuleContext().VRSystem();
 
     m_System->GetRecommendedRenderTargetSize(&m_RenderWidth, &m_RenderHeight);
-    m_AntiAliasing = 0;
 
     float l_left = 0.0f, l_right = 0.0f, l_top = 0.0f, l_bottom = 0.0f;
     m_System->GetProjectionRaw(vr::EVREye::Eye_Left, &l_left, &l_right, &l_top, &l_bottom);
@@ -252,7 +251,34 @@ void VR::CopyBackBuffer(IDXGISwapChain *swapChain)
     backBuffer->Release();
 }
 
-// Copies the back buffer, which holds the finished image of an eye, into its D3D11 texture.
+// The multisampled target the game is drawing to, nullptr if it isn't one. Needs Release.
+static ID3D11Texture2D *BoundMultisampledTarget()
+{
+    ID3D11RenderTargetView *view = nullptr;
+    D3D11Hooks::g_Context->OMGetRenderTargets(1, &view, nullptr);
+    if (!view)
+        return nullptr;
+
+    ID3D11Resource *resource = nullptr;
+    view->GetResource(&resource);
+    view->Release();
+    ID3D11Texture2D *texture = nullptr;
+    const HRESULT hr = resource->QueryInterface(__uuidof(ID3D11Texture2D), (void **)&texture);
+    resource->Release();
+    if (FAILED(hr))
+        return nullptr;
+
+    D3D11_TEXTURE2D_DESC desc;
+    texture->GetDesc(&desc);
+    if (desc.SampleDesc.Count > 1)
+        return texture;
+    texture->Release();
+    return nullptr;
+}
+
+// Copies the finished image of an eye into its D3D11 texture. It's in the back buffer. With the
+// game's antialiasing it's in a multisampled target, which the game resolves to the back buffer
+// only before Present: the back buffer would still hold the last frame then.
 void VR::CopyBackBufferToEye(SharedTextureHolder &eye)
 {
     ID3D11Texture2D *backBuffer = nullptr;
@@ -265,15 +291,33 @@ void VR::CopyBackBufferToEye(SharedTextureHolder &eye)
 
     // CopyResource silently does nothing if the sizes differ.
     const bool copyable = source.Width == target.Width && source.Height == target.Height && source.SampleDesc.Count == target.SampleDesc.Count;
+
+    ID3D11Texture2D *multisampled = BoundMultisampledTarget();
+    if (multisampled)
+    {
+        D3D11_TEXTURE2D_DESC desc;
+        multisampled->GetDesc(&desc);
+        if (desc.Width != target.Width || desc.Height != target.Height || desc.Format != target.Format)
+        {
+            multisampled->Release();
+            multisampled = nullptr;
+        }
+    }
+
     static bool logged = false;
     if (!logged)
     {
         std::cout << "[VR] stereo: back buffer " << source.Width << "x" << source.Height << " format " << source.Format << " samples "
                   << source.SampleDesc.Count << " -> eye " << target.Width << "x" << target.Height << " format " << target.Format
-                  << " samples " << target.SampleDesc.Count << (copyable ? "" : ": can't copy") << "\n";
+                  << " samples " << target.SampleDesc.Count << (multisampled ? ", resolved from the multisampled target" : copyable ? "" : ": can't copy") << "\n";
         logged = true;
     }
-    if (copyable)
+    if (multisampled)
+    {
+        D3D11Hooks::g_Context->ResolveSubresource(eye.m_Texture, 0, multisampled, 0, source.Format);
+        multisampled->Release();
+    }
+    else if (copyable)
         D3D11Hooks::g_Context->CopyResource(eye.m_Texture, backBuffer);
     backBuffer->Release();
 }
@@ -288,19 +332,6 @@ void VR::initD3D11Callbacks()
                 return;
             width = m_RenderWidth;
             height = m_RenderHeight;
-        };
-
-    D3D11Hooks::CreateTexture2D_Pre_Callback = [this](D3D11_TEXTURE2D_DESC &desc)
-        {
-            // TODO: MSAA (AntiAliasing) for the eye textures. With D3D11 this also needs the views
-            // the game creates for them (TEXTURE2DMS) and a resolve before submitting.
-            static bool warned = false;
-            if ((m_CreatingTextureID == VR::Texture_LeftEye || m_CreatingTextureID == VR::Texture_RightEye) &&
-                m_AntiAliasing > 1 && !warned)
-            {
-                std::cout << "[D3D11] AntiAliasing=" << m_AntiAliasing << " is not supported yet, ignored\n";
-                warned = true;
-            }
         };
 
     D3D11Hooks::CreateTexture2D_Post_Callback = [this](ID3D11Texture2D *texture, const D3D11_TEXTURE2D_DESC &desc)
@@ -1708,7 +1739,6 @@ void VR::ParseConfigFile()
     parseOrDefault("HudSize", m_HudSize, 4.0f);
     parseOrDefault("HudAlwaysVisible", m_HudAlwaysVisible, false);*/
     parseOrDefault("AimMode", m_AimMode, 1);
-    parseOrDefault("AntiAliasing", m_AntiAliasing, 0);
     parseOrDefault("RenderWindow", m_RenderWindow, 0);
     parseXYZOrDefaultZero("ViewmodelPosCustomOffset", m_ViewmodelPosCustomOffset);
     parseXYZOrDefaultZero("ViewmodelAngCustomOffset", m_ViewmodelAngCustomOffset);

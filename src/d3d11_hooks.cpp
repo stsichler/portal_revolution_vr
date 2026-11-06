@@ -13,7 +13,6 @@ namespace D3D11Hooks
     IDXGISwapChain *g_SwapChain = nullptr;
 
     std::function<void(UINT &width, UINT &height)> SwapChainSize_Callback;
-    std::function<void(D3D11_TEXTURE2D_DESC &desc)> CreateTexture2D_Pre_Callback;
     std::function<void(ID3D11Texture2D *texture, const D3D11_TEXTURE2D_DESC &desc)> CreateTexture2D_Post_Callback;
     std::function<void(IDXGISwapChain *swapChain)> Present_Pre_Callback;
     std::function<void(IDXGISwapChain *swapChain)> Present_Post_Callback;
@@ -93,14 +92,10 @@ namespace
         if (device != g_Device || !desc)
             return oCreateTexture2D(device, desc, initialData, texture);
 
-        D3D11_TEXTURE2D_DESC newDesc = *desc;
-        if (CreateTexture2D_Pre_Callback)
-            CreateTexture2D_Pre_Callback(newDesc);
-
-        HRESULT hr = oCreateTexture2D(device, &newDesc, initialData, texture);
+        HRESULT hr = oCreateTexture2D(device, desc, initialData, texture);
 
         if (SUCCEEDED(hr) && texture && *texture && CreateTexture2D_Post_Callback)
-            CreateTexture2D_Post_Callback(*texture, newDesc);
+            CreateTexture2D_Post_Callback(*texture, *desc);
         return hr;
     }
 

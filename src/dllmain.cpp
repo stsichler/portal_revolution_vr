@@ -1,5 +1,7 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include <Windows.h>
+#include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <initializer_list>
 #include <string>
@@ -8,7 +10,6 @@
 #include "sdk.h"
 
 #ifdef PRVR_DIAGNOSTICS
-#include <fstream>
 #include <cstdint>
 
 // Writes everything to the log file (b) and, if there is one, also to a second stream buffer
@@ -118,6 +119,28 @@ public:
 // What AddLaunchOptions did, written to the log once the log is open.
 static std::string g_LaunchOptionsLog;
 
+// The value for the game's mat_antialias: AntiAliasing from the mod's config. The game needs it at
+// its start, before the mod reads the config otherwise.
+static const char *ConfiguredAntiAliasing()
+{
+    static const char kKey[] = "AntiAliasing=";
+    std::ifstream config("VR\\config.txt");
+    std::string line;
+    while (std::getline(config, line))
+    {
+        if (line.rfind(kKey, 0) != 0)
+            continue;
+        switch (atoi(line.c_str() + sizeof(kKey) - 1))
+        {
+        case 0: return "0";
+        case 2: return "2";
+        case 8: return "8";
+        }
+        break;
+    }
+    return "4";
+}
+
 // Adds the launch options the mod needs to the engine's command line, so players don't have to
 // set them in Steam. Runs in DllMain: d3d11.dll is a static import of shaderapidx11.dll, which the
 // launcher loads before the engine reads the video mode options, starts the intro video or runs
@@ -165,12 +188,13 @@ static bool AddLaunchOptions()
         {"+mat_motion_blur_percent_of_screen_max", "0"},
         {"+mat_queue_mode", "0"},
         {"+mat_vsync", "0"},
-        {"+mat_antialias", "0"},
         {"+mat_grain_scale_override", "0"},
     };
     for (const auto &convar : convars)
         if (!hasAny({convar[0]}))
             append(convar[0], convar[1]);
+    if (!hasAny({"+mat_antialias"}))
+        append("+mat_antialias", ConfiguredAntiAliasing());
 
     g_LaunchOptionsLog = "[LaunchOptions] added:" + (g_LaunchOptionsLog.empty() ? " (none)" : g_LaunchOptionsLog) +
                          "\n[LaunchOptions] command line: " + cmdLine->GetCmdLine() + "\n";
