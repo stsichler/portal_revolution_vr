@@ -964,9 +964,6 @@ namespace
             logged = true;
         }
 
-        if (vr->m_RenderWindow)
-            oRenderView(thisptr, view, hudView, nClearFlags, whatToDraw);
-
         vr->m_RenderedNewFrame = true;
     }
 }
