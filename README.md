@@ -15,12 +15,12 @@ VR mod for Portal: Revolution, playable but work in progress.
 * Stereo view with head tracking; portals, smoke and glass render correctly
 * Menu as an overlay in the headset, used with laser pointer or stick
 * Walking relative to the left controller, snap turning, jumping, crouching
-* Portal gun in the right hand with aim laser, shots start at its muzzle
+* Portal gun in the right hand with aim laser or aim dot, shots start at its muzzle
 * View turns with the portal when passing through it
 * Picking up cubes
 
 ## What's missing
-* HUD and crosshair
+* HUD
 * Roomscale
 * `AntiAliasing` from `config.txt` has no effect
 * The menu is nearly square, not 16:9
