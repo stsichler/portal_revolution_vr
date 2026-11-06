@@ -214,6 +214,8 @@ namespace
     constexpr int kPortalgun_CanFirePortal2 = 0x3281;
     constexpr int kPortalgun_LastFiredPortal = 0x3284;
     constexpr int kPortalgun_OpenProngs = 0x3288;
+    constexpr int kAimMode_None = 0;
+    constexpr int kAimMode_Dot = 1;
     constexpr int kAimMode_Laser = 2;
 
     void **g_PortalgunVTable = nullptr;
@@ -229,6 +231,15 @@ namespace
     Vector g_EyePosition; // of the player in the game, as last seen by hkCalcViewModelView
     Vector g_ShotStart; // where the shot starts, see UpdateShotStart
     bool g_ShotFromEyes = false; // see UpdateShotStart
+    Vector g_Aim; // where the shot would land, see UpdateAim
+    bool g_AimValid = false;
+
+    // v_portalgun.mdl: bone Base, in the model's right-handed axes; radius estimated from an image.
+    constexpr float kGun_GripForward = 7.04f;
+    constexpr float kGun_GripRight = 8.35f;
+    constexpr float kGun_GripUp = -11.35f;
+    constexpr float kGun_Radius = 4.5f;
+    constexpr int kGun_Samples = 8;
 
     // The gun as placed for this frame.
     struct GunPlacement
@@ -692,6 +703,15 @@ namespace
         wasBlocked = blocked;
     }
 
+    void UpdateAim()
+    {
+        VR *vr = g_StrataGame->m_VR;
+        uint8_t *gun = g_MuzzleValid && CreatePingPointer && vr->m_AimMode != kAimMode_None ? ActivePortalgun(static_cast<uint8_t *>(g_ViewModelOwner)) : nullptr;
+        g_AimValid = gun != nullptr;
+        if (gun)
+            g_Aim = TraceShot(gun, g_ShotStart, vr->m_RightControllerForward * MAX_TRACE_LENGTH).end;
+    }
+
     void RemoveLaser()
     {
         if (!CreatePingPointer)
@@ -719,7 +739,7 @@ namespace
         if (g_ShotFromEyes)
             return RemoveLaser();
 
-        const Vector aim = TraceShot(gun, g_ShotStart, vr->m_RightControllerForward * MAX_TRACE_LENGTH).end;
+        const Vector aim = g_Aim;
         void *effect = *reinterpret_cast<void **>(player + g_PingEffectOffset);
         if (!effect)
         {
@@ -751,6 +771,7 @@ namespace
         {
             g_MuzzleValid = GetMuzzle(g_Muzzle);
             UpdateShotStart();
+            UpdateAim();
             UpdateLaser();
 
             VR *vr = g_StrataGame->m_VR;
@@ -783,6 +804,34 @@ namespace
         menuView.fovViewmodel = scaleFov(view.fovViewmodel);
         menuView.m_flAspectRatio = aspect;
         return menuView;
+    }
+
+    // Whether the gun is on the line from the eye through a point. It's drawn over the world at any
+    // distance. Roughly: a cylinder from the muzzle to the grip.
+    bool GunCovers(const Vector &eye, const Vector &point)
+    {
+        if (!g_Gun.viewModel || !g_MuzzleValid)
+            return false;
+
+        const auto dot = [](const Vector &a, const Vector &b) { return a.x * b.x + a.y * b.y + a.z * b.z; };
+        Vector line = point - eye;
+        const float length = sqrtf(dot(line, line));
+        if (length < 1.0f)
+            return false;
+        line = line * (1.0f / length);
+
+        Vector forward, right, up;
+        QAngle::AngleVectors(g_Gun.angles, &forward, &right, &up);
+        const Vector grip = g_Gun.position + forward * kGun_GripForward + right * kGun_GripRight + up * kGun_GripUp;
+        for (int i = 0; i <= kGun_Samples; ++i)
+        {
+            const Vector along = g_Muzzle + (grip - g_Muzzle) * (static_cast<float>(i) / kGun_Samples);
+            const Vector toGun = along - eye;
+            const float ahead = dot(toGun, line);
+            if (ahead > 0 && dot(toGun, toGun) - ahead * ahead < kGun_Radius * kGun_Radius)
+                return true;
+        }
+        return false;
     }
 
     // Renders both eyes into the VR textures instead of the one view into the back buffer. Menus
@@ -819,6 +868,12 @@ namespace
         ++g_PortalPassage.frames;
         FollowPortalPassage(position, vr->m_SetupOrigin);
         vr->m_SetupOrigin = position;
+
+        const Vector viewOrigin = vr->GetViewOrigin(position);
+        if (g_AimValid && !g_ShotFromEyes && vr->m_AimMode == kAimMode_Dot && !GunCovers(viewOrigin, g_Aim))
+            vr->ShowAimDot(g_Aim, viewOrigin);
+        else
+            vr->HideAimDot();
 
         // The player looks where the HMD looks (movement direction, aiming).
         const Vector hmdAngle = vr->GetViewAngle();

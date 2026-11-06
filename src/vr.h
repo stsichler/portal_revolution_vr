@@ -38,6 +38,7 @@ public:
 	vr::IVROverlay *m_Overlay = nullptr;
 
 	vr::VROverlayHandle_t m_MainMenuHandle;
+	vr::VROverlayHandle_t m_AimDotHandle = vr::k_ulOverlayHandleInvalid;
 	//vr::VROverlayHandle_t m_HUDHandle;
 
 	float m_HorizontalOffsetLeft;
@@ -222,6 +223,9 @@ public:
 	void CreateVRTextures();
 	void SubmitVRTextures();
 	void RepositionOverlays();
+	void CreateAimDot();
+	void ShowAimDot(const Vector &aim, const Vector &viewOrigin);
+	void HideAimDot();
 	void GetPoses();
 	void UpdatePosesAndActions();
 	void GetViewParameters();

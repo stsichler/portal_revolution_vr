@@ -92,6 +92,7 @@ void VR::init()
     const vr::HmdVector2_t mouseScaleMenu = { (float)m_RenderWidth, (float)m_RenderHeight };
     m_Overlay->SetOverlayCurvature(m_MainMenuHandle, 0.15f);
     m_Overlay->SetOverlayMouseScale(m_MainMenuHandle, &mouseScaleMenu);
+    CreateAimDot();
 
     vr::VRCompositor()->SetTrackingSpace(m_SeatedMode
         ? vr::TrackingUniverseSeated
@@ -525,6 +526,7 @@ void VR::SubmitVRTextures()
         vr::EVROverlayError overlayError = vr::VROverlay()->SetOverlayTexture(m_MainMenuHandle, &m_VKBackBuffer.m_VRTexture);
         vr::VROverlay()->ShowOverlay(m_MainMenuHandle);
         //vr::VROverlay()->HideOverlay(m_HUDHandle);
+        HideAimDot();
 
         vr::EVRCompositorError submitError = vr::VRCompositor()->Submit(vr::Eye_Left, &m_VKBlankTexture.m_VRTexture, NULL, vr::Submit_Default);
         vr::VRCompositor()->Submit(vr::Eye_Right, &m_VKBlankTexture.m_VRTexture, NULL, vr::Submit_Default);
@@ -643,6 +645,78 @@ void VR::RepositionOverlays()
 
     vr::VROverlay()->SetOverlayTransformAbsolute(m_HUDHandle, trackingOrigin, &hudTransform);
     vr::VROverlay()->SetOverlayWidthInMeters(m_HUDHandle, m_HudSize);*/
+}
+
+// A white dot with a dark edge, visible on any background.
+void VR::CreateAimDot()
+{
+    constexpr int size = 32;
+    constexpr float pixel = 2.0f / size;
+    std::vector<uint8_t> pixels(size * size * 4);
+    for (int y = 0; y < size; ++y)
+    {
+        for (int x = 0; x < size; ++x)
+        {
+            const float dx = (x + 0.5f) * pixel - 1, dy = (y + 0.5f) * pixel - 1;
+            const float radius = sqrtf(dx * dx + dy * dy);
+            uint8_t *rgba = &pixels[(y * size + x) * 4];
+            rgba[0] = rgba[1] = rgba[2] = static_cast<uint8_t>(255 * std::clamp((0.7f - radius) / pixel + 0.5f, 0.0f, 1.0f));
+            rgba[3] = static_cast<uint8_t>(255 * std::clamp((0.95f - radius) / pixel + 0.5f, 0.0f, 1.0f));
+        }
+    }
+
+    m_Overlay->CreateOverlay("AimDotOverlayKey", "AimDotOverlay", &m_AimDotHandle);
+    m_Overlay->SetOverlayAlpha(m_AimDotHandle, 0.4f);
+    const vr::EVROverlayError error = m_Overlay->SetOverlayRaw(m_AimDotHandle, pixels.data(), size, size, 4);
+    std::cout << "[VR] aim dot overlay: " << m_Overlay->GetOverlayErrorNameFromEnum(error) << "\n";
+}
+
+// Shows the dot at a point in the world, seen from the view of this frame: always the same size to
+// the eye, turned towards it. As an overlay it's in front of everything.
+void VR::ShowAimDot(const Vector &aim, const Vector &viewOrigin)
+{
+    constexpr float widthPerMeter = 0.006f; // about 0.35 degrees
+    constexpr float maxDistance = 100.0f; // meters; no difference for the eyes beyond that
+
+    const vr::TrackedDevicePose_t &hmdPose = m_Poses[vr::k_unTrackedDeviceIndex_Hmd];
+    const auto dot = [](const Vector &a, const Vector &b) { return a.x * b.x + a.y * b.y + a.z * b.z; };
+    const Vector delta = aim - viewOrigin;
+
+    // From the eyes in meters, head coordinates: x right, y up, z backward.
+    float offset[3] = { dot(delta, m_HmdRight) / m_VRScale, dot(delta, m_HmdUp) / m_VRScale, -dot(delta, m_HmdForward) / m_VRScale };
+    const float length = sqrtf(offset[0] * offset[0] + offset[1] * offset[1] + offset[2] * offset[2]);
+    if (!hmdPose.bPoseIsValid || length < 0.001f)
+        return HideAimDot();
+
+    const float distance = (std::min)(length, maxDistance);
+    const float z[3] = { -offset[0] / length, -offset[1] / length, -offset[2] / length };
+    const float flat = sqrtf(z[0] * z[0] + z[2] * z[2]);
+    const float x[3] = { flat > 0.001f ? z[2] / flat : 1.0f, 0.0f, flat > 0.001f ? -z[0] / flat : 0.0f };
+    const float y[3] = { z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0] };
+    const float position[3] = { -z[0] * distance, -z[1] * distance, m_EyeZ - z[2] * distance };
+
+    // Head pose * dot in the head
+    const vr::HmdMatrix34_t &head = hmdPose.mDeviceToAbsoluteTracking;
+    vr::HmdMatrix34_t transform;
+    const float *columns[4] = { x, y, z, position };
+    for (int row = 0; row < 3; ++row)
+    {
+        for (int column = 0; column < 4; ++column)
+        {
+            const float *c = columns[column];
+            transform.m[row][column] = head.m[row][0] * c[0] + head.m[row][1] * c[1] + head.m[row][2] * c[2];
+        }
+        transform.m[row][3] += head.m[row][3];
+    }
+
+    m_Overlay->SetOverlayTransformAbsolute(m_AimDotHandle, vr::VRCompositor()->GetTrackingSpace(), &transform);
+    m_Overlay->SetOverlayWidthInMeters(m_AimDotHandle, distance * widthPerMeter);
+    m_Overlay->ShowOverlay(m_AimDotHandle);
+}
+
+void VR::HideAimDot()
+{
+    m_Overlay->HideOverlay(m_AimDotHandle);
 }
 
 void VR::GetPoses() 
