@@ -2,6 +2,7 @@
 #include "strata_hooks.h"
 #include <Windows.h>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -79,6 +80,31 @@ namespace
         int frames = 0;
         float matrix[3][4] = {};
     } g_PortalPassage;
+
+    // Roomscale: walking in the room moves the head away from the player. Commands then walk the
+    // player after the head, so collisions, stairs and portals work as for any walking; the room
+    // moves along, so the view doesn't move with the player. Distances in game units.
+    constexpr int kPlayer_Flags = 0x150; // network field m_fFlags
+    constexpr int kPlayerFlag_OnGround = 1;
+    constexpr float kRoomscale_StartDistance = 6; // about 14 cm
+    constexpr float kRoomscale_StopDistance = 2;
+    constexpr float kRoomscale_SpeedPerDistance = 8; // per second
+    constexpr float kRoomscale_MinSpeed = 50; // the ground's friction stops the player below about 40
+    constexpr float kRoomscale_StickDeadZone = MAX_LINEAR_SPEED * 0.1f;
+    constexpr float kRoomscale_CoastSeconds = 0.3f; // the player slows down after the last command
+    constexpr float kRoomscale_MaxStep = 16; // in a frame; more isn't from walking after the head
+    constexpr float kRoomscale_WallMargin = 8; // the eyes' near plane stays in front of walls
+
+    struct RoomscaleState
+    {
+        bool hasPosition = false; // false after a menu
+        Vector position;
+        bool following = false;
+        Vector direction;
+        std::chrono::steady_clock::time_point lastCommand;
+        bool updatedThisFrame = false;
+        bool atWall = false;
+    } g_Roomscale;
 
     // C_WeaponPortalgun [332] AddViewmodelBob(viewModel, origin, angles): moves and turns the gun
     // with the walking speed, called by CalcViewModelView.
@@ -341,6 +367,47 @@ namespace
         outSide += -forward * sinf(d) + side * cosf(d);
     }
 
+    bool RoomscaleEnabled()
+    {
+        const VR *vr = g_StrataGame->m_VR;
+        return vr->m_Roomscale && vr->m_6DOF;
+    }
+
+    bool PlayerOnGround()
+    {
+        Game *game = g_StrataGame;
+        auto player = reinterpret_cast<const uint8_t *>(game->GetClientEntity(game->m_EngineClient->GetLocalPlayer()));
+        return player && (*reinterpret_cast<const int *>(player + kPlayer_Flags) & kPlayerFlag_OnGround);
+    }
+
+    // Walks the player after the head, unless the player already walks with the stick or keyboard:
+    // then the head stays where it is relative to the player, and is followed afterwards.
+    void RoomscaleMove(float aimYaw, float &forward, float &side)
+    {
+        VR *vr = g_StrataGame->m_VR;
+        RoomscaleState &state = g_Roomscale;
+
+        Vector offset = vr->m_HmdPosRelative;
+        offset.z = 0;
+        const float distance = VectorLength(offset);
+        const bool walking = std::sqrt(forward * forward + side * side) >= kRoomscale_StickDeadZone;
+        const bool follow = RoomscaleEnabled() && state.hasPosition && !walking && PlayerOnGround()
+            && distance >= (state.following ? kRoomscale_StopDistance : kRoomscale_StartDistance);
+        if (follow != state.following)
+            std::cout << "[VR] roomscale: " << (follow ? "following" : "stopped") << ", head " << distance << " away\n";
+        state.following = follow;
+        // From now on the view has to go along with the player, not stay where the head is.
+        if (walking)
+            state.lastCommand = {};
+        if (!follow)
+            return;
+
+        state.direction = offset * (1.0f / distance);
+        state.lastCommand = std::chrono::steady_clock::now();
+        const float speed = std::clamp(distance * kRoomscale_SpeedPerDistance, kRoomscale_MinSpeed, (float)MAX_LINEAR_SPEED);
+        TurnMove(speed, 0, RAD2DEG(std::atan2(offset.y, offset.x)), aimYaw, forward, side);
+    }
+
     // The player aims with the right controller (view angles of the command: shooting, use). The
     // left stick walks where the left controller points (Stefan, 2026-11-03), the keyboard
     // relative to the head. The engine's view angles stay with the head (set in hkRenderView).
@@ -362,6 +429,7 @@ namespace
         vr::InputAnalogActionData_t walk;
         if (vr->GetAnalogActionData(vr->m_ActionWalk, walk) && walk.bActive)
             TurnMove(walk.y * MAX_LINEAR_SPEED, walk.x * MAX_LINEAR_SPEED, vr->m_LeftControllerAngAbs.y, aim.y, forward, side);
+        RoomscaleMove(aim.y, forward, side);
         cmd->forwardmove = forward;
         cmd->sidemove = side;
         cmd->upmove = 0;
@@ -530,6 +598,8 @@ namespace
         return nullptr;
     }
 
+    void UpdateRoomscale(const Vector &eyes);
+
     // The viewmodel (portal gun) sits in the right hand instead of in front of the head.
     void hkCalcViewModelView(void *thisptr, void *owner, const Vector &eyePosition, const QAngle &eyeAngles)
     {
@@ -539,6 +609,7 @@ namespace
             return oCalcViewModelView(thisptr, owner, eyePosition, eyeAngles);
 
         VR *vr = g_StrataGame->m_VR;
+        UpdateRoomscale(eyePosition);
         FollowPortalPassage(eyePosition, vr->m_SetupOrigin);
         const Vector position = vr->GetRecommendedViewmodelAbsPos(eyePosition);
         const QAngle angles = vr->GetRecommendedViewmodelAbsAngle();
@@ -660,7 +731,7 @@ namespace
         float fraction;
     };
 
-    // How far a shot from the gun gets along delta, with the same filter and mask as the shot.
+    // How far a shot from the gun (or player) gets along delta, with the same filter and mask as the shot.
     ShotTrace TraceShot(void *gun, const Vector &start, const Vector &delta)
     {
         static uint8_t *filter = []
@@ -683,6 +754,76 @@ namespace
         alignas(16) uint8_t trace[kTrace_Size];
         CallVirtual<void>(g_StrataGame->m_EngineTrace, kEngineTrace_TraceRay, &ray, kShotMask, filter, trace);
         return { *reinterpret_cast<Vector *>(trace + kTrace_EndPosOffset), *reinterpret_cast<float *>(trace + kTrace_FractionOffset) };
+    }
+
+    // Walking on when the player can't go further must not take the head into the wall. Checked at
+    // the height of the player's eyes: that's in free space, the head's height may not be.
+    void KeepHeadOutOfWalls(const Vector &eyes)
+    {
+        Game *game = g_StrataGame;
+        VR *vr = game->m_VR;
+        void *player = game->GetClientEntity(game->m_EngineClient->GetLocalPlayer());
+        if (!player || !TraceFilterConstructor || !TraceFilterList || !game->m_EngineTrace)
+            return;
+
+        Vector offset = vr->m_HmdPosRelative;
+        offset.z = 0;
+        const float distance = VectorLength(offset);
+        if (distance < 0.01f)
+            return;
+
+        // Through an open portal the eyes look from the other side, see hkRenderView.
+        const Vector ray = offset * ((distance + kRoomscale_WallMargin) / distance);
+        const float fraction = g_PropPortalVTable && FindPortalBetween(eyes, eyes + ray) ? 1.0f : TraceShot(player, eyes, ray).fraction;
+        const bool atWall = fraction > 0 && fraction < 1;
+        if (atWall != g_Roomscale.atWall)
+            std::cout << "[VR] roomscale: head " << (atWall ? "at a wall" : "free") << "\n";
+        g_Roomscale.atWall = atWall;
+        if (!atWall)
+            return;
+
+        const float allowed = (std::max)(0.0f, fraction * (distance + kRoomscale_WallMargin) - kRoomscale_WallMargin);
+        if (allowed < distance)
+            vr->MoveRoom(offset * (1.0f - allowed / distance));
+    }
+
+    // Once per frame, before anything is placed relative to the head.
+    void UpdateRoomscale(const Vector &eyes)
+    {
+        RoomscaleState &state = g_Roomscale;
+        if (!RoomscaleEnabled())
+        {
+            state.hasPosition = false;
+            return;
+        }
+        state.updatedThisFrame = true;
+
+        VR *vr = g_StrataGame->m_VR;
+        const Vector last = state.position;
+        state.position = eyes;
+
+        // Back from a menu, where no world can be seen: don't walk the player to where the head went.
+        // Only sideways: the eye height stays as SeatedMode defines it.
+        if (!state.hasPosition)
+        {
+            state.hasPosition = true;
+            Vector offset = vr->m_HmdPosRelative;
+            offset.z = 0;
+            vr->MoveRoom(offset);
+            std::cout << "[VR] roomscale: head centered on the player\n";
+            return;
+        }
+
+        Vector step = eyes - last;
+        step.z = 0;
+        const float sinceCommand = std::chrono::duration<float>(std::chrono::steady_clock::now() - state.lastCommand).count();
+        // Against the commanded direction or fast, something else moves the player (platform, portal,
+        // push) and the view has to go along.
+        if (!g_PortalPassage.waiting && sinceCommand <= kRoomscale_CoastSeconds && VectorLength(step) <= kRoomscale_MaxStep
+            && DotProduct(step, state.direction) > 0 && PlayerOnGround())
+            vr->MoveRoom(step);
+
+        KeepHeadOutOfWalls(eyes);
     }
 
     // The hand can reach through a wall. If something is between the player's eyes in the game and
@@ -845,6 +986,7 @@ namespace
         if (!vr->m_IsInitialized || !vr->m_IsVREnabled || vr->IsMenuVisible())
         {
             RemoveLaser();
+            g_Roomscale.hasPosition = false;
             D3D11Hooks::TraceNote("flat view");
             if (vr->m_IsInitialized && vr->IsMenuVisible())
                 return oRenderView(thisptr, MenuView(view), hudView, nClearFlags, whatToDraw);
@@ -868,6 +1010,10 @@ namespace
 
         const Vector position = view.origin;
         ++g_PortalPassage.frames;
+        // Normally done with the viewmodel, which is placed earlier in the frame.
+        if (!g_Roomscale.updatedThisFrame)
+            UpdateRoomscale(position);
+        g_Roomscale.updatedThisFrame = false;
         FollowPortalPassage(position, vr->m_SetupOrigin);
         vr->m_SetupOrigin = position;
 

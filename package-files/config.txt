@@ -4,9 +4,10 @@ SnapTurnAngle=45.0
 LeftHanded=false
 VRScale=43.2 # Real word units to source units scale
 IPDScale=1.0 # Scale of interpupillary distance 
-6DOF=true
-SeatedMode=false
+6DOF=true # false: only the head's rotation counts, not its position (Roomscale has no effect then)
+SeatedMode=false # false: your real eye height, the floors match. true: the eye height of the game's player
 SeatedHeightOffset=4.0 # Seated mode only: moves the eyes up (+) or down (-) by this many source units, i.e. the virtual floor down or up
+Roomscale=true # true: the player follows your head when you walk in your room, and your head stops at walls
 AimMode=1 # 0 = None, 1 = Aim dot, 2 = Laser sight/beam
 AntiAliasing=4 # 0, 2, 4, 8 (needs a restart of the game)
 ViewmodelPosCustomOffsetX=8.0

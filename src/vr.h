@@ -61,8 +61,6 @@ public:
 	Vector m_HmdRight;
 	Vector m_HmdUp;
 
-	Vector m_HmdPosLocalInWorld = { 0,0,0 };
-
 	Vector m_LeftControllerForward;
 	Vector m_LeftControllerRight;
 	Vector m_LeftControllerUp;
@@ -89,7 +87,6 @@ public:
 	Vector m_SetupOrigin = { 0,0,0 };
 
 	float m_HeightOffset = 0.0;
-	bool m_RoomscaleActive = false;
 
 	Vector m_LeftControllerPosAbs;											
 	QAngle m_LeftControllerAngAbs;
@@ -138,7 +135,6 @@ public:
 	TextureID m_CreatingTextureID = Texture_None;
 
 	bool m_PressedTurn = false;
-	bool m_PushingThumbstick = false;
 	bool m_PointerCreated = false;
 
 	// action set
@@ -198,6 +194,7 @@ public:
 	bool m_6DOF = true;
 	bool m_SeatedMode = false;
 	float m_SeatedHeightOffset = 4.0;
+	bool m_Roomscale = true;
 	float m_HudDistance = 1.3;
 	float m_HudSize = 4.0;
 	bool m_HudAlwaysVisible = false;
@@ -249,6 +246,7 @@ public:
 	bool CheckDigitalActionChanged(vr::VRActionHandle_t& actionHandle, bool& state);
 	bool GetAnalogActionData(vr::VRActionHandle_t &actionHandle, vr::InputAnalogActionData_t &analogDataOut);
 	void ResetPosition();
+	void MoveRoom(const Vector &step);
 	void GetPoseData(vr::TrackedDevicePose_t &poseRaw, TrackedDevicePoseData &poseOut);
 	void ParseConfigFile();
 	void WaitForConfigUpdate();

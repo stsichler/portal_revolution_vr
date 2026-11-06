@@ -18,11 +18,10 @@ VR mod for Portal: Revolution, playable but work in progress.
 * Portal gun in the right hand with aim laser or aim dot, shots start at its muzzle
 * View turns with the portal when passing through it
 * Picking up cubes
+* Roomscale: the player follows your head when you walk in your room
 
 ## What's missing
 * HUD
-* Roomscale
-* `AntiAliasing` from `config.txt` has no effect
 * The menu is nearly square, not 16:9
 * No release package yet
 

@@ -1419,6 +1419,18 @@ void VR::ResetPosition()
         m_Center.z = 0;
 }
 
+// The head stays where it is in the world although the player's eyes move by step (world units,
+// horizontal): the room moves along.
+void VR::MoveRoom(const Vector &step)
+{
+    Vector stepInRoom = step;
+    VectorPivotXY(stepInRoom, { 0, 0, 0 }, -m_RotationOffset.y);
+    m_Center.x += stepInRoom.x / m_VRScale;
+    m_Center.y += stepInRoom.y / m_VRScale;
+    m_HmdPosRelative.x -= step.x;
+    m_HmdPosRelative.y -= step.y;
+}
+
 // HMD pose -> view angles, position relative to the player's eyes, eye distance. Needs nothing
 // from the game.
 void VR::UpdateHeadTracking()
@@ -1449,47 +1461,6 @@ void VR::UpdateHeadPose()
         m_HmdPosRelative.z -= 64;
     else
         m_HmdPosRelative.z += m_SeatedHeightOffset;
-
-    // Roomscale setup
-    /*Vector cameraMovingDirection = m_Center - m_SetupOriginPrev;
-    Vector cameraToPlayer = m_HmdPosAbsPrev - m_SetupOriginPrev;
-    cameraMovingDirection.z = 0;
-    cameraToPlayer.z = 0;
-    float cameraFollowing = DotProduct(cameraMovingDirection, cameraToPlayer);
-    float cameraDistance = VectorLength(cameraToPlayer);
-
-    if (localPlayer->m_hGroundEntity != -1 && localPlayer->m_vecVelocity.IsZero())
-        m_RoomscaleActive = true;
-
-    // TODO: Get roomscale to work while using thumbstick
-    if ((cameraFollowing < 0 && cameraDistance > 1) || (m_PushingThumbstick))
-        m_RoomscaleActive = false;*/
-
-    // Check if camera is clipping inside wall
-    /*CGameTrace trace;
-    Ray_t ray;
-    CTraceFilterSkipNPCsAndPlayers tracefilter((IHandleEntity*)localPlayer, 0);
-
-    Vector extendedHmdPos = m_HmdPosAbs - m_SetupOrigin;
-    VectorNormalize(extendedHmdPos);
-    extendedHmdPos = m_HmdPosAbs + (extendedHmdPos * 10);
-    ray.Init(m_SetupOrigin, extendedHmdPos);
-
-    m_Game->m_EngineTrace->TraceRay(ray, STANDARD_TRACE_MASK, &tracefilter, &trace);
-    if (trace.fraction < 1 && trace.fraction > 0)
-    {
-        Vector distanceInsideWall = trace.endpos - extendedHmdPos;
-        m_CameraAnchor += distanceInsideWall;
-        m_HmdPosAbs = m_CameraAnchor - Vector(0, 0, 64) + m_HmdPosLocalInWorld;
-    }
-
-    // Reset camera if it somehow gets too far
-    m_SetupOriginToHMD = m_HmdPosAbs - m_SetupOrigin;
-    if (VectorLength(m_SetupOriginToHMD) > 150)
-        ResetPosition();
-
-    m_HmdPosAbsPrev = m_HmdPosAbs;
-    m_SetupOriginPrev = m_SetupOrigin;*/
 
     GetViewParameters();
     m_Ipd = m_EyeToHeadTransformPosRight.x * 2;
@@ -1735,6 +1706,7 @@ void VR::ParseConfigFile()
     parseOrDefault("6DOF", m_6DOF, true);
     parseOrDefault("SeatedMode", m_SeatedMode, false);
     parseOrDefault("SeatedHeightOffset", m_SeatedHeightOffset, 4.0f);
+    parseOrDefault("Roomscale", m_Roomscale, true);
     /*parseOrDefault("HudDistance", m_HudDistance, 1.3f);
     parseOrDefault("HudSize", m_HudSize, 4.0f);
     parseOrDefault("HudAlwaysVisible", m_HudAlwaysVisible, false);*/
