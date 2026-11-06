@@ -1707,7 +1707,7 @@ void VR::ParseConfigFile()
     /*parseOrDefault("HudDistance", m_HudDistance, 1.3f);
     parseOrDefault("HudSize", m_HudSize, 4.0f);
     parseOrDefault("HudAlwaysVisible", m_HudAlwaysVisible, false);*/
-    parseOrDefault("AimMode", m_AimMode, 2);
+    parseOrDefault("AimMode", m_AimMode, 1);
     parseOrDefault("AntiAliasing", m_AntiAliasing, 0);
     parseOrDefault("RenderWindow", m_RenderWindow, 0);
     parseXYZOrDefaultZero("ViewmodelPosCustomOffset", m_ViewmodelPosCustomOffset);

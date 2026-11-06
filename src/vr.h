@@ -203,7 +203,7 @@ public:
 	float m_HudDistance = 1.3;
 	float m_HudSize = 4.0;
 	bool m_HudAlwaysVisible = false;
-	int m_AimMode = 2;
+	int m_AimMode = 1;
 	bool m_ApplyPitchAndRollPortalRotationOffset = false; // If `true`, the camera pitch/roll follows the exit portal's orientation when portalling
 	float m_CameraUprightRecoverySpeed = 0.2f; // If the above is `true`, this controls how quickly the camera turns back upright after portalling
 
