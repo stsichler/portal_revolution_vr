@@ -703,10 +703,11 @@ namespace
         wasBlocked = blocked;
     }
 
+    // No aim help while carrying an object: no portals can be placed then.
     void UpdateAim()
     {
         VR *vr = g_StrataGame->m_VR;
-        uint8_t *gun = g_MuzzleValid && CreatePingPointer && vr->m_AimMode != kAimMode_None ? ActivePortalgun(static_cast<uint8_t *>(g_ViewModelOwner)) : nullptr;
+        uint8_t *gun = g_MuzzleValid && CreatePingPointer && vr->m_AimMode != kAimMode_None && !vr->m_ViewmodelCarrying ? ActivePortalgun(static_cast<uint8_t *>(g_ViewModelOwner)) : nullptr;
         g_AimValid = gun != nullptr;
         if (gun)
             g_Aim = TraceShot(gun, g_ShotStart, vr->m_RightControllerForward * MAX_TRACE_LENGTH).end;
@@ -736,7 +737,7 @@ namespace
             g_LaserPrecacheFrames = 0;
             return RemoveLaser();
         }
-        if (g_ShotFromEyes)
+        if (g_ShotFromEyes || vr->m_ViewmodelCarrying)
             return RemoveLaser();
 
         const Vector aim = g_Aim;
@@ -770,9 +771,6 @@ namespace
         if (VRViewActive())
         {
             g_MuzzleValid = GetMuzzle(g_Muzzle);
-            UpdateShotStart();
-            UpdateAim();
-            UpdateLaser();
 
             VR *vr = g_StrataGame->m_VR;
             const uint8_t *gun = g_MuzzleValid ? ActivePortalgun(static_cast<uint8_t *>(g_ViewModelOwner)) : nullptr;
@@ -780,6 +778,10 @@ namespace
             if (carrying != vr->m_ViewmodelCarrying)
                 std::cout << "[VR] gun carrying: " << carrying << "\n";
             vr->m_ViewmodelCarrying = carrying;
+
+            UpdateShotStart();
+            UpdateAim();
+            UpdateLaser();
         }
         else
             g_LaserPrecacheFrames = 0;
