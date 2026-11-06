@@ -141,6 +141,7 @@ namespace
     constexpr const char *kLaserEffect = "robot_point_beam";
     constexpr int kPrecacheParticle_CallOffset = 7;
     constexpr int kLaser_PrecacheWaitFrames = 30;
+    int g_LaserPrecacheFrames = 0; // since the precache; starts over without a gun or in the menu
     constexpr int kSplitScreen_AllUsers = -1;
 
     using tCreatePingPointer = void (*)(void *player, const Vector &destination);
@@ -210,6 +211,7 @@ namespace
 
     Vector g_EyePosition; // of the player in the game, as last seen by hkCalcViewModelView
     Vector g_ShotStart; // where the shot starts, see UpdateShotStart
+    bool g_ShotFromEyes = false; // see UpdateShotStart
 
     // The eyes are rendered and the viewmodel is in the hand.
     bool VRViewActive()
@@ -594,7 +596,8 @@ namespace
     }
 
     // The hand can reach through a wall. If something is between the player's eyes in the game and
-    // the muzzle, the shot starts at the eyes, so that it can't land behind the wall.
+    // the muzzle, the shot starts at the eyes, so that it can't land behind the wall. The laser is
+    // off then, as it would start at the muzzle and not show where the shot goes.
     void UpdateShotStart()
     {
         g_ShotStart = g_Muzzle;
@@ -602,6 +605,7 @@ namespace
         const bool blocked = gun && TraceShot(gun, g_EyePosition, g_Muzzle - g_EyePosition).fraction < 1.0f;
         if (blocked)
             g_ShotStart = g_EyePosition;
+        g_ShotFromEyes = blocked;
 
         static bool wasBlocked = false;
         if (blocked != wasBlocked)
@@ -629,18 +633,24 @@ namespace
         auto player = static_cast<uint8_t *>(g_ViewModelOwner);
         uint8_t *gun = g_MuzzleValid && vr->m_AimMode == kAimMode_Laser ? ActivePortalgun(player) : nullptr;
         if (!gun)
+        {
+            g_LaserPrecacheFrames = 0;
+            return RemoveLaser();
+        }
+        if (g_ShotFromEyes)
             return RemoveLaser();
 
         const Vector aim = TraceShot(gun, g_ShotStart, vr->m_RightControllerForward * MAX_TRACE_LENGTH).end;
         void *effect = *reinterpret_cast<void **>(player + g_PingEffectOffset);
         if (!effect)
         {
-            static int waited = 0;
-            if (waited == 0)
+            if (g_LaserPrecacheFrames == 0)
                 PrecacheParticleSystem(kLaserEffect);
-            if (++waited < kLaser_PrecacheWaitFrames)
+            if (g_LaserPrecacheFrames < kLaser_PrecacheWaitFrames)
+            {
+                ++g_LaserPrecacheFrames;
                 return;
-            waited = 0;
+            }
 
             CreatePingPointer(player, aim);
             effect = *reinterpret_cast<void **>(player + g_PingEffectOffset);
@@ -671,6 +681,8 @@ namespace
                 std::cout << "[VR] gun carrying: " << carrying << "\n";
             vr->m_ViewmodelCarrying = carrying;
         }
+        else
+            g_LaserPrecacheFrames = 0;
         oParticleSimulate(thisptr, frameTime);
     }
 
