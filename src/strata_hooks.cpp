@@ -1381,8 +1381,9 @@ void **StrataHooks::FindVTable(const char *module, const char *className)
 
 // Panorama lays out for a height of 1080 and the width that follows from its window size. For the
 // back buffer (HMD format, nearly square) that's about 1030 wide, too narrow for the menu. So its
-// windows get a 16:9 part of the back buffer. The size is passed when they are created: changing
-// it later doesn't arrange the panels again.
+// windows get a part of the back buffer in the aspect ratio of the video mode. The size is passed
+// when they are created and with SetClientSize after a mode change: changing the fields alone
+// doesn't arrange the panels again.
 namespace
 {
     constexpr int kPanoramaEngine_CreateWindow = 13; // CUIEngineSource2
@@ -1401,16 +1402,36 @@ namespace
     void **g_PanoramaWindowVTable = nullptr;
     std::atomic<bool> g_PanoramaHooked{false};
 
-    int Height16x9(int width, int height)
+    // Aspect ratio of the video mode (the flat window), which the menu takes: so it fills the window
+    // undistorted. 16:9 until it is known.
+    std::atomic<int> g_ModeWidth{16};
+    std::atomic<int> g_ModeHeight{9};
+
+    void SetModeSize(int width, int height)
     {
-        const int height16x9 = width * 9 / 16;
-        return height16x9 < height ? height16x9 : height;
+        if (width <= 0 || height <= 0)
+            return;
+        g_ModeWidth = width;
+        g_ModeHeight = height;
     }
 
+    // The height for the full width of the back buffer in the mode's aspect ratio, at most all of it.
+    int MenuHeightFor(int width, int height)
+    {
+        const int menuHeight = static_cast<int>(static_cast<int64_t>(width) * g_ModeHeight / g_ModeWidth);
+        return menuHeight < height ? menuHeight : height;
+    }
+
+    // The windows are created with the back buffer's size; the mode's is the game window's.
     void *hkPanoramaCreateWindow(void *engine, int x, int y, int width, int height, uint64_t a, uint64_t b, uint64_t c, uint64_t d, void *e, void *f)
     {
-        const int newHeight = Height16x9(width, height);
-        std::cout << "[Panorama] create window " << width << "x" << height << " -> " << width << "x" << newHeight << "\n";
+        DXGI_SWAP_CHAIN_DESC desc;
+        RECT rect;
+        if (D3D11Hooks::g_SwapChain && SUCCEEDED(D3D11Hooks::g_SwapChain->GetDesc(&desc)) && GetClientRect(desc.OutputWindow, &rect))
+            SetModeSize(rect.right, rect.bottom);
+        const int newHeight = MenuHeightFor(width, height);
+        std::cout << "[Panorama] create window " << width << "x" << height << " for " << g_ModeWidth << "x" << g_ModeHeight
+                  << " -> " << width << "x" << newHeight << "\n";
         return oPanoramaCreateWindow(engine, x, y, width, newHeight, a, b, c, d, e, f);
     }
 
@@ -1426,12 +1447,15 @@ namespace
 
     // "Apply" in the video settings sets the video mode again, even unchanged. Then the windows get
     // the size of the mode (the flat window) instead of the back buffer's, and the menu ended up
-    // in the top left corner. They always get the back buffer's.
+    // in the top left corner. They always get the back buffer's width, the height for the mode's
+    // aspect ratio.
     uint64_t hkPanoramaSetClientSize(void *window, uint64_t width, uint64_t height, uint64_t a)
     {
         const VR *vr = g_StrataGame ? g_StrataGame->m_VR : nullptr;
+        if (vr && vr->m_RenderWidth)
+            SetModeSize((int)width, (int)height);
         const int newWidth = vr && vr->m_RenderWidth ? (int)vr->m_RenderWidth : (int)width;
-        const int newHeight = Height16x9(newWidth, vr && vr->m_RenderHeight ? (int)vr->m_RenderHeight : (int)height);
+        const int newHeight = MenuHeightFor(newWidth, vr && vr->m_RenderHeight ? (int)vr->m_RenderHeight : (int)height);
         std::cout << "[Panorama] window size " << width << "x" << height << " -> " << newWidth << "x" << newHeight << "\n";
         return oPanoramaSetClientSize(window, newWidth, newHeight, a);
     }
@@ -1439,7 +1463,7 @@ namespace
 
 int StrataHooks::PanoramaHeight(int width, int height)
 {
-    return g_PanoramaHooked ? Height16x9(width, height) : height;
+    return g_PanoramaHooked ? MenuHeightFor(width, height) : height;
 }
 
 unsigned long __stdcall StrataHooks::HookPanorama(void *)

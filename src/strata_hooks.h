@@ -15,7 +15,7 @@ namespace StrataHooks
     // when Panorama's windows are created.
     unsigned long __stdcall HookPanorama(void *);
 
-    // The height of the part of the back buffer Panorama lays out for: 16:9, or all of it if the
-    // hooks aren't in place.
+    // The height of the part of the back buffer Panorama lays out for: in the aspect ratio of the
+    // video mode, or all of it if the hooks aren't in place. Changes with the video settings.
     int PanoramaHeight(int width, int height);
 }

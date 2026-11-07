@@ -183,6 +183,8 @@ public:
 	VR(Game *game);
 	void initD3D11Callbacks();
 	void InitOpenVR(); // VR_Init, done before the game creates its swap chain
+	void UpdateMenuFormat();
+	uint32_t m_MenuFormatHeight = 0; // MenuHeight() the menu overlay is set up for
 	void CopyBackBuffer(struct IDXGISwapChain *swapChain);
 	void PrepareWindowImage(struct IDXGISwapChain *swapChain);
 	void CopyBackBufferToEye(SharedTextureHolder &eye);

@@ -25,9 +25,10 @@
 namespace
 {
     constexpr WPARAM kMouseFromLaser = 0x80000000; // not used by the MK_ flags
+    constexpr float kMenuOverlayHeight = 1.8f;      // meters
     WNDPROC g_GameWindowProc = nullptr;
-    int g_MenuPartWidth = 0;
-    int g_MenuPartHeight = 0;
+    std::atomic<int> g_MenuPartWidth{0};
+    std::atomic<int> g_MenuPartHeight{0};
     std::atomic<bool> g_MenuVisible{false};
 
     LRESULT CALLBACK MenuMouseWindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
@@ -380,6 +381,7 @@ void VR::initD3D11Callbacks()
         {
             if (m_IsInitialized)
             {
+                UpdateMenuFormat();
                 CopyBackBuffer(swapChain);
                 PrepareWindowImage(swapChain);
             }
@@ -656,9 +658,26 @@ void VR::RepositionOverlays()
         -sinf(hmdYaw), 0.0f, cosf(hmdYaw), menuNewPos.z
     };
 
-    const float menuHeight = 1.8f; // meters
     vr::VROverlay()->SetOverlayTransformAbsolute(m_MainMenuHandle, trackingOrigin, &menuTransform);
-    vr::VROverlay()->SetOverlayWidthInMeters(m_MainMenuHandle, menuHeight * m_RenderWidth / MenuHeight());
+    vr::VROverlay()->SetOverlayWidthInMeters(m_MainMenuHandle, kMenuOverlayHeight * m_RenderWidth / MenuHeight());
+}
+
+// The menu takes the aspect ratio of the video mode, which the video settings can change (see
+// StrataHooks::PanoramaHeight). The overlay keeps its height and gets wider or narrower; the laser
+// and the window's mouse follow the new part of the back buffer.
+void VR::UpdateMenuFormat()
+{
+    const uint32_t height = MenuHeight();
+    if (height == m_MenuFormatHeight || height == 0)
+        return;
+    m_MenuFormatHeight = height;
+
+    const vr::HmdVector2_t mouseScale = { (float)m_RenderWidth, (float)height };
+    m_Overlay->SetOverlayMouseScale(m_MainMenuHandle, &mouseScale);
+    m_Overlay->SetOverlayWidthInMeters(m_MainMenuHandle, kMenuOverlayHeight * m_RenderWidth / height);
+    g_MenuPartWidth = m_RenderWidth;
+    g_MenuPartHeight = height;
+    std::cout << "[VR] menu format " << m_RenderWidth << "x" << height << "\n";
 }
 
 // A white dot with a dark edge, visible on any background.
