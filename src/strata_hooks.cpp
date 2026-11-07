@@ -866,6 +866,16 @@ namespace
         KeepHeadOutOfWalls(eyes);
     }
 
+    // What counts for the vignette is the walking one sees: none against a wall, none from walking in
+    // the room, and not in the air. The jump through a portal isn't walking either.
+    float WalkedDistance(const Vector &position, const Vector &last)
+    {
+        Vector step = position - last;
+        step.z = 0;
+        const float distance = VectorLength(step);
+        return g_Roomscale.walking && PlayerOnGround() && distance <= kRoomscale_MaxStep ? distance : 0;
+    }
+
     // The hand can reach through a wall. If something is between the player's eyes in the game and
     // the muzzle, the shot starts at the eyes, so that it can't land behind the wall. The laser is
     // off then, as it would start at the muzzle and not show where the shot goes.
@@ -1055,6 +1065,7 @@ namespace
         if (!g_Roomscale.updatedThisFrame)
             UpdateRoomscale(position);
         g_Roomscale.updatedThisFrame = false;
+        vr->UpdateVignette(WalkedDistance(position, vr->m_SetupOrigin));
         vr->m_SetupOrigin = position;
 
         const Vector viewOrigin = vr->GetViewOrigin(position);

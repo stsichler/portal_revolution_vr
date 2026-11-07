@@ -39,6 +39,7 @@ public:
 
 	vr::VROverlayHandle_t m_MainMenuHandle;
 	vr::VROverlayHandle_t m_AimDotHandle = vr::k_ulOverlayHandleInvalid;
+	vr::VROverlayHandle_t m_VignetteHandle = vr::k_ulOverlayHandleInvalid;
 	//vr::VROverlayHandle_t m_HUDHandle;
 
 	float m_HorizontalOffsetLeft;
@@ -202,6 +203,15 @@ public:
 	int m_AimMode = 1;
 	bool m_ApplyPitchAndRollPortalRotationOffset = false; // If `true`, the camera pitch/roll follows the exit portal's orientation when portalling
 	float m_CameraUprightRecoverySpeed = 0.2f; // If the above is `true`, this controls how quickly the camera turns back upright after portalling
+	float m_VignetteWalking = 0.8f; // 0 = off, 1 = black
+	float m_VignetteAfterPortal = 0.8f; // 0 = off, 1 = black
+	float m_VignetteClearAngle = 25.0f; // degrees from the center of the view that stay clear
+
+	float m_VignetteWalk = 0; // current share of walking, fades in and out
+	float m_VignetteAlpha = 0; // shown right now, 0 = hidden
+	float m_VignettePeak = 0; // highest alpha since it was shown
+	std::chrono::steady_clock::time_point m_VignetteTime;
+	std::chrono::steady_clock::time_point m_VignetteShownAt;
 
 	VR(Game *game);
 	void initD3D11Callbacks();
@@ -223,6 +233,9 @@ public:
 	void CreateAimDot();
 	void ShowAimDot(const Vector &aim, const Vector &viewOrigin);
 	void HideAimDot();
+	void CreateVignette();
+	void UpdateVignette(float walkedDistance);
+	void HideVignette();
 	void GetPoses();
 	void UpdatePosesAndActions();
 	void GetViewParameters();

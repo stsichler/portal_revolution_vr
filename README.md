@@ -19,10 +19,10 @@ VR mod for Portal: Revolution, playable but work in progress.
 * View turns with the portal when passing through it
 * Picking up cubes
 * Roomscale: the player follows your head when you walk in your room
+* Comfort vignette when walking with the stick (`VignetteWalking` in `VR/config.txt`)
 
 ## What's missing
 * HUD
-* The menu is nearly square, not 16:9
 * No release package yet
 
 ## Build instructions

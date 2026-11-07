@@ -123,6 +123,7 @@ void VR::init()
     m_Overlay->SetOverlayCurvature(m_MainMenuHandle, 0.15f);
     m_Overlay->SetOverlayMouseScale(m_MainMenuHandle, &mouseScaleMenu);
     CreateAimDot();
+    CreateVignette();
 
     vr::VRCompositor()->SetTrackingSpace(m_SeatedMode
         ? vr::TrackingUniverseSeated
@@ -632,6 +633,7 @@ void VR::SubmitVRTextures()
         vr::VROverlay()->ShowOverlay(m_MainMenuHandle);
         //vr::VROverlay()->HideOverlay(m_HUDHandle);
         HideAimDot();
+        HideVignette();
 
         vr::EVRCompositorError submitError = vr::VRCompositor()->Submit(vr::Eye_Left, &m_VKBlankTexture.m_VRTexture, NULL, vr::Submit_Default);
         vr::VRCompositor()->Submit(vr::Eye_Right, &m_VKBlankTexture.m_VRTexture, NULL, vr::Submit_Default);
@@ -821,6 +823,107 @@ void VR::ShowAimDot(const Vector &aim, const Vector &viewOrigin)
 void VR::HideAimDot()
 {
     m_Overlay->HideOverlay(m_AimDotHandle);
+}
+
+namespace
+{
+    // Share of the vignette's half width (texture) where it starts to darken and where it's opaque.
+    constexpr float kVignette_ClearRadius = 0.25f;
+    constexpr float kVignette_OpaqueRadius = 0.5f;
+    constexpr float kVignette_Distance = 2.0f; // meters; further away the eyes disagree less about its center
+}
+
+// Black with a soft round opening, fixed to the head. Fades only with its alpha, so no shaders.
+void VR::CreateVignette()
+{
+    constexpr int size = 256; // OpenVR limits the data of SetOverlayRaw
+    std::vector<uint8_t> pixels(size * size * 4);
+    for (int y = 0; y < size; ++y)
+    {
+        for (int x = 0; x < size; ++x)
+        {
+            const float dx = (x + 0.5f) * 2 / size - 1, dy = (y + 0.5f) * 2 / size - 1;
+            const float t = std::clamp((sqrtf(dx * dx + dy * dy) - kVignette_ClearRadius) / (kVignette_OpaqueRadius - kVignette_ClearRadius), 0.0f, 1.0f);
+            pixels[(y * size + x) * 4 + 3] = static_cast<uint8_t>(255 * t * t * (3 - 2 * t));
+        }
+    }
+
+    m_Overlay->CreateOverlay("VignetteOverlayKey", "VignetteOverlay", &m_VignetteHandle);
+    const vr::EVROverlayError error = m_Overlay->SetOverlayRaw(m_VignetteHandle, pixels.data(), size, size, 4);
+    std::cout << "[VR] vignette overlay: " << m_Overlay->GetOverlayErrorNameFromEnum(error) << "\n";
+
+    const vr::HmdMatrix34_t inFront =
+    {
+        1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, -kVignette_Distance
+    };
+    std::cout << "[VR] vignette transform: " << m_Overlay->GetOverlayErrorNameFromEnum(
+        m_Overlay->SetOverlayTransformTrackedDeviceRelative(m_VignetteHandle, vr::k_unTrackedDeviceIndex_Hmd, &inFront)) << "\n";
+
+    // Same order and distance would sort by distance only; the aim dot has to stay visible.
+    m_Overlay->SetOverlaySortOrder(m_AimDotHandle, 1);
+}
+
+// Once per frame in the game. walkedDistance: how far the view moved with the stick or keyboard.
+void VR::UpdateVignette(float walkedDistance)
+{
+    constexpr float fullSpeed = 120; // units per second, estimated; walking is up to 175
+    constexpr float fullTilt = 20; // degrees, estimated
+    constexpr float fadeInSeconds = 0.15f, fadeOutSeconds = 0.4f;
+
+    const auto now = std::chrono::steady_clock::now();
+    const float seconds = std::chrono::duration<float>(now - m_VignetteTime).count();
+    m_VignetteTime = now;
+
+    const float target = std::clamp(walkedDistance / (std::max)(seconds, 0.001f) / fullSpeed, 0.0f, 1.0f);
+    m_VignetteWalk = target > m_VignetteWalk
+        ? (std::min)(target, m_VignetteWalk + seconds / fadeInSeconds)
+        : (std::max)(target, m_VignetteWalk - seconds / fadeOutSeconds);
+
+    // Straight from the tilt left, without a fade: it's gone again within a fraction of a second.
+    const float tilt = (std::min)(1.0f, (std::max)(std::abs(m_RotationOffset.x), std::abs(m_RotationOffset.z)) / fullTilt);
+
+    const float alpha = (std::max)(m_VignetteWalk * m_VignetteWalking, tilt * m_VignetteAfterPortal);
+    if (alpha <= 0.001f)
+        return HideVignette();
+    if (alpha == m_VignetteAlpha)
+        return;
+
+    m_Overlay->SetOverlayAlpha(m_VignetteHandle, alpha);
+    if (m_VignetteAlpha == 0)
+    {
+        // Wide enough that its edge is outside the view, also with a small opening.
+        const float tanHalfFov = tanf(DEG2RAD(m_Fov) / 2);
+        const float tanHalfWidth = (std::max)(tanf(DEG2RAD(std::clamp(m_VignetteClearAngle, 1.0f, 80.0f))) / kVignette_ClearRadius,
+            1.2f * (std::max)(tanHalfFov, tanHalfFov / m_Aspect));
+        m_Overlay->SetOverlayWidthInMeters(m_VignetteHandle, 2 * kVignette_Distance * tanHalfWidth);
+        const vr::EVROverlayError shown = m_Overlay->ShowOverlay(m_VignetteHandle);
+        static bool logged = false;
+        if (!logged)
+        {
+            std::cout << "[VR] vignette first shown: " << m_Overlay->GetOverlayErrorNameFromEnum(shown) << ", visible " << m_Overlay->IsOverlayVisible(m_VignetteHandle)
+                      << ", clear up to " << RAD2DEG(atanf(tanHalfWidth * kVignette_ClearRadius)) << " degrees, opaque from "
+                      << RAD2DEG(atanf(tanHalfWidth * kVignette_OpaqueRadius)) << ", view " << RAD2DEG(atanf(tanHalfFov)) << " x " << RAD2DEG(atanf(tanHalfFov / m_Aspect)) << "\n";
+            logged = true;
+        }
+        m_VignetteShownAt = now;
+        m_VignettePeak = 0;
+    }
+    m_VignetteAlpha = alpha;
+    m_VignettePeak = (std::max)(m_VignettePeak, alpha);
+}
+
+void VR::HideVignette()
+{
+    m_VignetteWalk = 0;
+    if (m_VignetteAlpha == 0)
+        return;
+
+    m_Overlay->HideOverlay(m_VignetteHandle);
+    m_VignetteAlpha = 0;
+    std::cout << "[VR] vignette for " << std::chrono::duration<float>(std::chrono::steady_clock::now() - m_VignetteShownAt).count()
+              << " s, up to " << m_VignettePeak << "\n";
 }
 
 void VR::GetPoses() 
@@ -1797,6 +1900,9 @@ void VR::ParseConfigFile()
     parseXYZOrDefaultZero("ViewmodelAngCustomOffset", m_ViewmodelAngCustomOffset);
     parseOrDefault("ApplyPitchAndRollPortalRotationOffset", m_ApplyPitchAndRollPortalRotationOffset, false);
     parseOrDefault("CameraUprightRecoverySpeed", m_CameraUprightRecoverySpeed, 0.2f);
+    parseOrDefault("VignetteWalking", m_VignetteWalking, 0.8f);
+    parseOrDefault("VignetteAfterPortal", m_VignetteAfterPortal, 0.8f);
+    parseOrDefault("VignetteClearAngle", m_VignetteClearAngle, 25.0f);
 }
 
 void VR::WaitForConfigUpdate()
