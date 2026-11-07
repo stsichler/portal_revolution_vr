@@ -26,7 +26,7 @@ jobs:
       # The post-build event copies d3d11.dll into the local Steam game directory,
       # which does not exist on the runner.
       - name: Build
-        run: msbuild portal_revolution_vr.sln /m /p:Configuration=${{ matrix.configuration }} /p:Platform=x64 /p:PostBuildEventUseInBuild=false
+        run: msbuild portal_revolution_vr.sln /m /p:Configuration=${{ matrix.configuration }} /p:Platform=x64 /p:PostBuildEventUseInBuild=false /p:PrvrVersion=${{ github.sha }}
 
       - name: Package
         shell: pwsh

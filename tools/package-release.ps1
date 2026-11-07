@@ -10,7 +10,7 @@ The ZIP root is the game folder, so players extract it there:
   VR\licenses\                            COPYING and the licenses of MinHook, OpenVR, Source SDK
   Uninstall_Portal_Revolution_VR_Mod.cmd  tools\
 
-Build the configuration first. Release has no log file and no frame trace, so players get that.
+Build the configuration first. Players get Release: it writes the same log, but has no frame trace.
 
 .EXAMPLE
 tools\package-release.ps1 -Version 1.0

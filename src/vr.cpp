@@ -207,7 +207,10 @@ void VR::InitOpenVR()
     }
 
     system->GetRecommendedRenderTargetSize(&m_RenderWidth, &m_RenderHeight);
-    std::cout << "[OpenVR] initialized, render target " << m_RenderWidth << "x" << m_RenderHeight << "\n";
+    char model[vr::k_unMaxPropertyStringSize] = "?";
+    system->GetStringTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_ModelNumber_String, model, sizeof(model));
+    std::cout << "[OpenVR] initialized, runtime " << system->GetRuntimeVersion() << ", headset " << model
+              << ", render target " << m_RenderWidth << "x" << m_RenderHeight << "\n";
     m_System = system;
 }
 

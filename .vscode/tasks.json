@@ -4,7 +4,7 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			// Optimized with Release CRT, but with full PDB and the diagnostics (log file, crash log)
+			// Optimized with Release CRT, but with full PDB and the diagnostics (frame trace, console window)
 			"label": "Build RelWithDebInfo (x64)",
 			"type": "process",
 			"command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",

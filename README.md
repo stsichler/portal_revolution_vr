@@ -59,11 +59,14 @@ Change these in `Portal Revolution/VR/config.txt`, one after the other. They app
 2. `VignetteWalking=0.8`: darkens the edges of your view while you walk with the stick.
 3. Leave `SnapTurning=true`: the view jumps when you turn. With `false` it turns smoothly, and `VignetteTurning` darkens the edges meanwhile.
 
+## Problems
+Please [open an issue](https://github.com/stsichler/portal_revolution_vr/issues) right after the game ended and attach `prvr_debug.log` from the game folder. It starts over with each game start.
+
 ## Build instructions
 1. Clone the repository
 2. Open `portal_revolution_vr.sln`, set to x64 (Debug, Release or RelWithDebInfo), build
 
-After building, `d3d11.dll` is copied to `Portal Revolution/bin/win64` (default Steam path), so the game must not be running. Then `tools/package-release.ps1` makes the ZIP. Only Debug and RelWithDebInfo write `prvr_debug.log`.
+After building, `d3d11.dll` is copied to `Portal Revolution/bin/win64` (default Steam path), so the game must not be running. Then `tools/package-release.ps1` makes the ZIP.
 
 ## Based on
 * Brilliant Portal 2 VR mod from [Gistix](https://github.com/Gistix/portal2vr)

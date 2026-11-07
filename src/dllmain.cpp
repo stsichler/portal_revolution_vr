@@ -1,4 +1,5 @@
 #include <Windows.h>
+#include <cstdint>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -6,9 +7,6 @@
 #include <string>
 #include "game.h"
 #include "strata_hooks.h"
-
-#ifdef PRVR_DIAGNOSTICS
-#include <cstdint>
 
 // Writes everything to the log file (b) and, if there is one, also to a second stream buffer
 // (a, the console).
@@ -54,12 +52,16 @@ static const char *ModuleOf(const void *address, uintptr_t &offset)
 
 // The engine installs its own unhandled exception filter, so use a vectored handler to see the
 // crash first. Exceptions that the code handles itself get logged too; the last one is the crash.
+// Limited, so that repeated handled ones can't fill the disk of a player.
 static LONG CALLBACK CrashLogger(EXCEPTION_POINTERS *ep)
 {
+    static LONG logged = 0;
     const DWORD code = ep->ExceptionRecord->ExceptionCode;
     if (code != EXCEPTION_ACCESS_VIOLATION && code != EXCEPTION_ILLEGAL_INSTRUCTION &&
         code != EXCEPTION_PRIV_INSTRUCTION && code != EXCEPTION_INT_DIVIDE_BY_ZERO &&
         code != EXCEPTION_STACK_OVERFLOW && code != EXCEPTION_IN_PAGE_ERROR)
+        return EXCEPTION_CONTINUE_SEARCH;
+    if (InterlockedIncrement(&logged) > 100)
         return EXCEPTION_CONTINUE_SEARCH;
 
     const void *address = ep->ExceptionRecord->ExceptionAddress;
@@ -97,7 +99,6 @@ static LONG CALLBACK CrashLogger(EXCEPTION_POINTERS *ep)
     std::cout << std::dec << std::flush;
     return EXCEPTION_CONTINUE_SEARCH;
 }
-#endif
 
 // The first entries of tier0's ICommandLine. Checked against the vtable of CCommandLine in
 // Portal Revolution's tier0.dll (Strata Source): like CS:GO it has HasParm after CheckParm,
@@ -199,15 +200,17 @@ static bool AddLaunchOptions()
     return true;
 }
 
-#ifdef PRVR_DIAGNOSTICS
-static void SetupDiagnostics()
+// Everything written to std::cout goes to prvr_debug.log, in every build: players attach it to a
+// report. It starts over with each game start and is flushed after every write, so it survives a
+// crash. Log events, not frames, to keep it small.
+static void SetupLog()
 {
-    // Everything written to std::cout goes to prvr_debug.log, flushed after every write, so it
-    // survives a crash. A console window is only opened if the environment variable
-    // PRVR_CONSOLE is set: the window takes the focus from the game, and with Steam Link that
-    // made SteamVR open its dashboard right when the game menu appeared.
     static std::ofstream logFile("prvr_debug.log", std::ios::trunc);
     static TeeBuf teeBuf(nullptr, logFile.rdbuf());
+#ifdef PRVR_DIAGNOSTICS
+    // Only if the environment variable PRVR_CONSOLE is set: the window takes the focus from the
+    // game, and with Steam Link that made SteamVR open its dashboard right when the game menu
+    // appeared.
     if (GetEnvironmentVariableA("PRVR_CONSOLE", nullptr, 0) > 0)
     {
         AllocConsole();
@@ -215,11 +218,11 @@ static void SetupDiagnostics()
         freopen_s(&fp, "CONOUT$", "w", stdout);
         teeBuf.SetFirst(std::cout.rdbuf());
     }
+#endif
     std::cout.rdbuf(&teeBuf);
     std::cout << std::unitbuf;
     AddVectoredExceptionHandler(1, CrashLogger);
 }
-#endif
 
 DWORD WINAPI InitPRVR(HMODULE hModule)
 {
@@ -242,10 +245,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
                     ExitProcess(0);
                 g_LaunchOptionsLog = "[LaunchOptions] tier0 CommandLine() not found, nothing added\n";
             }
-#ifdef PRVR_DIAGNOSTICS
-            SetupDiagnostics();
-            std::cout << g_LaunchOptionsLog;
-#endif
+            SetupLog();
+            std::cout << "[Mod] Portal Revolution VR " PRVR_VERSION "\n" << g_LaunchOptionsLog;
             // Synchronously: the D3D11 callbacks must be set before shaderapidx11 creates the device.
             g_Game = new Game();
             CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)InitPRVR, hModule, 0, NULL);

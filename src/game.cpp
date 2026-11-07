@@ -22,6 +22,15 @@ void Game::init()
             Sleep(50);
     }
 
+    // Tells the version of the game: the mod depends on fixed positions in these DLLs.
+    for (const char *dll : { "client.dll", "engine.dll" })
+    {
+        const auto base = reinterpret_cast<uintptr_t>(GetModuleHandle(dll));
+        const auto dos = reinterpret_cast<const IMAGE_DOS_HEADER *>(base);
+        const auto nt = reinterpret_cast<const IMAGE_NT_HEADERS *>(base + dos->e_lfanew);
+        std::cout << "[Game] " << dll << " built at " << nt->FileHeader.TimeDateStamp << "\n";
+    }
+
     m_ClientEntityList = (IClientEntityList *)GetInterface("client.dll", "VClientEntityList003");
     m_BaseClientDll = (IBaseClientDLL *)GetInterface("client.dll", "VClient018");
     m_EngineTrace = (IEngineTrace *)GetInterface("engine.dll", "EngineTraceClient004");
