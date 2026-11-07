@@ -189,7 +189,7 @@ public:
 
 	float m_TurnSpeed = 0.15;
 	bool m_SnapTurning = true;
-	float m_SnapTurnAngle = 45.0;
+	float m_SnapTurnAngle = 30.0;
 	bool m_LeftHanded = false;
 	float m_VRScale = 43.2;
 	float m_IpdScale = 1.0;
@@ -204,10 +204,12 @@ public:
 	bool m_ApplyPitchAndRollPortalRotationOffset = true; // If `true`, the camera pitch/roll follows the exit portal's orientation when portalling
 	float m_CameraUprightRecoverySpeed = 0.2f; // If the above is `true`, this controls how quickly the camera turns back upright after portalling
 	float m_VignetteWalking = 0.0f; // 0 = off, 1 = black
+	float m_VignetteTurning = 0.8f; // 0 = off, 1 = black
 	float m_VignetteAfterPortal = 1.0f; // 0 = off, 1 = black
 	float m_VignetteClearAngle = 20.0f; // degrees from the center of the view that stay clear
 
-	float m_VignetteWalk = 0; // current share of walking, fades in and out
+	float m_SmoothTurnRate = 0; // degrees per second the stick turns right now, 0 with snap turning
+	float m_VignetteMoving = 0; // current alpha from walking and turning, fades in and out
 	float m_VignetteAlpha = 0; // shown right now, 0 = hidden
 	float m_VignettePeak = 0; // highest alpha since it was shown
 	float m_VignetteTanHalfWidth = 1; // of the overlay, seen from the head

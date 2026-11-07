@@ -1,6 +1,6 @@
 TurnSpeed=0.15
 SnapTurning=true
-SnapTurnAngle=45.0
+SnapTurnAngle=30.0
 LeftHanded=false
 VRScale=43.2 # Real word units to source units scale
 IPDScale=1.0 # Scale of interpupillary distance 
@@ -19,5 +19,6 @@ ViewmodelAngCustomOffsetZ=0.0
 ApplyPitchAndRollPortalRotationOffset=true # If `true`, the camera pitch/roll follows the exit portal's orientation when portalling
 CameraUprightRecoverySpeed=0.2 # If the above is `true`, this controls how quickly the camera turns back upright after portalling
 VignetteWalking=0 # Darkens the edge of the view against nausea when walking with the stick. 0 = off, 1 = black
+VignetteTurning=0.8 # The same when turning with the stick (only with SnapTurning=false). 0 = off, 1 = black
 VignetteAfterPortal=1 # The same while the camera turns back upright after portalling (see above). 0 = off, 1 = black
 VignetteClearAngle=20.0 # Degrees from the center of the view that stay clear

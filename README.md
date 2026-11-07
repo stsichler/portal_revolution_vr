@@ -39,6 +39,7 @@ After building, `d3d11.dll` is copied to `Portal Revolution/bin/win64` (default 
 Change these in `Portal Revolution/VR/config.txt`, one after the other. They apply at once, no restart needed.
 1. `ApplyPitchAndRollPortalRotationOffset=false`: the view stays upright when you pass through a portal.
 2. `VignetteWalking=0.8`: darkens the edges of your view while you walk with the stick.
+3. Leave `SnapTurning=true`: the view jumps when you turn. With `false` it turns smoothly, and `VignetteTurning` darkens the edges meanwhile.
 
 ## Based on
 * Brilliant Portal 2 VR mod from [Gistix](https://github.com/Gistix/portal2vr)

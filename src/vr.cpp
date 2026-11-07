@@ -558,6 +558,7 @@ void VR::Update()
 
     g_MenuVisible = menuVisible;
     if (menuVisible) {
+        m_SmoothTurnRate = 0;
         ProcessMenuInput();
     } else {
         // ProcessMenuInput may have left the overlay interactive (laser); not outside the menus.
@@ -878,6 +879,7 @@ void VR::DrawVignette(float clearAngle)
 void VR::UpdateVignette(float walkedDistance)
 {
     constexpr float fullSpeed = 120; // units per second, estimated; walking is up to 175
+    constexpr float fullTurnRate = 60; // degrees per second, estimated; the stick turns up to 150
     constexpr float fullTilt = 20; // degrees, estimated
     constexpr float fadeInSeconds = 0.15f, fadeOutSeconds = 0.4f;
 
@@ -885,15 +887,17 @@ void VR::UpdateVignette(float walkedDistance)
     const float seconds = std::chrono::duration<float>(now - m_VignetteTime).count();
     m_VignetteTime = now;
 
-    const float target = std::clamp(walkedDistance / (std::max)(seconds, 0.001f) / fullSpeed, 0.0f, 1.0f);
-    m_VignetteWalk = target > m_VignetteWalk
-        ? (std::min)(target, m_VignetteWalk + seconds / fadeInSeconds)
-        : (std::max)(target, m_VignetteWalk - seconds / fadeOutSeconds);
+    const float walking = std::clamp(walkedDistance / (std::max)(seconds, 0.001f) / fullSpeed, 0.0f, 1.0f);
+    const float turning = (std::min)(1.0f, m_SmoothTurnRate / fullTurnRate);
+    const float target = (std::max)(walking * m_VignetteWalking, turning * m_VignetteTurning);
+    m_VignetteMoving = target > m_VignetteMoving
+        ? (std::min)(target, m_VignetteMoving + seconds / fadeInSeconds)
+        : (std::max)(target, m_VignetteMoving - seconds / fadeOutSeconds);
 
     // Straight from the tilt left, without a fade: it's gone again within a fraction of a second.
     const float tilt = (std::min)(1.0f, (std::max)(std::abs(m_RotationOffset.x), std::abs(m_RotationOffset.z)) / fullTilt);
 
-    const float alpha = (std::max)(m_VignetteWalk * m_VignetteWalking, tilt * m_VignetteAfterPortal);
+    const float alpha = (std::max)(m_VignetteMoving, tilt * m_VignetteAfterPortal);
     if (alpha <= 0.001f)
         return HideVignette();
     if (alpha == m_VignetteAlpha)
@@ -916,7 +920,7 @@ void VR::UpdateVignette(float walkedDistance)
 
 void VR::HideVignette()
 {
-    m_VignetteWalk = 0;
+    m_VignetteMoving = 0;
     if (m_VignetteAlpha == 0)
         return;
 
@@ -1201,6 +1205,7 @@ void VR::ProcessInput()
 
     vr::InputAnalogActionData_t analogActionData;
 
+    m_SmoothTurnRate = 0;
     if (GetAnalogActionData(m_ActionTurn, analogActionData))
     {
         if (m_SnapTurning)
@@ -1224,6 +1229,8 @@ void VR::ProcessInput()
             float deadzone = 0.2;
             // smoother turning
             float xNormalized = (abs(analogActionData.x) - deadzone) / (1 - deadzone);
+            if (abs(analogActionData.x) > deadzone)
+                m_SmoothTurnRate = m_TurnSpeed * 1000 * xNormalized;
             if (analogActionData.x > deadzone)
             {
                 m_RotationOffset.y -= m_TurnSpeed * deltaTime * xNormalized;
@@ -1883,7 +1890,7 @@ void VR::ParseConfigFile()
     };
 
     parseOrDefault("SnapTurning", m_SnapTurning, true);
-    parseOrDefault("SnapTurnAngle", m_SnapTurnAngle, 45.0f);
+    parseOrDefault("SnapTurnAngle", m_SnapTurnAngle, 30.0f);
     parseOrDefault("TurnSpeed", m_TurnSpeed, 0.15f);
     parseOrDefault("LeftHanded", m_LeftHanded, false);
     parseOrDefault("VRScale", m_VRScale, 43.2f);
@@ -1901,6 +1908,7 @@ void VR::ParseConfigFile()
     parseOrDefault("ApplyPitchAndRollPortalRotationOffset", m_ApplyPitchAndRollPortalRotationOffset, true);
     parseOrDefault("CameraUprightRecoverySpeed", m_CameraUprightRecoverySpeed, 0.2f);
     parseOrDefault("VignetteWalking", m_VignetteWalking, 0.0f);
+    parseOrDefault("VignetteTurning", m_VignetteTurning, 0.8f);
     parseOrDefault("VignetteAfterPortal", m_VignetteAfterPortal, 1.0f);
     parseOrDefault("VignetteClearAngle", m_VignetteClearAngle, 20.0f);
 }
