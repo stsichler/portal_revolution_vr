@@ -2,8 +2,7 @@
 // The mod is loaded as d3d11.dll from the game's bin\win64 (shaderapidx11.dll imports
 // D3D11CreateDevice from it). d3d11_proxy.cpp forwards the exports to the system d3d11.dll;
 // this layer hooks the created device, its immediate context, the DXGI factory and the swap
-// chain, and reports the events the VR code needs through the callbacks below. It replaces the
-// callbacks that the patched dxvk provided for the D3D9 games.
+// chain, and reports the events the VR code needs through the callbacks below.
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <functional>

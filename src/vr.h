@@ -10,17 +10,14 @@ class Game;
 struct ID3D11Texture2D;
 
 
-struct TrackedDevicePoseData 
+struct TrackedDevicePoseData
 {
-	std::string TrackedDeviceName;
 	Vector TrackedDevicePos;
-	Vector TrackedDeviceVel;
 	QAngle TrackedDeviceAng;
-	QAngle TrackedDeviceAngVel;
 };
 
 // A D3D11 texture handed to OpenVR (vr::TextureType_DirectX).
-struct SharedTextureHolder 
+struct SharedTextureHolder
 {
 	ID3D11Texture2D *m_Texture = nullptr;
 	uint32_t m_Width = 0;
@@ -40,12 +37,6 @@ public:
 	vr::VROverlayHandle_t m_MainMenuHandle;
 	vr::VROverlayHandle_t m_AimDotHandle = vr::k_ulOverlayHandleInvalid;
 	vr::VROverlayHandle_t m_VignetteHandle = vr::k_ulOverlayHandleInvalid;
-	//vr::VROverlayHandle_t m_HUDHandle;
-
-	float m_HorizontalOffsetLeft;
-	float m_VerticalOffsetLeft;
-	float m_HorizontalOffsetRight;
-	float m_VerticalOffsetRight;
 
 	uint32_t m_RenderWidth;
 	uint32_t m_RenderHeight;
@@ -77,22 +68,13 @@ public:
 
 	QAngle m_HmdAngAbs;
 
-	Vector m_HmdPosRelativeRaw = { 0,0,0 };
-	Vector m_HmdPosRelativeRawPrev = { 0,0,0 };
-
 	Vector m_HmdPosRelative = { 0,0,0 };
-	Vector m_HmdPosRelativePrev = { 0,0,0 };
-
-	bool m_Traced = false;
 
 	Vector m_Center = { 0,0,0 };
 	Vector m_SetupOrigin = { 0,0,0 };
 
-	float m_HeightOffset = 0.0;
-
-	Vector m_LeftControllerPosAbs;											
 	QAngle m_LeftControllerAngAbs;
-	Vector m_RightControllerPosRel;											
+	Vector m_RightControllerPosRel;
 	QAngle m_RightControllerAngAbs;
 
 	Vector m_ViewmodelPosOffset;
@@ -104,24 +86,19 @@ public:
     float m_ViewmodelCarryWeight = 0.0f; // 0 = pose of the idle animation, 1 = of the carrying one
     std::chrono::steady_clock::time_point m_ViewmodelCarryTime;
 
-	float m_Ipd;																	
+	float m_Ipd;
 	float m_EyeZ;
 
-	Vector m_IntendedPositionOffset = { 0,0,0 };
+	SharedTextureHolder m_LeftEye;
+	SharedTextureHolder m_RightEye;
+	SharedTextureHolder m_BackBufferCopy; // copy of the game's back buffer (menu overlay)
+	SharedTextureHolder m_BlankTexture;
 
-	SharedTextureHolder m_VKLeftEye;
-	SharedTextureHolder m_VKRightEye;
-	SharedTextureHolder m_VKBackBuffer; // copy of the game's back buffer (menu overlay)
-	SharedTextureHolder m_VKBlankTexture;
-
-	bool m_IsVREnabled = false;
 	bool m_IsInitialized = false;
 	bool m_RenderedNewFrame = false;
-	bool m_RenderedHud = false;
 	bool m_CreatedVRTextures = false;
 
 	bool m_PressedTurn = false;
-	bool m_PointerCreated = false;
 
 	// action set
 	vr::VRActionSetHandle_t m_ActionSet;
@@ -149,7 +126,7 @@ public:
 	vr::VRActionHandle_t m_MenuDown;
 	vr::VRActionHandle_t m_MenuLeft;
 	vr::VRActionHandle_t m_MenuRight;
-	vr::VRActionHandle_t m_Spray; 
+	vr::VRActionHandle_t m_Spray;
 	vr::VRActionHandle_t m_Scoreboard;
 	vr::VRActionHandle_t m_ShowHUD;
 	vr::VRActionHandle_t m_Pause;
@@ -171,7 +148,6 @@ public:
 	TrackedDevicePoseData m_RightControllerPose;
 
 	QAngle m_RotationOffset = { 0, 0, 0 };
-	bool m_OverrideEyeAngles = false;
 	std::chrono::steady_clock::time_point m_PrevFrameTime;
 	bool m_InitialPosReset = false;
 	int m_TrackingSpaceSettleFrames = 0; // until the poses are from the current tracking space
@@ -187,9 +163,6 @@ public:
 	bool m_SeatedMode = false;
 	float m_SeatedHeightOffset = 4.0;
 	bool m_Roomscale = true;
-	float m_HudDistance = 1.3;
-	float m_HudSize = 4.0;
-	bool m_HudAlwaysVisible = false;
 	int m_AimMode = 1;
 	bool m_ApplyPitchAndRollPortalRotationOffset = true; // If `true`, the camera pitch/roll follows the exit portal's orientation when portalling
 	float m_CameraUprightRecoveryTime = 0.25f; // If the above is `true`, the seconds until the camera is upright again after portalling, 0 = at once
@@ -209,7 +182,7 @@ public:
 
 	VR(Game *game);
 	void initD3D11Callbacks();
-	bool InitOpenVR(); // VR_Init, done before the game creates its swap chain
+	void InitOpenVR(); // VR_Init, done before the game creates its swap chain
 	void CopyBackBuffer(struct IDXGISwapChain *swapChain);
 	void PrepareWindowImage(struct IDXGISwapChain *swapChain);
 	void CopyBackBufferToEye(SharedTextureHolder &eye);
@@ -220,7 +193,6 @@ public:
 	int SetActionManifest(const char *fileName);
 	void InstallApplicationManifest(const char *fileName);
 	void Update();
-	void SetScreenSizeOverride(bool bState);
 	void CreateVRTextures();
 	void SubmitVRTextures();
 	void RepositionOverlays();
@@ -236,12 +208,9 @@ public:
 	void GetViewParameters();
 	void ProcessMenuInput();
 	void ProcessInput();
-	VMatrix VMatrixFromHmdMatrix(const vr::HmdMatrix34_t &hmdMat);
 	vr::HmdMatrix34_t GetControllerTipMatrix(vr::ETrackedControllerRole controllerRole);
 	int GetPointerPose(vr::ETrackedControllerRole controllerRole, vr::HmdMatrix34_t &pose);
 	bool CheckOverlayIntersectionForController(vr::VROverlayHandle_t overlayHandle, vr::ETrackedControllerRole controllerRole);
-	QAngle GetRightControllerAbsAngle();
-	QAngle& GetRightControllerAbsAngleConst();
 	Vector GetRightControllerAbsPos(Vector eyePosition = {0, 0, 0});
 	Vector GetRecommendedViewmodelAbsPos(Vector eyePosition);
 	QAngle GetRecommendedViewmodelAbsAngle();

@@ -287,7 +287,7 @@ namespace
     bool VRViewActive()
     {
         VR *vr = g_StrataGame->m_VR;
-        return vr->m_IsInitialized && vr->m_IsVREnabled && !vr->IsMenuVisible();
+        return vr->m_IsInitialized && !vr->IsMenuVisible();
     }
 
     struct Section
@@ -417,14 +417,14 @@ namespace
     }
 
     // The player aims with the right controller (view angles of the command: shooting, use). The
-    // left stick walks where the left controller points (Stefan, 2026-11-03), the keyboard
-    // relative to the head. The engine's view angles stay with the head (set in hkRenderView).
+    // left stick walks where the left controller points, the keyboard relative to the head. The
+    // engine's view angles stay with the head (set in hkRenderView).
     bool hkCreateMove(void *thisptr, float flInputSampleTime, CUserCmd *cmd)
     {
         const bool result = oCreateMove(thisptr, flInputSampleTime, cmd);
 
         VR *vr = g_StrataGame->m_VR;
-        if (!cmd || !cmd->command_number || !vr->m_IsInitialized || !vr->m_IsVREnabled || vr->IsMenuVisible())
+        if (!cmd || !cmd->command_number || !VRViewActive())
             return result;
 
         QAngle aim = vr->m_RightControllerAngAbs;
@@ -1153,7 +1153,7 @@ namespace
         static const bool networkFieldsRead = (FindNetworkFields(), true);
 
         VR *vr = g_StrataGame->m_VR;
-        if (!vr->m_IsInitialized || !vr->m_IsVREnabled || vr->IsMenuVisible())
+        if (!VRViewActive())
         {
             RemoveLaser();
             g_Roomscale.hasPosition = false;
@@ -1166,7 +1166,7 @@ namespace
         if (!vr->m_CreatedVRTextures)
             vr->CreateVRTextures();
 
-        if (!vr->m_VKLeftEye.m_Texture || !vr->m_VKRightEye.m_Texture)
+        if (!vr->m_LeftEye.m_Texture || !vr->m_RightEye.m_Texture)
         {
             static bool logged = false;
             if (!logged)
@@ -1265,9 +1265,9 @@ namespace
             }
         };
         D3D11Hooks::TraceNote("left eye");
-        renderEye(vr->m_VKLeftEye, vr->GetViewOriginLeft(position));
+        renderEye(vr->m_LeftEye, vr->GetViewOriginLeft(position));
         D3D11Hooks::TraceNote("right eye");
-        renderEye(vr->m_VKRightEye, vr->GetViewOriginRight(position));
+        renderEye(vr->m_RightEye, vr->GetViewOriginRight(position));
         D3D11Hooks::TraceNote("eyes done");
         g_Gun.viewModel = nullptr; // placed again in the next frame, if there still is one
 
@@ -1340,7 +1340,7 @@ void **StrataHooks::FindVTable(const char *module, const char *className)
 // Panorama lays out for a height of 1080 and the width that follows from its window size. For the
 // back buffer (HMD format, nearly square) that's about 1030 wide, too narrow for the menu. So its
 // windows get a 16:9 part of the back buffer. The size is passed when they are created: changing
-// it later doesn't arrange the panels again. Indices: see VTABLES in dev-notes.
+// it later doesn't arrange the panels again.
 namespace
 {
     constexpr int kPanoramaEngine_CreateWindow = 13; // CUIEngineSource2

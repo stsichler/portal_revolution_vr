@@ -22,14 +22,12 @@ using namespace D3D11Hooks;
 namespace
 {
     // vtable indices: declaration order in d3d11.h/dxgi.h/dxgi1_2.h, IUnknown occupies 0..2.
-    constexpr int kContext_RSSetViewports = 44;
     constexpr int kFactory_CreateSwapChain = 10;
     constexpr int kFactory2_CreateSwapChainForHwnd = 15;
     constexpr int kSwapChain_Present = 8;
     constexpr int kSwapChain_ResizeBuffers = 13;
     constexpr int kSwapChain1_Present1 = 22;
 
-    typedef void(STDMETHODCALLTYPE *tRSSetViewports)(ID3D11DeviceContext *, UINT, const D3D11_VIEWPORT *);
     typedef HRESULT(STDMETHODCALLTYPE *tCreateSwapChain)(IDXGIFactory *, IUnknown *, DXGI_SWAP_CHAIN_DESC *,
         IDXGISwapChain **);
     typedef HRESULT(STDMETHODCALLTYPE *tCreateSwapChainForHwnd)(IDXGIFactory2 *, IUnknown *, HWND,
@@ -38,7 +36,6 @@ namespace
     typedef HRESULT(STDMETHODCALLTYPE *tPresent1)(IDXGISwapChain1 *, UINT, UINT, const DXGI_PRESENT_PARAMETERS *);
     typedef HRESULT(STDMETHODCALLTYPE *tResizeBuffers)(IDXGISwapChain *, UINT, UINT, UINT, DXGI_FORMAT, UINT);
 
-    tRSSetViewports oRSSetViewports = nullptr;
     tCreateSwapChain oCreateSwapChain = nullptr;
     tCreateSwapChainForHwnd oCreateSwapChainForHwnd = nullptr;
     tPresent oPresent = nullptr;
@@ -92,6 +89,7 @@ namespace
     constexpr int kContext_DrawInstanced = 21;
     constexpr int kContext_OMSetRenderTargets = 33;
     constexpr int kContext_OMSetDepthStencilState = 36;
+    constexpr int kContext_RSSetViewports = 44;
     constexpr int kContext_RSSetScissorRects = 45;
     constexpr int kContext_CopySubresourceRegion = 46;
     constexpr int kContext_CopyResource = 47;
@@ -106,6 +104,7 @@ namespace
     typedef void(STDMETHODCALLTYPE *tDrawInstanced)(ID3D11DeviceContext *, UINT, UINT, UINT, UINT);
     typedef void(STDMETHODCALLTYPE *tOMSetRenderTargets)(ID3D11DeviceContext *, UINT, ID3D11RenderTargetView *const *, ID3D11DepthStencilView *);
     typedef void(STDMETHODCALLTYPE *tOMSetDepthStencilState)(ID3D11DeviceContext *, ID3D11DepthStencilState *, UINT);
+    typedef void(STDMETHODCALLTYPE *tRSSetViewports)(ID3D11DeviceContext *, UINT, const D3D11_VIEWPORT *);
     typedef void(STDMETHODCALLTYPE *tRSSetScissorRects)(ID3D11DeviceContext *, UINT, const D3D11_RECT *);
     typedef void(STDMETHODCALLTYPE *tCopySubresourceRegion)(ID3D11DeviceContext *, ID3D11Resource *, UINT, UINT, UINT, UINT, ID3D11Resource *, UINT, const D3D11_BOX *);
     typedef void(STDMETHODCALLTYPE *tCopyResource)(ID3D11DeviceContext *, ID3D11Resource *, ID3D11Resource *);
@@ -120,6 +119,7 @@ namespace
     tDrawInstanced oDrawInstanced = nullptr;
     tOMSetRenderTargets oOMSetRenderTargets = nullptr;
     tOMSetDepthStencilState oOMSetDepthStencilState = nullptr;
+    tRSSetViewports oRSSetViewports = nullptr;
     tRSSetScissorRects oRSSetScissorRects = nullptr;
     tCopySubresourceRegion oCopySubresourceRegion = nullptr;
     tCopyResource oCopyResource = nullptr;
@@ -355,6 +355,18 @@ namespace
         oOMSetDepthStencilState(context, state, stencilRef);
     }
 
+    void STDMETHODCALLTYPE hkRSSetViewports(ID3D11DeviceContext *context, UINT count, const D3D11_VIEWPORT *viewports)
+    {
+        if (TraceActive(context) && viewports && count > 0 && memcmp(&viewports[0], &g_TraceViewport, sizeof(D3D11_VIEWPORT)))
+        {
+            g_TraceViewport = viewports[0];
+            TraceFlushDraws();
+            g_TraceFile << "  viewport " << g_TraceViewport.TopLeftX << "," << g_TraceViewport.TopLeftY << " "
+                        << g_TraceViewport.Width << "x" << g_TraceViewport.Height << "\n";
+        }
+        oRSSetViewports(context, count, viewports);
+    }
+
     void STDMETHODCALLTYPE hkRSSetScissorRects(ID3D11DeviceContext *context, UINT count, const D3D11_RECT *rects)
     {
         if (TraceActive(context) && count && rects && memcmp(rects, &g_TraceScissor, sizeof(D3D11_RECT)))
@@ -422,20 +434,6 @@ namespace
     void TraceStart() {}
     void TraceEnd(IDXGISwapChain *) {}
 #endif
-
-    void STDMETHODCALLTYPE hkRSSetViewports(ID3D11DeviceContext *context, UINT count, const D3D11_VIEWPORT *viewports)
-    {
-#ifdef PRVR_DIAGNOSTICS
-        if (TraceActive(context) && viewports && count > 0 && memcmp(&viewports[0], &g_TraceViewport, sizeof(D3D11_VIEWPORT)))
-        {
-            g_TraceViewport = viewports[0];
-            TraceFlushDraws();
-            g_TraceFile << "  viewport " << g_TraceViewport.TopLeftX << "," << g_TraceViewport.TopLeftY << " "
-                        << g_TraceViewport.Width << "x" << g_TraceViewport.Height << "\n";
-        }
-#endif
-        oRSSetViewports(context, count, viewports);
-    }
 
     HRESULT STDMETHODCALLTYPE hkResizeBuffers(IDXGISwapChain *swapChain, UINT bufferCount, UINT width, UINT height,
         DXGI_FORMAT format, UINT flags)
@@ -571,9 +569,8 @@ void D3D11Hooks::OnDeviceCreated(ID3D11Device *device, ID3D11DeviceContext *cont
 
     std::cout << "[D3D11] device created, feature level 0x" << std::hex << device->GetFeatureLevel() << std::dec << "\n";
 
-    Hook(g_Context, kContext_RSSetViewports, (void *)&hkRSSetViewports, oRSSetViewports,
-        "ID3D11DeviceContext::RSSetViewports");
 #ifdef PRVR_DIAGNOSTICS
+    Hook(g_Context, kContext_RSSetViewports, (void *)&hkRSSetViewports, oRSSetViewports, "RSSetViewports");
     Hook(g_Context, kContext_PSSetShaderResources, (void *)&hkPSSetShaderResources, oPSSetShaderResources, "PSSetShaderResources");
     Hook(g_Context, kContext_DrawIndexed, (void *)&hkDrawIndexed, oDrawIndexed, "DrawIndexed");
     Hook(g_Context, kContext_Draw, (void *)&hkDraw, oDraw, "Draw");

@@ -3,7 +3,6 @@
 #include <windowsx.h>
 #include "sdk.h"
 #include "game.h"
-#include "trace.h"
 #include "strata_hooks.h"
 #include <dxgi1_3.h>
 #include <iostream>
@@ -46,28 +45,14 @@ namespace
     }
 }
 
-VR::VR(Game *game) 
+VR::VR(Game *game)
 {
     m_Game = game;
 }
 
 void VR::init()
 {
-    InitOpenVR(); // loads the mod's openvr_api.dll
-
-    char errorString[MAX_STR_LEN];
-
-    vr::HmdError error = vr::VRInitError_None;
-    m_System = vr::VR_Init(&error, vr::VRApplication_Scene);
-
-    if (error != vr::VRInitError_None) 
-    {
-        snprintf(errorString, MAX_STR_LEN, "VR_Init failed: %s", vr::VR_GetVRInitErrorAsEnglishDescription(error));
-        Game::errorMsg(errorString);
-        return;
-    }
-
-    vr::EVRInitError peError = vr::VRInitError_None;
+    InitOpenVR();
 
     if (!vr::VRCompositor())
     {
@@ -76,9 +61,6 @@ void VR::init()
     }
 
     m_Input = vr::VRInput();
-    m_System = vr::OpenVRInternal_ModuleContext().VRSystem();
-
-    m_System->GetRecommendedRenderTargetSize(&m_RenderWidth, &m_RenderHeight);
 
     float l_left = 0.0f, l_right = 0.0f, l_top = 0.0f, l_bottom = 0.0f;
     m_System->GetProjectionRaw(vr::EVREye::Eye_Left, &l_left, &l_right, &l_top, &l_bottom);
@@ -111,14 +93,11 @@ void VR::init()
     std::thread configParser(&VR::WaitForConfigUpdate, this);
     configParser.detach();
 
-    // The menu overlay shows m_VKBackBuffer, a copy of the back buffer made in Present_Pre_Callback.
+    // The menu overlay shows m_BackBufferCopy, a copy of the back buffer made in Present_Pre_Callback.
     m_Overlay = vr::VROverlay();
     m_Overlay->CreateOverlay("MenuOverlayKey", "MenuOverlay", &m_MainMenuHandle);
-    //m_Overlay->CreateOverlay("HUDOverlayKey", "HUDOverlay", &m_HUDHandle);
     m_Overlay->SetOverlayInputMethod(m_MainMenuHandle, vr::VROverlayInputMethod_Mouse);
-    //m_Overlay->SetOverlayInputMethod(m_HUDHandle, vr::VROverlayInputMethod_Mouse);
     m_Overlay->SetOverlayFlag(m_MainMenuHandle, vr::VROverlayFlags_SendVRDiscreteScrollEvents, true);
-    //m_Overlay->SetOverlayFlag(m_HUDHandle, vr::VROverlayFlags_SendVRDiscreteScrollEvents, true);
 
     const vr::HmdVector2_t mouseScaleMenu = { (float)m_RenderWidth, (float)MenuHeight() };
     m_Overlay->SetOverlayCurvature(m_MainMenuHandle, 0.15f);
@@ -129,10 +108,6 @@ void VR::init()
     UpdateTrackingSpace();
 
     UpdatePosesAndActions();
-
-    // In-game VR: stereo rendering (StrataHooks), head tracking, VR input. Controllers, movement
-    // and the gameplay hooks are still missing.
-    m_IsVREnabled = true;
 
     m_IsInitialized = true;
     std::cout << "[VR] initialized, menu overlay created\n";
@@ -163,11 +138,10 @@ void VR::GetWindowSize(int &width, int &height)
     }
 }
 
-// Black texture submitted to both eyes while only the overlay is shown. Created directly with
-// D3D11 (the material system of Strata Source isn't hooked yet).
+// Black texture submitted to both eyes while only the overlay is shown.
 void VR::CreateBlankTexture()
 {
-    if (m_VKBlankTexture.m_Texture || !D3D11Hooks::g_Device)
+    if (m_BlankTexture.m_Texture || !D3D11Hooks::g_Device)
         return;
 
     const UINT size = 64;
@@ -183,14 +157,14 @@ void VR::CreateBlankTexture()
     desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
     D3D11_SUBRESOURCE_DATA data = { pixels.data(), size * sizeof(uint32_t), 0 };
 
-    if (FAILED(D3D11Hooks::g_Device->CreateTexture2D(&desc, &data, &m_VKBlankTexture.m_Texture)))
+    if (FAILED(D3D11Hooks::g_Device->CreateTexture2D(&desc, &data, &m_BlankTexture.m_Texture)))
     {
         std::cout << "[D3D11] could not create the blank texture\n";
         return;
     }
-    m_VKBlankTexture.m_Width = size;
-    m_VKBlankTexture.m_Height = size;
-    m_VKBlankTexture.m_VRTexture.handle = m_VKBlankTexture.m_Texture;
+    m_BlankTexture.m_Width = size;
+    m_BlankTexture.m_Height = size;
+    m_BlankTexture.m_VRTexture.handle = m_BlankTexture.m_Texture;
 }
 
 // The game ships its own, older openvr_api.dll in bin\win64, next to this mod. openvr_api.dll is
@@ -215,11 +189,10 @@ static void LoadModOpenVR()
     std::cout << "[OpenVR] " << path << (module ? " loaded" : " NOT found, using the game's openvr_api.dll") << "\n";
 }
 
-bool VR::InitOpenVR()
+void VR::InitOpenVR()
 {
-    static bool initialized = false;
-    if (initialized)
-        return true;
+    if (m_System)
+        return;
 
     LoadModOpenVR();
 
@@ -235,8 +208,7 @@ bool VR::InitOpenVR()
 
     system->GetRecommendedRenderTargetSize(&m_RenderWidth, &m_RenderHeight);
     std::cout << "[OpenVR] initialized, render target " << m_RenderWidth << "x" << m_RenderHeight << "\n";
-    initialized = true;
-    return true;
+    m_System = system;
 }
 
 uint32_t VR::MenuHeight() const
@@ -262,7 +234,7 @@ void VR::PrepareWindowImage(IDXGISwapChain *swapChain)
         std::cout << "[D3D11] SetSourceSize " << m_RenderWidth << "x" << height << ": 0x" << std::hex << sized << std::dec << "\n";
         lastSized = sized;
     }
-    if (FAILED(sized) || !m_RenderedNewFrame || !m_VKRightEye.m_Texture)
+    if (FAILED(sized) || !m_RenderedNewFrame || !m_RightEye.m_Texture)
         return;
 
     ID3D11Texture2D *backBuffer = nullptr;
@@ -270,11 +242,11 @@ void VR::PrepareWindowImage(IDXGISwapChain *swapChain)
         return;
     const UINT top = (m_RenderHeight - height) / 2;
     const D3D11_BOX middle = { 0, top, 0, m_RenderWidth, top + height, 1 };
-    D3D11Hooks::g_Context->CopySubresourceRegion(backBuffer, 0, 0, 0, 0, m_VKRightEye.m_Texture, 0, &middle);
+    D3D11Hooks::g_Context->CopySubresourceRegion(backBuffer, 0, 0, 0, 0, m_RightEye.m_Texture, 0, &middle);
     backBuffer->Release();
 }
 
-// Copies the game's back buffer into m_VKBackBuffer, which the menu overlay shows. A copy,
+// Copies the game's back buffer into m_BackBufferCopy, which the menu overlay shows. A copy,
 // because back buffers can't be handed to OpenVR (and with the flip model change every frame).
 void VR::CopyBackBuffer(IDXGISwapChain *swapChain)
 {
@@ -289,11 +261,11 @@ void VR::CopyBackBuffer(IDXGISwapChain *swapChain)
     // proportions and ignores the texture bounds. The back buffer is never multisampled (flip model).
     desc.Height = desc.Height < MenuHeight() ? desc.Height : MenuHeight();
 
-    if (!m_VKBackBuffer.m_Texture || m_VKBackBuffer.m_Width != desc.Width || m_VKBackBuffer.m_Height != desc.Height)
+    if (!m_BackBufferCopy.m_Texture || m_BackBufferCopy.m_Width != desc.Width || m_BackBufferCopy.m_Height != desc.Height)
     {
-        if (m_VKBackBuffer.m_Texture)
-            m_VKBackBuffer.m_Texture->Release();
-        m_VKBackBuffer = SharedTextureHolder();
+        if (m_BackBufferCopy.m_Texture)
+            m_BackBufferCopy.m_Texture->Release();
+        m_BackBufferCopy = SharedTextureHolder();
 
         D3D11_TEXTURE2D_DESC copyDesc = desc;
         copyDesc.MipLevels = 1;
@@ -303,19 +275,19 @@ void VR::CopyBackBuffer(IDXGISwapChain *swapChain)
         copyDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
         copyDesc.CPUAccessFlags = 0;
         copyDesc.MiscFlags = 0;
-        if (FAILED(D3D11Hooks::g_Device->CreateTexture2D(&copyDesc, nullptr, &m_VKBackBuffer.m_Texture)))
+        if (FAILED(D3D11Hooks::g_Device->CreateTexture2D(&copyDesc, nullptr, &m_BackBufferCopy.m_Texture)))
         {
             std::cout << "[D3D11] could not create the back buffer copy\n";
             backBuffer->Release();
             return;
         }
-        m_VKBackBuffer.m_Width = desc.Width;
-        m_VKBackBuffer.m_Height = desc.Height;
-        m_VKBackBuffer.m_VRTexture.handle = m_VKBackBuffer.m_Texture;
+        m_BackBufferCopy.m_Width = desc.Width;
+        m_BackBufferCopy.m_Height = desc.Height;
+        m_BackBufferCopy.m_VRTexture.handle = m_BackBufferCopy.m_Texture;
     }
 
     const D3D11_BOX part = { 0, 0, 0, desc.Width, desc.Height, 1 };
-    D3D11Hooks::g_Context->CopySubresourceRegion(m_VKBackBuffer.m_Texture, 0, 0, 0, 0, backBuffer, 0, &part);
+    D3D11Hooks::g_Context->CopySubresourceRegion(m_BackBufferCopy.m_Texture, 0, 0, 0, 0, backBuffer, 0, &part);
     backBuffer->Release();
 }
 
@@ -396,8 +368,7 @@ void VR::initD3D11Callbacks()
     // eye textures are created with the same size.
     D3D11Hooks::SwapChainSize_Callback = [this](UINT &width, UINT &height)
         {
-            if (!InitOpenVR())
-                return;
+            InitOpenVR();
             width = m_RenderWidth;
             height = m_RenderHeight;
         };
@@ -417,14 +388,14 @@ void VR::initD3D11Callbacks()
         };
 }
 
-int VR::SetActionManifest(const char *fileName) 
+int VR::SetActionManifest(const char *fileName)
 {
     char currentDir[MAX_STR_LEN];
     GetCurrentDirectory(MAX_STR_LEN, currentDir);
     char path[MAX_STR_LEN];
     sprintf_s(path, MAX_STR_LEN, "%s\\VR\\SteamVRActionManifest\\%s", currentDir, fileName);
 
-    if (m_Input->SetActionManifestPath(path) != vr::VRInputError_None) 
+    if (m_Input->SetActionManifestPath(path) != vr::VRInputError_None)
     {
         Game::errorMsg("SetActionManifestPath failed");
     }
@@ -487,28 +458,6 @@ void VR::InstallApplicationManifest(const char *fileName)
     vr::VRApplications()->AddApplicationManifest(path);
 }
 
-void VR::SetScreenSizeOverride(bool bState) {
-    bool isOverriding = m_Game->m_VguiSurface->IsScreenSizeOverrideActive();
-
-    if (bState && !isOverriding || !bState && isOverriding) {
-        int iOldWidth, iOldHeight;
-        m_Game->m_VguiSurface->GetScreenSize(iOldWidth, iOldHeight);
-        m_Game->m_VguiSurface->ForceScreenSizeOverride(bState, m_RenderWidth, m_RenderHeight);
-       /*int x = 0, y = 0, w = m_RenderWidth, h = m_RenderHeight;
-
-        if (m_Game->m_ClientMode->GetViewport())
-            m_Game->m_ClientMode->AdjustEngineViewport(x, y, w, h);*/
-
-        if (bState) {
-            /*IMatRenderContext* renderContext = m_Game->m_MaterialSystem->GetRenderContext();
-            renderContext->Viewport(0, 0, m_RenderWidth, m_RenderHeight);
-            renderContext->Release();*/
-        }
-
-        m_Game->m_VguiSurface->OnScreenSizeChanged(iOldWidth, iOldHeight);
-    }
-}
-
 // SeatedMode can change while the game runs; the position is measured anew then, once the poses
 // are from the new space: WaitGetPoses still reports the old one for a while (measured).
 void VR::UpdateTrackingSpace()
@@ -530,25 +479,17 @@ void VR::Update()
     if (!m_IsInitialized || !m_Game->m_Initialized)
         return;
 
-    // The Portal 2 version reset the render target here and recreated the eye textures after
-    // each map change (workshop maps). Not here: this runs on the render thread with queued
-    // rendering, and the RenderView hook resets the render target itself.
-
     SubmitVRTextures();
     UpdateTrackingSpace();
     UpdatePosesAndActions();
     UpdateHeadTracking();
     UpdateHandTracking();
 
-    // Portal 2/Reloaded: IsCursorVisible(); in Strata Source the vgui surface reports no cursor in
-    // the menus (logged for comparison).
-    const bool cursorVisible = m_Game->m_VguiSurface->IsCursorVisible();
     const bool menuVisible = IsMenuVisible();
-    static int lastCursorVisible = -1, lastMenuVisible = -1;
-    if ((int)cursorVisible != lastCursorVisible || (int)menuVisible != lastMenuVisible)
+    static int lastMenuVisible = -1;
+    if ((int)menuVisible != lastMenuVisible)
     {
-        std::cout << "[VR] menu input: menu visible=" << menuVisible << " (cursor visible=" << cursorVisible << ")\n";
-        lastCursorVisible = cursorVisible;
+        std::cout << "[VR] menu input: menu visible=" << menuVisible << "\n";
         lastMenuVisible = menuVisible;
     }
 
@@ -585,7 +526,7 @@ void VR::CreateVRTextures()
     desc.Usage = D3D11_USAGE_DEFAULT;
     desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
-    for (SharedTextureHolder *eye : { &m_VKLeftEye, &m_VKRightEye })
+    for (SharedTextureHolder *eye : { &m_LeftEye, &m_RightEye })
     {
         ID3D11Texture2D *texture = nullptr;
         if (FAILED(D3D11Hooks::g_Device->CreateTexture2D(&desc, nullptr, &texture)))
@@ -596,7 +537,7 @@ void VR::CreateVRTextures()
         eye->m_VRTexture.handle = texture;
     }
 
-    std::cout << "[VR] eye textures " << m_RenderWidth << "x" << m_RenderHeight << ": " << m_VKLeftEye.m_Texture << "/" << m_VKRightEye.m_Texture << "\n";
+    std::cout << "[VR] eye textures " << m_RenderWidth << "x" << m_RenderHeight << ": " << m_LeftEye.m_Texture << "/" << m_RightEye.m_Texture << "\n";
 }
 
 void VR::SubmitVRTextures()
@@ -604,7 +545,7 @@ void VR::SubmitVRTextures()
     if (!m_RenderedNewFrame)
     {
         CreateBlankTexture();
-        if (!m_VKBackBuffer.m_Texture || !m_VKBlankTexture.m_Texture)
+        if (!m_BackBufferCopy.m_Texture || !m_BlankTexture.m_Texture)
             return;
 
         if (!vr::VROverlay()->IsOverlayVisible(m_MainMenuHandle))
@@ -619,21 +560,20 @@ void VR::SubmitVRTextures()
             // as a workaround only show that portion of the texture.
             int windowWidth, windowHeight;
             GetWindowSize(windowWidth, windowHeight);
-            const float uMax = (float)windowWidth / m_VKBackBuffer.m_Width;
-            const float vMax = (float)windowHeight / m_VKBackBuffer.m_Height;
+            const float uMax = (float)windowWidth / m_BackBufferCopy.m_Width;
+            const float vMax = (float)windowHeight / m_BackBufferCopy.m_Height;
             bounds.uMax = uMax < 1.0f ? uMax : 1.0f;
             bounds.vMax = vMax < 1.0f ? vMax : 1.0f;
         }
 
         vr::VROverlay()->SetOverlayTextureBounds(m_MainMenuHandle, &bounds);
-        vr::EVROverlayError overlayError = vr::VROverlay()->SetOverlayTexture(m_MainMenuHandle, &m_VKBackBuffer.m_VRTexture);
+        vr::EVROverlayError overlayError = vr::VROverlay()->SetOverlayTexture(m_MainMenuHandle, &m_BackBufferCopy.m_VRTexture);
         vr::VROverlay()->ShowOverlay(m_MainMenuHandle);
-        //vr::VROverlay()->HideOverlay(m_HUDHandle);
         HideAimDot();
         HideVignette();
 
-        vr::EVRCompositorError submitError = vr::VRCompositor()->Submit(vr::Eye_Left, &m_VKBlankTexture.m_VRTexture, NULL, vr::Submit_Default);
-        vr::VRCompositor()->Submit(vr::Eye_Right, &m_VKBlankTexture.m_VRTexture, NULL, vr::Submit_Default);
+        vr::EVRCompositorError submitError = vr::VRCompositor()->Submit(vr::Eye_Left, &m_BlankTexture.m_VRTexture, NULL, vr::Submit_Default);
+        vr::VRCompositor()->Submit(vr::Eye_Right, &m_BlankTexture.m_VRTexture, NULL, vr::Submit_Default);
 
         // Diagnostics: the first overlay frame and every change of the result codes.
         static int lastOverlayError = -1, lastSubmitError = -1, lastInGame = -1, lastMenu = -1;
@@ -641,8 +581,8 @@ void VR::SubmitVRTextures()
         if (overlayError != lastOverlayError || submitError != lastSubmitError || inGame != lastInGame || menuVisible != lastMenu)
         {
             lastMenu = menuVisible;
-            std::cout << "[VR] overlay frame: inGame=" << inGame << " menu=" << menuVisible << " backbuffer " << m_VKBackBuffer.m_Width << "x"
-                      << m_VKBackBuffer.m_Height << " bounds u<" << bounds.uMax << " v<" << bounds.vMax
+            std::cout << "[VR] overlay frame: inGame=" << inGame << " menu=" << menuVisible << " backbuffer " << m_BackBufferCopy.m_Width << "x"
+                      << m_BackBufferCopy.m_Height << " bounds u<" << bounds.uMax << " v<" << bounds.vMax
                       << " SetOverlayTexture=" << overlayError << " Submit=" << submitError << "\n";
             lastOverlayError = overlayError;
             lastSubmitError = submitError;
@@ -653,45 +593,28 @@ void VR::SubmitVRTextures()
     }
     vr::VROverlay()->HideOverlay(m_MainMenuHandle);
 
-
-    if (m_Game->m_VguiSurface->IsCursorVisible())
-    {
-        // We're in the pause menu
-        //vr::VROverlay()->ShowOverlay(m_HUDHandle);
-    }
-
-    vr::VRCompositor()->Submit(vr::Eye_Left, &m_VKLeftEye.m_VRTexture, &(m_TextureBounds)[0], vr::Submit_Default);
-    vr::VRCompositor()->Submit(vr::Eye_Right, &m_VKRightEye.m_VRTexture, &(m_TextureBounds)[1], vr::Submit_Default);
+    vr::VRCompositor()->Submit(vr::Eye_Left, &m_LeftEye.m_VRTexture, &(m_TextureBounds)[0], vr::Submit_Default);
+    vr::VRCompositor()->Submit(vr::Eye_Right, &m_RightEye.m_VRTexture, &(m_TextureBounds)[1], vr::Submit_Default);
 
     m_RenderedNewFrame = false;
 }
 
 void VR::GetPoseData(vr::TrackedDevicePose_t &poseRaw, TrackedDevicePoseData &poseOut)
 {
-    if (poseRaw.bPoseIsValid) 
+    if (poseRaw.bPoseIsValid)
     {
         vr::HmdMatrix34_t mat = poseRaw.mDeviceToAbsoluteTracking;
         Vector pos;
-        Vector vel;
         QAngle ang;
-        QAngle angvel;
         pos.x = -mat.m[2][3];
         pos.y = -mat.m[0][3];
         pos.z = mat.m[1][3];
         ang.x = asin(mat.m[1][2]) * (180.0 / 3.141592654);
         ang.y = atan2f(mat.m[0][2], mat.m[2][2]) * (180.0 / 3.141592654);
         ang.z = atan2f(-mat.m[1][0], mat.m[1][1]) * (180.0 / 3.141592654);
-        vel.x = -poseRaw.vVelocity.v[2];
-        vel.y = -poseRaw.vVelocity.v[0];
-        vel.z = poseRaw.vVelocity.v[1];
-        angvel.x = -poseRaw.vAngularVelocity.v[2] * (180.0 / 3.141592654);
-        angvel.y = -poseRaw.vAngularVelocity.v[0] * (180.0 / 3.141592654);
-        angvel.z = poseRaw.vAngularVelocity.v[1] * (180.0 / 3.141592654);
 
         poseOut.TrackedDevicePos = pos;
-        poseOut.TrackedDeviceVel = vel;
         poseOut.TrackedDeviceAng = ang;
-        poseOut.TrackedDeviceAngVel = angvel;
     }
 }
 
@@ -718,8 +641,8 @@ void VR::RepositionOverlays()
 
     // Main menu overlay: 3 m in front of the HMD, turned towards it (yaw only). A rigid
     // transform: the overlay's size comes from SetOverlayWidthInMeters, its aspect ratio from
-    // the texture. (The D3D9 version scaled this matrix instead, so the visible area and
-    // ComputeOverlayIntersection didn't match: no laser in the menu.)
+    // the texture. With a scaled matrix, the visible area and ComputeOverlayIntersection don't
+    // match: no laser in the menu.
     Vector menuNewPos = hmdForward * 3 + hmdPosition;
     float hmdYaw = atan2f(hmdMat.m[0][2], hmdMat.m[2][2]);
 
@@ -733,29 +656,6 @@ void VR::RepositionOverlays()
     const float menuHeight = 1.8f; // meters
     vr::VROverlay()->SetOverlayTransformAbsolute(m_MainMenuHandle, trackingOrigin, &menuTransform);
     vr::VROverlay()->SetOverlayWidthInMeters(m_MainMenuHandle, menuHeight * m_RenderWidth / MenuHeight());
-
-    // Reposition HUD overlay
-    /*vr::HmdMatrix34_t hudTransform =
-    {
-        1.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, 1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, 0.0f
-    };
-
-    Vector hudDistance = hmdForward * m_HudDistance;
-    Vector hudNewPos = hudDistance + hmdPosition;
-
-    hudTransform.m[0][3] = hudNewPos.x;
-    hudTransform.m[1][3] = hudNewPos.y - 0.25;
-    hudTransform.m[2][3] = hudNewPos.z;
-
-    hudTransform.m[0][0] *= cos(hmdRotationDegrees);
-    hudTransform.m[0][2] = sin(hmdRotationDegrees);
-    hudTransform.m[2][0] = -sin(hmdRotationDegrees);
-    hudTransform.m[2][2] *= cos(hmdRotationDegrees);
-
-    vr::VROverlay()->SetOverlayTransformAbsolute(m_HUDHandle, trackingOrigin, &hudTransform);
-    vr::VROverlay()->SetOverlayWidthInMeters(m_HUDHandle, m_HudSize);*/
 }
 
 // A white dot with a dark edge, visible on any background.
@@ -934,7 +834,7 @@ void VR::HideVignette()
               << " s, up to " << m_VignettePeak << "\n";
 }
 
-void VR::GetPoses() 
+void VR::GetPoses()
 {
     vr::TrackedDevicePose_t hmdPose = m_Poses[vr::k_unTrackedDeviceIndex_Hmd];
 
@@ -986,13 +886,13 @@ void VR::GetPoses()
     GetPoseData(rightControllerPose, m_RightControllerPose);
 }
 
-void VR::UpdatePosesAndActions() 
+void VR::UpdatePosesAndActions()
 {
     vr::VRCompositor()->WaitGetPoses(m_Poses, vr::k_unMaxTrackedDeviceCount, NULL, 0);
     m_Input->UpdateActionState(&m_ActiveActionSet, sizeof(vr::VRActiveActionSet_t), 1);
 }
 
-void VR::GetViewParameters() 
+void VR::GetViewParameters()
 {
     vr::HmdMatrix34_t eyeToHeadLeft = m_System->GetEyeToHeadTransform(vr::Eye_Left);
     vr::HmdMatrix34_t eyeToHeadRight = m_System->GetEyeToHeadTransform(vr::Eye_Right);
@@ -1032,7 +932,7 @@ bool VR::CheckDigitalActionChanged(vr::VRActionHandle_t &actionHandle, bool &sta
 {
     vr::InputDigitalActionData_t digitalActionData;
     vr::EVRInputError result = m_Input->GetDigitalActionData(actionHandle, &digitalActionData, sizeof(digitalActionData), RestrictToHand(actionHandle));
-    
+
     if (result == vr::VRInputError_None)
     {
         state = digitalActionData.bState;
@@ -1055,9 +955,6 @@ bool VR::GetAnalogActionData(vr::VRActionHandle_t &actionHandle, vr::InputAnalog
 
 void VR::ProcessMenuInput()
 {
-    //vr::VROverlayHandle_t currentOverlay = m_Game->m_EngineClient->IsInGame() ? m_HUDHandle : m_MainMenuHandle;
-    vr::VROverlayHandle_t currentOverlay = m_MainMenuHandle;
-
     // Here, because inputsystem.dll has its window procedure in place by the time there is a menu.
     DXGI_SWAP_CHAIN_DESC swapDesc;
     const HWND window = D3D11Hooks::g_SwapChain && SUCCEEDED(D3D11Hooks::g_SwapChain->GetDesc(&swapDesc))
@@ -1072,8 +969,8 @@ void VR::ProcessMenuInput()
     const WPARAM laserMark = g_GameWindowProc ? kMouseFromLaser : 0;
 
     // Check if left or right hand controller is pointing at the overlay
-    const bool isHoveringOverlay = CheckOverlayIntersectionForController(currentOverlay, vr::TrackedControllerRole_LeftHand) ||
-                                   CheckOverlayIntersectionForController(currentOverlay, vr::TrackedControllerRole_RightHand);
+    const bool isHoveringOverlay = CheckOverlayIntersectionForController(m_MainMenuHandle, vr::TrackedControllerRole_LeftHand) ||
+                                   CheckOverlayIntersectionForController(m_MainMenuHandle, vr::TrackedControllerRole_RightHand);
 
     static int lastHovering = -1;
     if ((int)isHoveringOverlay != lastHovering)
@@ -1086,7 +983,7 @@ void VR::ProcessMenuInput()
     // only activate laser if a controller is pointing at the overlay
     if (isHoveringOverlay)
     {
-        vr::VROverlay()->SetOverlayFlag(currentOverlay, vr::VROverlayFlags_MakeOverlaysInteractiveIfVisible, true);
+        vr::VROverlay()->SetOverlayFlag(m_MainMenuHandle, vr::VROverlayFlags_MakeOverlaysInteractiveIfVisible, true);
 
         // Laser position on the overlay (back buffer pixels, origin bottom left) -> mouse message
         // coordinates. Panorama lays the menu out over a part of the back buffer, not the window
@@ -1102,7 +999,7 @@ void VR::ProcessMenuInput()
         // window. So mouse messages go straight to that window (SendInput hit whatever was under
         // the real cursor, and only if the game had the focus).
         vr::VREvent_t vrEvent;
-        while (vr::VROverlay()->PollNextOverlayEvent(currentOverlay, &vrEvent, sizeof(vrEvent)))
+        while (vr::VROverlay()->PollNextOverlayEvent(m_MainMenuHandle, &vrEvent, sizeof(vrEvent)))
         {
             int x, y;
             switch (vrEvent.eventType)
@@ -1157,8 +1054,8 @@ void VR::ProcessMenuInput()
     }
     else
     {
-        vr::VROverlay()->SetOverlayFlag(currentOverlay, vr::VROverlayFlags_MakeOverlaysInteractiveIfVisible, false);
-        
+        vr::VROverlay()->SetOverlayFlag(m_MainMenuHandle, vr::VROverlayFlags_MakeOverlaysInteractiveIfVisible, false);
+
         bool state;
         if (CheckDigitalActionChanged(m_MenuSelect, state) && state)
         {
@@ -1219,11 +1116,6 @@ void VR::ProcessMenuInput()
 
 void VR::ProcessInput()
 {
-    if (!m_IsVREnabled)
-        return;
-
-    //vr::VROverlay()->SetOverlayFlag(m_HUDHandle, vr::VROverlayFlags_MakeOverlaysInteractiveIfVisible, false);
-
     typedef std::chrono::duration<float, std::milli> duration;
     auto currentTime = std::chrono::steady_clock::now();
     duration elapsed = currentTime - m_PrevFrameTime;
@@ -1374,46 +1266,12 @@ void VR::ProcessInput()
     {
         m_Game->ClientCmd_Unrestricted("impulse 201");
     }
-    
-    /*bool isControllerVertical = m_RightControllerAngAbs.x > 60 || m_RightControllerAngAbs.x < -45;
-    if ((PressedDigitalAction(m_ShowHUD) || PressedDigitalAction(m_Scoreboard) || isControllerVertical || m_HudAlwaysVisible)
-        && m_RenderedHud)
-    {
-        if (!vr::VROverlay()->IsOverlayVisible(m_HUDHandle) || m_HudAlwaysVisible)
-            RepositionOverlays();
-
-        if (PressedDigitalAction(m_Scoreboard))
-            m_Game->ClientCmd_Unrestricted("+showscores");
-        else
-            m_Game->ClientCmd_Unrestricted("-showscores");
-
-        vr::VROverlay()->ShowOverlay(m_HUDHandle);
-    }
-    else
-    {
-        vr::VROverlay()->HideOverlay(m_HUDHandle);
-    }*/
-
-    m_RenderedHud = false;
 
     if (CheckDigitalActionChanged(m_Pause, state) && state)
     {
         m_Game->ClientCmd_Unrestricted("gameui_activate");
         RepositionOverlays();
     }
-}
-
-VMatrix VR::VMatrixFromHmdMatrix(const vr::HmdMatrix34_t &hmdMat)
-{
-    // VMatrix has a different implicit coordinate system than HmdMatrix34_t, but this function does not convert between them
-    VMatrix vMat(
-        hmdMat.m[0][0], hmdMat.m[1][0], hmdMat.m[2][0], 0.0f,
-        hmdMat.m[0][1], hmdMat.m[1][1], hmdMat.m[2][1], 0.0f,
-        hmdMat.m[0][2], hmdMat.m[1][2], hmdMat.m[2][2], 0.0f,
-        hmdMat.m[0][3], hmdMat.m[1][3], hmdMat.m[2][3], 1.0f
-    );
-
-    return vMat;
 }
 
 vr::HmdMatrix34_t VR::GetControllerTipMatrix(vr::ETrackedControllerRole controllerRole)
@@ -1433,7 +1291,7 @@ vr::HmdMatrix34_t VR::GetControllerTipMatrix(vr::ETrackedControllerRole controll
     {
         char buffer[vr::k_unMaxPropertyStringSize];
 
-        m_System->GetStringTrackedDeviceProperty(vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(controllerRole), vr::Prop_RenderModelName_String, 
+        m_System->GetStringTrackedDeviceProperty(vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(controllerRole), vr::Prop_RenderModelName_String,
                                                  buffer, vr::k_unMaxPropertyStringSize);
 
         vr::RenderModel_ControllerMode_State_t controllerState = {0};
@@ -1454,7 +1312,7 @@ vr::HmdMatrix34_t VR::GetControllerTipMatrix(vr::ETrackedControllerRole controll
     }
 
     // Not a hand controller role or tip lookup failed, return identity
-    const vr::HmdMatrix34_t identity = 
+    const vr::HmdMatrix34_t identity =
     {
         1.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 1.0f, 0.0f, 0.0f,
@@ -1564,30 +1422,12 @@ bool VR::CheckOverlayIntersectionForController(vr::VROverlayHandle_t overlayHand
     return m_Overlay->ComputeOverlayIntersection(overlayHandle, &params, &results);
 }
 
-QAngle VR::GetRightControllerAbsAngle()
-{
-    return m_RightControllerAngAbs;
-}
-
-QAngle& VR::GetRightControllerAbsAngleConst()
-{
-    return m_RightControllerAngAbs;
-}
-
 Vector VR::GetRightControllerAbsPos(Vector eyePosition)
 {
     Vector offset = eyePosition;
 
-    if (offset.x == 0 && offset.y == 0 && offset.z == 0) {
-        /*int playerIndex = m_Game->m_EngineClient->GetLocalPlayer();
-        C_BasePlayer* localPlayer = (C_BasePlayer*)m_Game->GetClientEntity(playerIndex);
-        if (!localPlayer)
-            return {0, 0, 0};
-
-        offset = localPlayer->EyePosition();*/
-
+    if (offset.x == 0 && offset.y == 0 && offset.z == 0)
         offset = m_SetupOrigin;
-    }
 
     Vector position = offset + m_RightControllerPosRel;
 
@@ -1619,16 +1459,12 @@ QAngle VR::GetRecommendedViewmodelAbsAngle()
 void VR::UpdateHMDAngles() {
     QAngle hmdAngLocal = m_HmdPose.TrackedDeviceAng;
 
-    //hmdAngLocal += m_RotationOffset;
     hmdAngLocal.x += m_RotationOffset.x;
     hmdAngLocal.y += m_RotationOffset.y;
     hmdAngLocal.z += m_RotationOffset.z;
 
-    //hmdAngLocal.Normalize();
-
     QAngle::AngleVectors(hmdAngLocal, &m_HmdForward, &m_HmdRight, &m_HmdUp);
 
-    //hmdAngLocal.x = (hmdAngLocal.x > 180 ? 180)
     hmdAngLocal.Normalize();
 
     m_HmdAngAbs = hmdAngLocal;
@@ -1667,13 +1503,9 @@ void VR::UpdateHeadPose()
     Vector hmdPosLocal = m_HmdPose.TrackedDevicePos;
     Vector hmdPosCentered = hmdPosLocal - m_Center;
 
-    m_HmdPosRelativeRaw = hmdPosCentered;
-
-    //std::cout << "HMD - X: " << hmdWorldPos.x << ", Y: " << hmdWorldPos.y << ", Z: " << hmdWorldPos.z << "\n";
-
     Vector hmdPosCorrected = hmdPosCentered;
     VectorPivotXY(hmdPosCorrected, { 0, 0, 0 }, m_RotationOffset.y);
-    
+
     UpdateHMDAngles();
 
     m_HmdPosRelative = hmdPosCorrected * m_VRScale;
@@ -1695,24 +1527,18 @@ void VR::UpdateHandTracking()
 {
     Vector hmdPosLocal = m_HmdPose.TrackedDevicePos;
 
-    // Hand tracking
-    Vector leftControllerPosLocal = m_LeftControllerPose.TrackedDevicePos;
     QAngle leftControllerAngLocal = m_LeftControllerPose.TrackedDeviceAng;
 
     Vector rightControllerPosLocal = m_RightControllerPose.TrackedDevicePos;
     QAngle rightControllerAngLocal = m_RightControllerPose.TrackedDeviceAng;
 
-    //std::cout << "Right Controller - X: " << rightControllerPosLocal.x << "Y: " << rightControllerPosLocal.y << "Z: " << rightControllerPosLocal.z << "\n";
-
     Vector hmdToController = rightControllerPosLocal - hmdPosLocal;
-    //Vector rightControllerPosCorrected = hmdPosCorrected + hmdToController;
 
     // When using stick turning, pivot the controllers around the HMD
     VectorPivotXY(hmdToController, { 0, 0, 0 }, m_RotationOffset.y);
 
     m_RightControllerPosRel = hmdToController * m_VRScale;
 
-    //rightControllerAngLocal += m_RotationOffset;
     rightControllerAngLocal.x += m_RotationOffset.x;
     rightControllerAngLocal.y += m_RotationOffset.y;
     rightControllerAngLocal.z += m_RotationOffset.z;
@@ -1721,9 +1547,6 @@ void VR::UpdateHandTracking()
     leftControllerAngLocal.x += m_RotationOffset.x;
     leftControllerAngLocal.y += m_RotationOffset.y;
     leftControllerAngLocal.z += m_RotationOffset.z;
-
-    // Wrap angle from -180 to 180
-    //rightControllerAngLocal.Normalize();
 
     QAngle::AngleVectors(leftControllerAngLocal, &m_LeftControllerForward, &m_LeftControllerRight, &m_LeftControllerUp);
     QAngle::AngleVectors(rightControllerAngLocal, &m_RightControllerForward, &m_RightControllerRight, &m_RightControllerUp);
@@ -1901,8 +1724,8 @@ void VR::ParseConfigFile()
     // If the entry does not exist, or if the parsing fails, sets 'target' to
     // 'defaultValue'.
     const auto parseOrDefault = [&](const char* key, auto& target,
-                                    const auto& defaultValue) 
-    { 
+                                    const auto& defaultValue)
+    {
         target = parseConfigEntry(userConfig, *m_Game, key, defaultValue);
         std::cout << "Setting '" << key << "' to '" << target << "'\n";
     };
@@ -1927,9 +1750,6 @@ void VR::ParseConfigFile()
     parseOrDefault("SeatedMode", m_SeatedMode, false);
     parseOrDefault("SeatedHeightOffset", m_SeatedHeightOffset, 4.0f);
     parseOrDefault("Roomscale", m_Roomscale, true);
-    /*parseOrDefault("HudDistance", m_HudDistance, 1.3f);
-    parseOrDefault("HudSize", m_HudSize, 4.0f);
-    parseOrDefault("HudAlwaysVisible", m_HudAlwaysVisible, false);*/
     parseOrDefault("AimMode", m_AimMode, 1);
     parseXYZOrDefault("ViewmodelPosCustomOffset", m_ViewmodelPosCustomOffset, 8.0f, 7.5f, -12.0f);
     parseXYZOrDefault("ViewmodelAngCustomOffset", m_ViewmodelAngCustomOffset, 0.0f, 0.0f, 0.0f);
@@ -1953,7 +1773,7 @@ void VR::WaitForConfigUpdate()
     bool readAlready = true; // by VR::init
     while (1)
     {
-        try 
+        try
         {
             // Windows only notifies of change within a directory, so extra check here for just config.txt
             auto configModifiedTime = std::filesystem::last_write_time("VR\\config.txt");
@@ -1977,10 +1797,10 @@ void VR::WaitForConfigUpdate()
         {
             concatErrorMsg(
                 *m_Game, "'config.txt' not found. (", e.what(), ")");
-            
+
             return;
         }
-        
+
         FindNextChangeNotification(fileChangeHandle);
         WaitForSingleObject(fileChangeHandle, INFINITE);
         Sleep(100); // Sometimes the thread tries to read config.txt before it's finished writing

@@ -1,4 +1,3 @@
-// dllmain.cpp : Defines the entry point for the DLL application.
 #include <Windows.h>
 #include <cstdlib>
 #include <fstream>
@@ -6,8 +5,6 @@
 #include <initializer_list>
 #include <string>
 #include "game.h"
-#include "vr.h"
-#include "sdk.h"
 #include "strata_hooks.h"
 
 #ifdef PRVR_DIAGNOSTICS
@@ -230,8 +227,6 @@ DWORD WINAPI InitPRVR(HMODULE hModule)
     return 0;
 }
 
-
-
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -242,7 +237,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     case DLL_PROCESS_ATTACH:
             if (!AddLaunchOptions())
             {
-                // Without tier0 there's no way to add -insecure, so require it as before.
+                // Without tier0 there's no way to add -insecure, so the player has to.
                 if (!wcsstr(GetCommandLineW(), L"-insecure"))
                     ExitProcess(0);
                 g_LaunchOptionsLog = "[LaunchOptions] tier0 CommandLine() not found, nothing added\n";
@@ -262,5 +257,3 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     }
     return TRUE;
 }
-
-
