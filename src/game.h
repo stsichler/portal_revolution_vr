@@ -49,7 +49,6 @@ public:
     IEngineTrace* m_EngineTrace = nullptr;
     IEngineClient* m_EngineClient = nullptr;
     IEngineVGui* m_EngineVGui = nullptr;
-    IMaterialSystem* m_MaterialSystem = nullptr;
     IBaseClientDLL* m_BaseClientDll = nullptr;
     IViewRender* m_ClientViewRender = nullptr;
     IViewRender* m_EngineViewRender = nullptr;

@@ -33,7 +33,6 @@ void Game::init()
     m_EngineTrace = (IEngineTrace *)GetInterface("engine.dll", "EngineTraceClient004");
     m_EngineClient = (IEngineClient *)GetInterface("engine.dll", "VEngineClient015");
     m_EngineVGui = (IEngineVGui *)GetInterface("engine.dll", "VEngineVGui001");
-    m_MaterialSystem = (IMaterialSystem *)GetInterface("MaterialSystem.dll", "VMaterialSystem080");
     m_ClientViewRender = (IViewRender *)GetInterface("client.dll", "VEngineRenderView014");
     m_EngineViewRender = (IViewRender *)GetInterface("engine.dll", "VEngineRenderView014");
     m_ModelInfo = (IModelInfo *)GetInterface("engine.dll", "VModelInfoClient004");
@@ -42,7 +41,7 @@ void Game::init()
     m_VguiSurface = (ISurface *)GetInterface("vguimatsurface.dll", "VGUI_Surface031");
 
     std::cout << "[Game] interfaces: EngineClient=" << m_EngineClient << " EngineVGui=" << m_EngineVGui << " ClientEntityList=" << m_ClientEntityList
-              << " MaterialSystem=" << m_MaterialSystem << " VguiInput=" << m_VguiInput << " VguiSurface=" << m_VguiSurface << "\n";
+              << " VguiInput=" << m_VguiInput << " VguiSurface=" << m_VguiSurface << "\n";
 
     m_VR->init();
     StrataHooks::Init(this);

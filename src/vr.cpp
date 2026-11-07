@@ -403,31 +403,6 @@ void VR::initD3D11Callbacks()
             height = m_RenderHeight;
         };
 
-    D3D11Hooks::CreateTexture2D_Post_Callback = [this](ID3D11Texture2D *texture, const D3D11_TEXTURE2D_DESC &desc)
-        {
-            // CreateNamedRenderTargetTextureEx may also create a depth texture; only the color
-            // render target is submitted.
-            if (m_CreatingTextureID == VR::Texture_None || !(desc.BindFlags & D3D11_BIND_RENDER_TARGET))
-                return;
-
-            SharedTextureHolder *target = nullptr;
-            switch (m_CreatingTextureID)
-            {
-            case VR::Texture_LeftEye: target = &m_VKLeftEye; break;
-            case VR::Texture_RightEye: target = &m_VKRightEye; break;
-            case VR::Texture_HUD: target = &m_VKHUD; break;
-            case VR::Texture_Blank: target = &m_VKBlankTexture; break;
-            default: return;
-            }
-
-            target->m_Texture = texture;
-            target->m_Width = desc.Width;
-            target->m_Height = desc.Height;
-            target->m_VRTexture.handle = texture;
-            std::cout << "[D3D11] VR texture " << m_CreatingTextureID << ": " << desc.Width << "x" << desc.Height
-                      << " format=" << desc.Format << "\n";
-        };
-
     D3D11Hooks::Present_Pre_Callback = [this](IDXGISwapChain *swapChain)
         {
             if (m_IsInitialized)
@@ -567,40 +542,33 @@ void VR::Update()
     }
 }
 
-// Eye render targets, created through the material system (the engine renders into ITextures);
-// CreateTexture2D_Post_Callback picks up their D3D11 textures for the submit. Called from the
-// RenderView hook (main thread). The blank texture is created directly with D3D11
-// (CreateBlankTexture), the HUD texture is not needed yet.
+// What the compositor gets: CopyBackBufferToEye fills them, the game doesn't know them.
 void VR::CreateVRTextures()
 {
     m_CreatedVRTextures = true; // once, also if it fails
 
-    IMaterialSystem *materialSystem = m_Game->m_MaterialSystem;
-    // Same format as the back buffer (B8G8R8A8_UNORM).
-    const ImageFormat format = IMAGE_FORMAT_BGRA8888;
+    D3D11_TEXTURE2D_DESC desc = {};
+    desc.Width = m_RenderWidth;
+    desc.Height = m_RenderHeight;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format = DXGI_FORMAT_B8G8R8A8_TYPELESS; // copies from the back buffer need the same family
+    desc.SampleDesc = { 1, 0 };
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
-    // Render targets may only be allocated before the game has started; the flag is set again
-    // before the textures are created, as in the Portal 2 version.
-    bool &gameStarted = StrataMaterialSystem::GameStarted(materialSystem);
-    const bool wasStarted = gameStarted;
-    gameStarted = false;
-    StrataMaterialSystem::BeginRenderTargetAllocation(materialSystem);
-    gameStarted = wasStarted;
+    for (SharedTextureHolder *eye : { &m_VKLeftEye, &m_VKRightEye })
+    {
+        ID3D11Texture2D *texture = nullptr;
+        if (FAILED(D3D11Hooks::g_Device->CreateTexture2D(&desc, nullptr, &texture)))
+            continue;
+        eye->m_Texture = texture;
+        eye->m_Width = desc.Width;
+        eye->m_Height = desc.Height;
+        eye->m_VRTexture.handle = texture;
+    }
 
-    m_CreatingTextureID = Texture_LeftEye;
-    m_LeftEyeTexture = StrataMaterialSystem::CreateNamedRenderTargetTextureEx(materialSystem, "vrLeftEye", m_RenderWidth, m_RenderHeight,
-        RT_SIZE_NO_CHANGE, format, MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_NOMIP, 0);
-
-    m_CreatingTextureID = Texture_RightEye;
-    m_RightEyeTexture = StrataMaterialSystem::CreateNamedRenderTargetTextureEx(materialSystem, "vrRightEye", m_RenderWidth, m_RenderHeight,
-        RT_SIZE_NO_CHANGE, format, MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_NOMIP, 0);
-
-    m_CreatingTextureID = Texture_None;
-
-    StrataMaterialSystem::EndRenderTargetAllocation(materialSystem);
-
-    std::cout << "[VR] eye render targets " << m_RenderWidth << "x" << m_RenderHeight << " (game started " << wasStarted << "): "
-              << m_LeftEyeTexture << "/" << m_RightEyeTexture << ", D3D11 " << m_VKLeftEye.m_Texture << "/" << m_VKRightEye.m_Texture << "\n";
+    std::cout << "[VR] eye textures " << m_RenderWidth << "x" << m_RenderHeight << ": " << m_VKLeftEye.m_Texture << "/" << m_VKRightEye.m_Texture << "\n";
 }
 
 void VR::SubmitVRTextures()
@@ -657,7 +625,6 @@ void VR::SubmitVRTextures()
     }
     vr::VROverlay()->HideOverlay(m_MainMenuHandle);
 
-    //vr::VROverlay()->SetOverlayTexture(m_HUDHandle, &m_VKHUD.m_VRTexture);
 
     if (m_Game->m_VguiSurface->IsCursorVisible())
     {

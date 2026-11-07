@@ -183,31 +183,6 @@ public:
 	void ClientCmd_Unrestricted(const char *szCmdString) { CallVirtual<void>(this, 129, szCmdString, false); }
 };
 
-// VMaterialSystem080 of Strata Source (materialsystem.dll, vtable of CMaterialSystem). The
-// IMaterialSystem declaration in material.h is the Portal 2 layout and must not be called.
-namespace StrataMaterialSystem
-{
-	// Begin/EndRenderTargetAllocation refuse to run once this is set ("Tried
-	// BeginRenderTargetAllocation after game startup").
-	inline bool &GameStarted(IMaterialSystem *ms) { return *reinterpret_cast<bool *>(reinterpret_cast<char *>(ms) + 0xfd0); }
-	inline void BeginRenderTargetAllocation(IMaterialSystem *ms) { CallVirtual<void>(ms, 93); }
-	inline void EndRenderTargetAllocation(IMaterialSystem *ms) { CallVirtual<void>(ms, 94); }
-	inline ITexture *CreateNamedRenderTargetTextureEx(IMaterialSystem *ms, const char *name, int w, int h,
-		RenderTargetSizeMode_t sizeMode, ImageFormat format, MaterialRenderTargetDepth_t depth,
-		unsigned int textureFlags, unsigned int renderTargetFlags)
-	{
-		return CallVirtual<ITexture *>(ms, 96, name, w, h, sizeMode, format, depth, textureFlags, renderTargetFlags);
-	}
-	inline IMatRenderContext *GetRenderContext(IMaterialSystem *ms) { return CallVirtual<IMatRenderContext *>(ms, 114); } // AddRef'd
-}
-
-// IMatRenderContext of Strata Source (CMatRenderContext / CMatQueuedRenderContext).
-namespace StrataRenderContext
-{
-	inline void Release(IMatRenderContext *ctx) { CallVirtual<int>(ctx, 1); }
-	inline void SetRenderTarget(IMatRenderContext *ctx, ITexture *texture) { CallVirtual<void>(ctx, 6, texture); } // SetRenderTargetEx(0, texture)
-}
-
 class IModelInfo
 {
 public:

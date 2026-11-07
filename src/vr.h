@@ -6,7 +6,6 @@
 #define MAX_STR_LEN 256
 
 class Game;
-class ITexture;
 struct ID3D11Texture2D;
 
 
@@ -109,24 +108,9 @@ public:
 
 	Vector m_IntendedPositionOffset = { 0,0,0 };
 
-	enum TextureID
-	{
-		Texture_None = -1,
-		Texture_LeftEye,
-		Texture_RightEye,
-		Texture_HUD,
-		Texture_Blank
-	};
-
-	ITexture *m_LeftEyeTexture;
-	ITexture *m_RightEyeTexture;
-	ITexture *m_HUDTexture;
-	ITexture *m_BlankTexture = nullptr;
-
 	SharedTextureHolder m_VKLeftEye;
 	SharedTextureHolder m_VKRightEye;
 	SharedTextureHolder m_VKBackBuffer; // copy of the game's back buffer (menu overlay)
-	SharedTextureHolder m_VKHUD;
 	SharedTextureHolder m_VKBlankTexture;
 
 	bool m_IsVREnabled = false;
@@ -134,7 +118,6 @@ public:
 	bool m_RenderedNewFrame = false;
 	bool m_RenderedHud = false;
 	bool m_CreatedVRTextures = false;
-	TextureID m_CreatingTextureID = Texture_None;
 
 	bool m_PressedTurn = false;
 	bool m_PointerCreated = false;

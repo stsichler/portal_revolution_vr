@@ -1166,13 +1166,12 @@ namespace
         if (!vr->m_CreatedVRTextures)
             vr->CreateVRTextures();
 
-        if (!vr->m_LeftEyeTexture || !vr->m_RightEyeTexture || !vr->m_VKLeftEye.m_Texture || !vr->m_VKRightEye.m_Texture)
+        if (!vr->m_VKLeftEye.m_Texture || !vr->m_VKRightEye.m_Texture)
         {
             static bool logged = false;
             if (!logged)
             {
-                std::cout << "[VR] stereo: no eye textures (material system " << vr->m_LeftEyeTexture << "/" << vr->m_RightEyeTexture
-                          << ", D3D11 " << vr->m_VKLeftEye.m_Texture << "/" << vr->m_VKRightEye.m_Texture << "), rendering flat\n";
+                std::cout << "[VR] stereo: no eye textures, rendering flat\n";
                 logged = true;
             }
             return oRenderView(thisptr, view, hudView, nClearFlags, whatToDraw);

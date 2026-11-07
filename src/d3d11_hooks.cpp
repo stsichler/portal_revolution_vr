@@ -13,7 +13,6 @@ namespace D3D11Hooks
     IDXGISwapChain *g_SwapChain = nullptr;
 
     std::function<void(UINT &width, UINT &height)> SwapChainSize_Callback;
-    std::function<void(ID3D11Texture2D *texture, const D3D11_TEXTURE2D_DESC &desc)> CreateTexture2D_Post_Callback;
     std::function<void(IDXGISwapChain *swapChain)> Present_Pre_Callback;
     std::function<void(IDXGISwapChain *swapChain)> Present_Post_Callback;
 }
@@ -23,7 +22,6 @@ using namespace D3D11Hooks;
 namespace
 {
     // vtable indices: declaration order in d3d11.h/dxgi.h/dxgi1_2.h, IUnknown occupies 0..2.
-    constexpr int kDevice_CreateTexture2D = 5;
     constexpr int kContext_RSSetViewports = 44;
     constexpr int kFactory_CreateSwapChain = 10;
     constexpr int kFactory2_CreateSwapChainForHwnd = 15;
@@ -31,8 +29,6 @@ namespace
     constexpr int kSwapChain_ResizeBuffers = 13;
     constexpr int kSwapChain1_Present1 = 22;
 
-    typedef HRESULT(STDMETHODCALLTYPE *tCreateTexture2D)(ID3D11Device *, const D3D11_TEXTURE2D_DESC *,
-        const D3D11_SUBRESOURCE_DATA *, ID3D11Texture2D **);
     typedef void(STDMETHODCALLTYPE *tRSSetViewports)(ID3D11DeviceContext *, UINT, const D3D11_VIEWPORT *);
     typedef HRESULT(STDMETHODCALLTYPE *tCreateSwapChain)(IDXGIFactory *, IUnknown *, DXGI_SWAP_CHAIN_DESC *,
         IDXGISwapChain **);
@@ -42,7 +38,6 @@ namespace
     typedef HRESULT(STDMETHODCALLTYPE *tPresent1)(IDXGISwapChain1 *, UINT, UINT, const DXGI_PRESENT_PARAMETERS *);
     typedef HRESULT(STDMETHODCALLTYPE *tResizeBuffers)(IDXGISwapChain *, UINT, UINT, UINT, DXGI_FORMAT, UINT);
 
-    tCreateTexture2D oCreateTexture2D = nullptr;
     tRSSetViewports oRSSetViewports = nullptr;
     tCreateSwapChain oCreateSwapChain = nullptr;
     tCreateSwapChainForHwnd oCreateSwapChainForHwnd = nullptr;
@@ -84,19 +79,6 @@ namespace
             return false;
         device->Release();
         return device == g_Device;
-    }
-
-    HRESULT STDMETHODCALLTYPE hkCreateTexture2D(ID3D11Device *device, const D3D11_TEXTURE2D_DESC *desc,
-        const D3D11_SUBRESOURCE_DATA *initialData, ID3D11Texture2D **texture)
-    {
-        if (device != g_Device || !desc)
-            return oCreateTexture2D(device, desc, initialData, texture);
-
-        HRESULT hr = oCreateTexture2D(device, desc, initialData, texture);
-
-        if (SUCCEEDED(hr) && texture && *texture && CreateTexture2D_Post_Callback)
-            CreateTexture2D_Post_Callback(*texture, *desc);
-        return hr;
     }
 
 #ifdef PRVR_DIAGNOSTICS
@@ -589,7 +571,6 @@ void D3D11Hooks::OnDeviceCreated(ID3D11Device *device, ID3D11DeviceContext *cont
 
     std::cout << "[D3D11] device created, feature level 0x" << std::hex << device->GetFeatureLevel() << std::dec << "\n";
 
-    Hook(device, kDevice_CreateTexture2D, (void *)&hkCreateTexture2D, oCreateTexture2D, "ID3D11Device::CreateTexture2D");
     Hook(g_Context, kContext_RSSetViewports, (void *)&hkRSSetViewports, oRSSetViewports,
         "ID3D11DeviceContext::RSSetViewports");
 #ifdef PRVR_DIAGNOSTICS
