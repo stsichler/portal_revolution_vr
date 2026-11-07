@@ -133,12 +133,12 @@ static const char *ConfiguredAntiAliasing()
         switch (atoi(line.c_str() + sizeof(kKey) - 1))
         {
         case 0: return "0";
-        case 2: return "2";
+        case 4: return "4";
         case 8: return "8";
         }
         break;
     }
-    return "4";
+    return "2";
 }
 
 // Adds the launch options the mod needs to the engine's command line, so players don't have to
