@@ -144,7 +144,7 @@ static const char *ConfiguredAntiAliasing()
 // Adds the launch options the mod needs to the engine's command line, so players don't have to
 // set them in Steam. Runs in DllMain: d3d11.dll is a static import of shaderapidx11.dll, which the
 // launcher loads before the engine reads the video mode options, starts the intro video or runs
-// the "+" commands. Options the player set (also contrary ones like -fullscreen) are left alone.
+// the "+" commands. Options the player set (also contrary ones) are left alone.
 // Returns false if tier0's command line isn't available.
 static bool AddLaunchOptions()
 {
@@ -170,12 +170,7 @@ static bool AddLaunchOptions()
 
     if (!hasAny({"-insecure"}))
         append("-insecure", nullptr);
-    if (!hasAny({"-window", "-windowed", "-sw", "-fullscreen", "-full"}))
-        append("-window", nullptr);
-    if (!hasAny({"-width", "-w"}))
-        append("-width", "1280");
-    if (!hasAny({"-height", "-h"}))
-        append("-height", "720");
+    // Window mode and size: the game's video settings, they only affect the window on the monitor.
     if (!hasAny({"-novid"}))
         append("-novid", nullptr);
 #ifdef PRVR_DIAGNOSTICS
