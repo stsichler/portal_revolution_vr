@@ -1,5 +1,6 @@
 #include "vr.h"
 #include <Windows.h>
+#include <windowsx.h>
 #include "sdk.h"
 #include "game.h"
 #include "trace.h"
@@ -14,8 +15,36 @@
 #include <thread>
 #include <type_traits>
 #include <algorithm>
+#include <atomic>
 #include <vector>
 #include "d3d11_hooks.h"
+
+// The window shows the menu's part of the back buffer scaled to its size, but Panorama takes mouse
+// coordinates as pixels of that part. So mouse messages of the window get scaled in the menu.
+// The laser's messages already are in those pixels and carry a mark instead. This goes in front of
+// the window procedure of inputsystem.dll, which passes the mouse on to Panorama.
+namespace
+{
+    constexpr WPARAM kMouseFromLaser = 0x80000000; // not used by the MK_ flags
+    WNDPROC g_GameWindowProc = nullptr;
+    int g_MenuPartWidth = 0;
+    int g_MenuPartHeight = 0;
+    std::atomic<bool> g_MenuVisible{false};
+
+    LRESULT CALLBACK MenuMouseWindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
+    {
+        // The wheel messages have screen coordinates.
+        if (message >= WM_MOUSEFIRST && message <= WM_MOUSELAST && message != WM_MOUSEWHEEL && message != WM_MOUSEHWHEEL)
+        {
+            RECT client;
+            if (wParam & kMouseFromLaser)
+                wParam &= ~kMouseFromLaser;
+            else if (g_MenuVisible && GetClientRect(window, &client) && client.right > 0 && client.bottom > 0)
+                lParam = MAKELPARAM(GET_X_LPARAM(lParam) * g_MenuPartWidth / client.right, GET_Y_LPARAM(lParam) * g_MenuPartHeight / client.bottom);
+        }
+        return CallWindowProcW(g_GameWindowProc, window, message, wParam, lParam);
+    }
+}
 
 VR::VR(Game *game) 
 {
@@ -526,6 +555,7 @@ void VR::Update()
         lastMenuVisible = menuVisible;
     }
 
+    g_MenuVisible = menuVisible;
     if (menuVisible) {
         ProcessMenuInput();
     } else {
@@ -894,6 +924,19 @@ void VR::ProcessMenuInput()
     //vr::VROverlayHandle_t currentOverlay = m_Game->m_EngineClient->IsInGame() ? m_HUDHandle : m_MainMenuHandle;
     vr::VROverlayHandle_t currentOverlay = m_MainMenuHandle;
 
+    // Here, because inputsystem.dll has its window procedure in place by the time there is a menu.
+    DXGI_SWAP_CHAIN_DESC swapDesc;
+    const HWND window = D3D11Hooks::g_SwapChain && SUCCEEDED(D3D11Hooks::g_SwapChain->GetDesc(&swapDesc))
+        ? swapDesc.OutputWindow : nullptr;
+    if (window && !g_GameWindowProc)
+    {
+        g_MenuPartWidth = m_RenderWidth;
+        g_MenuPartHeight = MenuHeight();
+        g_GameWindowProc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(window, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&MenuMouseWindowProc)));
+        std::cout << "[VR] window mouse scaled to the menu: " << (g_GameWindowProc ? "yes" : "no") << "\n";
+    }
+    const WPARAM laserMark = g_GameWindowProc ? kMouseFromLaser : 0;
+
     // Check if left or right hand controller is pointing at the overlay
     const bool isHoveringOverlay = CheckOverlayIntersectionForController(currentOverlay, vr::TrackedControllerRole_LeftHand) ||
                                    CheckOverlayIntersectionForController(currentOverlay, vr::TrackedControllerRole_RightHand);
@@ -924,10 +967,6 @@ void VR::ProcessMenuInput()
         // The menu is Panorama; it gets the mouse from inputsystem.dll, which subclasses the game
         // window. So mouse messages go straight to that window (SendInput hit whatever was under
         // the real cursor, and only if the game had the focus).
-        DXGI_SWAP_CHAIN_DESC swapDesc;
-        const HWND window = D3D11Hooks::g_SwapChain && SUCCEEDED(D3D11Hooks::g_SwapChain->GetDesc(&swapDesc))
-            ? swapDesc.OutputWindow : nullptr;
-
         vr::VREvent_t vrEvent;
         while (vr::VROverlay()->PollNextOverlayEvent(currentOverlay, &vrEvent, sizeof(vrEvent)))
         {
@@ -937,7 +976,7 @@ void VR::ProcessMenuInput()
             case vr::VREvent_MouseMove:
                 toWindow(vrEvent.data.mouse, x, y);
                 if (window)
-                    PostMessage(window, WM_MOUSEMOVE, 0, MAKELPARAM(x, y));
+                    PostMessage(window, WM_MOUSEMOVE, laserMark, MAKELPARAM(x, y));
                 break;
 
             case vr::VREvent_MouseButtonDown:
@@ -953,8 +992,8 @@ void VR::ProcessMenuInput()
                           << (window && GetForegroundWindow() == window ? ", foreground" : ", NOT foreground") << ")\n";
                 if (window)
                 {
-                    PostMessage(window, WM_MOUSEMOVE, 0, MAKELPARAM(x, y));
-                    PostMessage(window, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));
+                    PostMessage(window, WM_MOUSEMOVE, laserMark, MAKELPARAM(x, y));
+                    PostMessage(window, WM_LBUTTONDOWN, MK_LBUTTON | laserMark, MAKELPARAM(x, y));
                 }
                 break;
             }
@@ -962,7 +1001,7 @@ void VR::ProcessMenuInput()
             case vr::VREvent_MouseButtonUp:
                 toWindow(vrEvent.data.mouse, x, y);
                 if (window)
-                    PostMessage(window, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
+                    PostMessage(window, WM_LBUTTONUP, laserMark, MAKELPARAM(x, y));
                 break;
 
             case vr::VREvent_ScrollDiscrete:
