@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <iterator>
 #include <string>
 #include <vector>
 #include "MinHook.h"
@@ -58,14 +59,15 @@ namespace
     // is applied after this many frames, so that the player never stays turned the wrong way.
     constexpr int kPortalPassage_MaxFrames = 180;
 
-    // C_Prop_Portal fields; forward of the angles is the portal's normal.
+    // C_Prop_Portal fields; forward of the angles is the portal's normal. The matrix isn't a network
+    // field; those below are looked up in FindNetworkFields and keep these values if that fails.
     constexpr int kPortal_MatrixToLinked = 0x3188;
-    constexpr int kPortal_Origin = 0x33e8;
-    constexpr int kPortal_Angles = 0x3418;
-    constexpr int kPortal_LinkedPortal = 0x3448;
-    constexpr int kPortal_Activated = 0x5d80;
-    constexpr int kPortal_HalfWidth = 0x5d84;
-    constexpr int kPortal_HalfHeight = 0x5d88;
+    int g_Portal_Origin = 0x33e8;
+    int g_Portal_Angles = 0x3418;
+    int g_Portal_LinkedPortal = 0x3448;
+    int g_Portal_Activated = 0x5d80;
+    int g_Portal_HalfWidth = 0x5d84;
+    int g_Portal_HalfHeight = 0x5d88;
     constexpr int kEntityList_GetHighestEntityIndex = 6;
     void **g_PropPortalVTable = nullptr;
 
@@ -85,7 +87,7 @@ namespace
     // Roomscale: walking in the room moves the head away from the player. Commands then walk the
     // player after the head, so collisions, stairs and portals work as for any walking; the room
     // moves along, so the view doesn't move with the player. Distances in game units.
-    constexpr int kPlayer_Flags = 0x150; // network field m_fFlags
+    int g_Player_Flags = 0x150; // network field m_fFlags
     constexpr int kPlayerFlag_OnGround = 1;
     constexpr float kRoomscale_StartDistance = 6; // about 14 cm
     constexpr float kRoomscale_StopDistance = 2;
@@ -240,11 +242,11 @@ namespace
 
     // Network fields: player m_hActiveWeapon, C_WeaponPortalgun m_bCanFirePortal1/2, m_iLastFiredPortal,
     // m_bOpenProngs (set with the animation ACT_VM_PICKUP, which leads to the carrying one).
-    constexpr int kPlayer_ActiveWeaponHandle = 0x3868;
-    constexpr int kPortalgun_CanFirePortal1 = 0x3280;
-    constexpr int kPortalgun_CanFirePortal2 = 0x3281;
-    constexpr int kPortalgun_LastFiredPortal = 0x3284;
-    constexpr int kPortalgun_OpenProngs = 0x3288;
+    int g_Player_ActiveWeaponHandle = 0x3868;
+    int g_Portalgun_CanFirePortal1 = 0x3280;
+    int g_Portalgun_CanFirePortal2 = 0x3281;
+    int g_Portalgun_LastFiredPortal = 0x3284;
+    int g_Portalgun_OpenProngs = 0x3288;
     constexpr int kAimMode_None = 0;
     constexpr int kAimMode_Dot = 1;
     constexpr int kAimMode_Laser = 2;
@@ -382,7 +384,7 @@ namespace
     {
         Game *game = g_StrataGame;
         auto player = reinterpret_cast<const uint8_t *>(game->GetClientEntity(game->m_EngineClient->GetLocalPlayer()));
-        return player && (*reinterpret_cast<const int *>(player + kPlayer_Flags) & kPlayerFlag_OnGround);
+        return player && (*reinterpret_cast<const int *>(player + g_Player_Flags) & kPlayerFlag_OnGround);
     }
 
     // Walks the player after the head, unless the player already walks with the stick or keyboard:
@@ -591,12 +593,12 @@ namespace
         {
             auto portal = reinterpret_cast<const uint8_t *>(game->GetClientEntity(i));
             if (!portal || *reinterpret_cast<void **const *>(portal) != g_PropPortalVTable
-                || !portal[kPortal_Activated] || *reinterpret_cast<const int *>(portal + kPortal_LinkedPortal) == -1)
+                || !portal[g_Portal_Activated] || *reinterpret_cast<const int *>(portal + g_Portal_LinkedPortal) == -1)
                 continue;
 
-            const Vector origin = *reinterpret_cast<const Vector *>(portal + kPortal_Origin);
+            const Vector origin = *reinterpret_cast<const Vector *>(portal + g_Portal_Origin);
             Vector forward, right, up;
-            QAngle::AngleVectors(*reinterpret_cast<const QAngle *>(portal + kPortal_Angles), &forward, &right, &up);
+            QAngle::AngleVectors(*reinterpret_cast<const QAngle *>(portal + g_Portal_Angles), &forward, &right, &up);
             const float fromDistance = dot(from - origin, forward);
             const float toDistance = dot(to - origin, forward);
             if (fromDistance <= 0 || toDistance >= 0)
@@ -605,8 +607,8 @@ namespace
             const float along = fromDistance / (fromDistance - toDistance);
             const Vector delta = to - from;
             const Vector hit = Vector(from.x + delta.x * along, from.y + delta.y * along, from.z + delta.z * along) - origin;
-            if (std::abs(dot(hit, right)) <= *reinterpret_cast<const float *>(portal + kPortal_HalfWidth)
-                && std::abs(dot(hit, up)) <= *reinterpret_cast<const float *>(portal + kPortal_HalfHeight))
+            if (std::abs(dot(hit, right)) <= *reinterpret_cast<const float *>(portal + g_Portal_HalfWidth)
+                && std::abs(dot(hit, up)) <= *reinterpret_cast<const float *>(portal + g_Portal_HalfHeight))
                 return portal;
         }
         return nullptr;
@@ -730,13 +732,13 @@ namespace
     // The portal gun the player holds, nullptr if it's something else or the gun can't fire.
     uint8_t *ActivePortalgun(uint8_t *player)
     {
-        const uint32_t handle = *reinterpret_cast<uint32_t *>(player + kPlayer_ActiveWeaponHandle);
+        const uint32_t handle = *reinterpret_cast<uint32_t *>(player + g_Player_ActiveWeaponHandle);
         if (handle == 0xFFFFFFFF)
             return nullptr;
         auto weapon = reinterpret_cast<uint8_t *>(g_StrataGame->GetClientEntity(handle & 0xFFFF));
         if (!weapon || *reinterpret_cast<void ***>(weapon) != g_PortalgunVTable)
             return nullptr;
-        return weapon[kPortalgun_CanFirePortal1] || weapon[kPortalgun_CanFirePortal2] ? weapon : nullptr;
+        return weapon[g_Portalgun_CanFirePortal1] || weapon[g_Portalgun_CanFirePortal2] ? weapon : nullptr;
     }
 
     struct ShotTrace
@@ -952,7 +954,7 @@ namespace
             SetDrawOnlyForSplitScreenUser(effect, kSplitScreen_AllUsers);
         }
         SetControlPoint(effect, 1, aim);
-        const int lastPortal = std::clamp(*reinterpret_cast<int *>(gun + kPortalgun_LastFiredPortal), 0, 2);
+        const int lastPortal = std::clamp(*reinterpret_cast<int *>(gun + g_Portalgun_LastFiredPortal), 0, 2);
         SetControlPoint(effect, 2, g_StrataGame->m_singlePlayerPortalColors[lastPortal] * 0.5f);
     }
 
@@ -965,7 +967,7 @@ namespace
 
             VR *vr = g_StrataGame->m_VR;
             const uint8_t *gun = g_MuzzleValid ? ActivePortalgun(static_cast<uint8_t *>(g_ViewModelOwner)) : nullptr;
-            const bool carrying = gun && gun[kPortalgun_OpenProngs];
+            const bool carrying = gun && gun[g_Portalgun_OpenProngs];
             if (carrying != vr->m_ViewmodelCarrying)
                 std::cout << "[VR] gun carrying: " << carrying << "\n";
             vr->m_ViewmodelCarrying = carrying;
@@ -1027,11 +1029,129 @@ namespace
         return false;
     }
 
+    // The game's network tables, as in client.dll. They name the fields, so these survive a patch
+    // that moves them.
+    struct RecvTable;
+    struct RecvProp
+    {
+        const char *name;
+        int type, flags, stringBufferSize;
+        bool insideArray;
+        const void *extraData;
+        RecvProp *arrayProp;
+        void *arrayLengthProxy, *proxy, *dataTableProxy;
+        RecvTable *dataTable;
+        int offset, elementStride, elements;
+        const char *parentArrayName;
+    };
+    static_assert(sizeof(RecvProp) == 0x60 && offsetof(RecvProp, offset) == 0x48);
+    struct RecvTable
+    {
+        RecvProp *props;
+        int propCount;
+        void *decoder;
+        const char *name;
+    };
+    struct ClientClass
+    {
+        void *create, *createEvent;
+        const char *name;
+        RecvTable *table;
+        ClientClass *next;
+    };
+    constexpr int kBaseClient_GetAllClasses = 8;
+
+    const struct
+    {
+        const char *table, *name;
+        int *offset;
+    } kNetworkFields[] =
+    {
+        { "DT_Prop_Portal", "m_ptOrigin", &g_Portal_Origin },
+        { "DT_Prop_Portal", "m_qAbsAngle", &g_Portal_Angles },
+        { "DT_Prop_Portal", "m_hLinkedPortal", &g_Portal_LinkedPortal },
+        { "DT_Prop_Portal", "m_bActivated", &g_Portal_Activated },
+        { "DT_Prop_Portal", "m_fNetworkHalfWidth", &g_Portal_HalfWidth },
+        { "DT_Prop_Portal", "m_fNetworkHalfHeight", &g_Portal_HalfHeight },
+        { "DT_Portal_Player", "m_fFlags", &g_Player_Flags },
+        { "DT_Portal_Player", "m_hActiveWeapon", &g_Player_ActiveWeaponHandle },
+        { "DT_WeaponPortalgun", "m_bCanFirePortal1", &g_Portalgun_CanFirePortal1 },
+        { "DT_WeaponPortalgun", "m_bCanFirePortal2", &g_Portalgun_CanFirePortal2 },
+        { "DT_WeaponPortalgun", "m_iLastFiredPortal", &g_Portalgun_LastFiredPortal },
+        { "DT_WeaponPortalgun", "m_bOpenProngs", &g_Portalgun_OpenProngs },
+    };
+
+    // From the start of the table, including its nested tables; -1 if it isn't there.
+    int FindNetworkField(const RecvTable *table, const char *name)
+    {
+        for (int i = 0; i < table->propCount; ++i)
+        {
+            if (!table->props[i].dataTable && !strcmp(table->props[i].name, name))
+                return table->props[i].offset;
+        }
+        for (int i = 0; i < table->propCount; ++i)
+        {
+            if (const RecvTable *nested = table->props[i].dataTable)
+            {
+                const int offset = FindNetworkField(nested, name);
+                if (offset >= 0)
+                    return table->props[i].offset + offset;
+            }
+        }
+        return -1;
+    }
+
+    void ReadNetworkTables(void *baseClient)
+    {
+        using tGetAllClasses = ClientClass *(*)(void *thisptr);
+        const ClientClass *classes = (*static_cast<tGetAllClasses **>(baseClient))[kBaseClient_GetAllClasses](baseClient);
+
+        int found = 0;
+        for (const auto &field : kNetworkFields)
+        {
+            int offset = -1;
+            for (const ClientClass *c = classes; c && offset < 0; c = c->next)
+            {
+                if (c->table && !strcmp(c->table->name, field.table))
+                    offset = FindNetworkField(c->table, field.name);
+            }
+
+            if (offset < 0)
+            {
+                std::cout << "[Hooks] network field " << field.name << " not found, stays at 0x" << std::hex << *field.offset << std::dec << "\n";
+                continue;
+            }
+            ++found;
+            if (offset != *field.offset)
+                std::cout << "[Hooks] network field " << field.name << " moved from 0x" << std::hex << *field.offset << " to 0x" << offset << std::dec << "\n";
+            *field.offset = offset;
+        }
+        std::cout << "[Hooks] network fields: found " << found << " of " << std::size(kNetworkFields) << "\n";
+    }
+
+    // Once client.dll has built its tables. A game whose tables look different keeps the values above.
+    void FindNetworkFields()
+    {
+        void *baseClient = g_StrataGame->m_BaseClientDll;
+        if (!baseClient)
+            return;
+        __try
+        {
+            ReadNetworkTables(baseClient);
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+            std::cout << "[Hooks] network tables not readable\n";
+        }
+    }
+
     // Renders both eyes into the VR textures instead of the one view into the back buffer. Menus
     // (main menu with its background map, pause menu) keep rendering to the back buffer, which
     // the menu overlay shows.
     void hkRenderView(void *thisptr, const CViewSetup &view, const CViewSetup &hudView, int nClearFlags, int whatToDraw)
     {
+        static const bool networkFieldsRead = (FindNetworkFields(), true);
+
         VR *vr = g_StrataGame->m_VR;
         if (!vr->m_IsInitialized || !vr->m_IsVREnabled || vr->IsMenuVisible())
         {
@@ -1123,7 +1243,7 @@ namespace
                     savedThrough = player[kPlayer_ViewThroughPortal] != 0;
                     savedExit = exit;
                     player[kPlayer_ViewThroughPortal] = !savedThrough;
-                    exit = reinterpret_cast<uint8_t *>(g_StrataGame->GetClientEntity(*reinterpret_cast<const int *>(portal + kPortal_LinkedPortal) & 0xFFFF));
+                    exit = reinterpret_cast<uint8_t *>(g_StrataGame->GetClientEntity(*reinterpret_cast<const int *>(portal + g_Portal_LinkedPortal) & 0xFFFF));
                 }
 
                 auto matrix = reinterpret_cast<const float (*)[4]>(portal + kPortal_MatrixToLinked);
