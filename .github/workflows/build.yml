@@ -1,0 +1,38 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # windows-2022 ships VS 2022 with the v143 toolset the project uses
+    # (windows-latest has moved on to VS 2026).
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Release, RelWithDebInfo, Debug]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: microsoft/setup-msbuild@v3
+
+      # The post-build event copies d3d11.dll into the local Steam game directory,
+      # which does not exist on the runner.
+      - name: Build
+        run: msbuild portal_revolution_vr.sln /m /p:Configuration=${{ matrix.configuration }} /p:Platform=x64 /p:PostBuildEventUseInBuild=false
+
+      - name: Package
+        shell: pwsh
+        run: tools/package-release.ps1 -Configuration ${{ matrix.configuration }} -Version ${{ github.sha }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: PortalRevolutionVR-${{ matrix.configuration }}
+          path: dist/*/

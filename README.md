@@ -9,7 +9,7 @@
 
 [<img src="https://www.paypalobjects.com/en_US/DK/i/btn/btn_donateCC_LG.gif" align="right" />](https://www.paypal.com/donate/?hosted_button_id=HLFSYXSE3SDVE)
 
-VR mod for Portal: Revolution, playable but work in progress.
+VR mod for Portal: Revolution.
 
 ## What works
 * Stereo view with head tracking; portals, smoke and glass render correctly
@@ -24,17 +24,28 @@ VR mod for Portal: Revolution, playable but work in progress.
 ## What's missing
 * HUD and subtitles
 * Videos
-* No release package yet
 
-## Build instructions
-1. Clone the repository
-2. Open `portal_revolution_vr.sln`, set to x64 (Debug, Release or RelWithDebInfo), build
-
-After building, `d3d11.dll` is copied to `Portal Revolution/bin/win64` (default Steam path), so the game must not be running.
+Tested with Oculus Touch controllers. The bindings for Index and Vive Cosmos controllers are untested.
 
 ## How to use
-* Copy the contents of `package-files` and `thirdparty/openvr/bin/win64/openvr_api.dll` to `Portal Revolution/VR/`
-* Start the game with SteamVR. The mod sets the required launch options itself.
+1. Download [PortalRevolutionVR.zip](https://github.com/stsichler/portal_revolution_vr/releases/latest/download/PortalRevolutionVR.zip) and extract it to `steamapps/common/Portal Revolution`.
+2. Start the game with SteamVR. The mod sets the required launch options itself.
+
+To remove the mod, run `Uninstall_Portal_Revolution_VR_Mod.cmd` in the game folder. An update of the mod replaces `VR/config.txt`, so keep a copy if you changed it. An update of the game can break the mod.
+
+## Controls
+| Oculus Touch | In the game | In the menu |
+|---|---|---|
+| Left stick | Walk, click to recenter | Navigate |
+| Right stick | Turn | |
+| Right trigger | Blue portal | Click with the laser |
+| Right grip | Orange portal | |
+| A | Jump | Select |
+| B | Use, pick up | Back |
+| Y | Pause menu | Back |
+| Left grip | Crouch | |
+
+You can change them in SteamVR's controller bindings.
 
 ## Playing left-handed or seated
 Change these in `Portal Revolution/VR/config.txt`.
@@ -47,6 +58,12 @@ Change these in `Portal Revolution/VR/config.txt`, one after the other. They app
 1. `ApplyPitchAndRollPortalRotationOffset=false`: the view stays upright when you pass through a portal.
 2. `VignetteWalking=0.8`: darkens the edges of your view while you walk with the stick.
 3. Leave `SnapTurning=true`: the view jumps when you turn. With `false` it turns smoothly, and `VignetteTurning` darkens the edges meanwhile.
+
+## Build instructions
+1. Clone the repository
+2. Open `portal_revolution_vr.sln`, set to x64 (Debug, Release or RelWithDebInfo), build
+
+After building, `d3d11.dll` is copied to `Portal Revolution/bin/win64` (default Steam path), so the game must not be running. Then `tools/package-release.ps1` makes the ZIP. Only Debug and RelWithDebInfo write `prvr_debug.log`.
 
 ## Based on
 * Brilliant Portal 2 VR mod from [Gistix](https://github.com/Gistix/portal2vr)

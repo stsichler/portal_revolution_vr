@@ -20,6 +20,7 @@ mono_crash.*
 [Dd]ebugPublic/
 [Rr]eleases/
 x64/
+dist/
 x86/
 [Aa][Rr][Mm]/
 [Aa][Rr][Mm]64/
