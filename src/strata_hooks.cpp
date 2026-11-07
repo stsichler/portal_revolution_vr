@@ -2,6 +2,7 @@
 #include "strata_hooks.h"
 #include <Windows.h>
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -958,12 +959,12 @@ namespace
         oParticleSimulate(thisptr, frameTime);
     }
 
-    // Panorama lays the menu out for the back buffer, and the overlay shows that with its proportions.
+    // Panorama lays the menu out for a part of the back buffer, and the overlay shows that.
     // So the scene behind the menu gets the same format, with the view's vertical field of view.
     CViewSetup MenuView(const CViewSetup &view)
     {
         VR *vr = g_StrataGame->m_VR;
-        const float aspect = static_cast<float>(vr->m_RenderWidth) / vr->m_RenderHeight;
+        const float aspect = static_cast<float>(vr->m_RenderWidth) / vr->MenuHeight();
         const float scale = aspect / view.m_flAspectRatio;
         auto scaleFov = [scale](float fov) { return RAD2DEG(2.0f * atanf(tanf(DEG2RAD(fov) * 0.5f) * scale)); };
 
@@ -971,7 +972,7 @@ namespace
         menuView.x = menuView.m_nUnscaledX = 0;
         menuView.y = menuView.m_nUnscaledY = 0;
         menuView.width = menuView.m_nUnscaledWidth = vr->m_RenderWidth;
-        menuView.height = menuView.m_nUnscaledHeight = vr->m_RenderHeight;
+        menuView.height = menuView.m_nUnscaledHeight = vr->MenuHeight();
         menuView.fov = scaleFov(view.fov);
         menuView.fovViewmodel = scaleFov(view.fovViewmodel);
         menuView.m_flAspectRatio = aspect;
@@ -1194,6 +1195,89 @@ void **StrataHooks::FindVTable(const char *module, const char *className)
         }
     }
     return nullptr;
+}
+
+// Panorama lays out for a height of 1080 and the width that follows from its window size. For the
+// back buffer (HMD format, nearly square) that's about 1030 wide, too narrow for the menu. So its
+// windows get a 16:9 part of the back buffer. The size is passed when they are created: changing
+// it later doesn't arrange the panels again. Indices: see VTABLES in dev-notes.
+namespace
+{
+    constexpr int kPanoramaEngine_CreateWindow = 13; // CUIEngineSource2
+    constexpr int kPanoramaWindow_SetUIScale = 9;    // CTopLevelWindowSource2
+    constexpr int kPanoramaWindow_SetClientSize = 17;
+    constexpr int kPanoramaWindow_ClientHeightField = 0x4C;
+    constexpr float kPanorama_LayoutHeight = 1080.0f;
+    constexpr int kPanorama_FindRetries = 5000; // ms, the DLL may still be loading
+
+    typedef void *(*tPanoramaCreateWindow)(void *, int, int, int, int, uint64_t, uint64_t, uint64_t, uint64_t, void *, void *);
+    typedef void (*tPanoramaSetUIScale)(void *, float, uint64_t, uint64_t);
+    typedef uint64_t (*tPanoramaSetClientSize)(void *, uint64_t, uint64_t, uint64_t);
+    tPanoramaCreateWindow oPanoramaCreateWindow = nullptr;
+    tPanoramaSetUIScale oPanoramaSetUIScale = nullptr;
+    tPanoramaSetClientSize oPanoramaSetClientSize = nullptr;
+    void **g_PanoramaWindowVTable = nullptr;
+    std::atomic<bool> g_PanoramaHooked{false};
+
+    int Height16x9(int width, int height)
+    {
+        const int height16x9 = width * 9 / 16;
+        return height16x9 < height ? height16x9 : height;
+    }
+
+    void *hkPanoramaCreateWindow(void *engine, int x, int y, int width, int height, uint64_t a, uint64_t b, uint64_t c, uint64_t d, void *e, void *f)
+    {
+        const int newHeight = Height16x9(width, height);
+        std::cout << "[Panorama] create window " << width << "x" << height << " -> " << width << "x" << newHeight << "\n";
+        return oPanoramaCreateWindow(engine, x, y, width, newHeight, a, b, c, d, e, f);
+    }
+
+    // The engine sets height / 1080 with the real height, when a window is created and after a
+    // resize of the screen.
+    void hkPanoramaSetUIScale(void *window, float scale, uint64_t a, uint64_t b)
+    {
+        const int clientHeight = *reinterpret_cast<const int *>(static_cast<const uint8_t *>(window) + kPanoramaWindow_ClientHeightField);
+        if (*static_cast<void ***>(window) == g_PanoramaWindowVTable && clientHeight > 0)
+            scale = clientHeight / kPanorama_LayoutHeight;
+        oPanoramaSetUIScale(window, scale, a, b);
+    }
+
+    uint64_t hkPanoramaSetClientSize(void *window, uint64_t width, uint64_t height, uint64_t a)
+    {
+        return oPanoramaSetClientSize(window, width, Height16x9((int)width, (int)height), a);
+    }
+}
+
+int StrataHooks::PanoramaHeight(int width, int height)
+{
+    return g_PanoramaHooked ? Height16x9(width, height) : height;
+}
+
+unsigned long __stdcall StrataHooks::HookPanorama(void *)
+{
+    while (!GetModuleHandleA("panorama.dll"))
+        Sleep(1);
+
+    void **engine = nullptr;
+    for (int i = 0; i < kPanorama_FindRetries && !(engine && g_PanoramaWindowVTable); ++i)
+    {
+        engine = FindVTable("panorama.dll", "CUIEngineSource2@panorama");
+        g_PanoramaWindowVTable = FindVTable("panorama.dll", "CTopLevelWindowSource2@panorama");
+        if (!engine || !g_PanoramaWindowVTable)
+            Sleep(1);
+    }
+    if (!engine || !g_PanoramaWindowVTable)
+    {
+        std::cout << "[Panorama] vtables not found, the menu keeps the format of the back buffer\n";
+        return 0;
+    }
+
+    MH_Initialize(); // MH_ERROR_ALREADY_INITIALIZED is fine
+    g_PanoramaHooked =
+        InstallHook("Panorama SetUIScale", g_PanoramaWindowVTable[kPanoramaWindow_SetUIScale], &hkPanoramaSetUIScale, oPanoramaSetUIScale, "panorama.dll") &&
+        InstallHook("Panorama SetClientSize", g_PanoramaWindowVTable[kPanoramaWindow_SetClientSize], &hkPanoramaSetClientSize, oPanoramaSetClientSize, "panorama.dll") &&
+        InstallHook("Panorama CreateWindow", engine[kPanoramaEngine_CreateWindow], &hkPanoramaCreateWindow, oPanoramaCreateWindow, "panorama.dll");
+    return 0;
 }
 
 bool StrataHooks::Init(Game *game)

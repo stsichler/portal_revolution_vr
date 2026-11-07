@@ -48,6 +48,7 @@ public:
 
 	uint32_t m_RenderWidth;
 	uint32_t m_RenderHeight;
+	uint32_t MenuHeight() const; // of the part of the back buffer Panorama lays the menu out for
 	float m_Aspect;
 	float m_Fov;
 
@@ -206,6 +207,7 @@ public:
 	void initD3D11Callbacks();
 	bool InitOpenVR(); // VR_Init, done before the game creates its swap chain
 	void CopyBackBuffer(struct IDXGISwapChain *swapChain);
+	void PrepareWindowImage(struct IDXGISwapChain *swapChain);
 	void CopyBackBufferToEye(SharedTextureHolder &eye);
 	void GetWindowSize(int &width, int &height);
 	void CreateBlankTexture();

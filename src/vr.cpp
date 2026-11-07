@@ -3,6 +3,8 @@
 #include "sdk.h"
 #include "game.h"
 #include "trace.h"
+#include "strata_hooks.h"
+#include <dxgi1_3.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -88,7 +90,7 @@ void VR::init()
     m_Overlay->SetOverlayFlag(m_MainMenuHandle, vr::VROverlayFlags_SendVRDiscreteScrollEvents, true);
     //m_Overlay->SetOverlayFlag(m_HUDHandle, vr::VROverlayFlags_SendVRDiscreteScrollEvents, true);
 
-    const vr::HmdVector2_t mouseScaleMenu = { (float)m_RenderWidth, (float)m_RenderHeight };
+    const vr::HmdVector2_t mouseScaleMenu = { (float)m_RenderWidth, (float)MenuHeight() };
     m_Overlay->SetOverlayCurvature(m_MainMenuHandle, 0.15f);
     m_Overlay->SetOverlayMouseScale(m_MainMenuHandle, &mouseScaleMenu);
     CreateAimDot();
@@ -208,6 +210,41 @@ bool VR::InitOpenVR()
     return true;
 }
 
+uint32_t VR::MenuHeight() const
+{
+    return StrataHooks::PanoramaHeight(m_RenderWidth, m_RenderHeight);
+}
+
+// The window shows the top part of the back buffer in the menu's format, scaled to its size: the
+// menu is there, and in the game the middle of the right eye gets copied there. The back buffer
+// isn't used anymore after Present. Without that part the window shows all of it, as the game does.
+void VR::PrepareWindowImage(IDXGISwapChain *swapChain)
+{
+    const UINT height = MenuHeight();
+    IDXGISwapChain2 *swapChain2 = nullptr;
+    if (height == m_RenderHeight || FAILED(swapChain->QueryInterface(__uuidof(IDXGISwapChain2), (void **)&swapChain2)))
+        return;
+
+    const HRESULT sized = swapChain2->SetSourceSize(m_RenderWidth, height);
+    swapChain2->Release();
+    static HRESULT lastSized = S_OK;
+    if (sized != lastSized)
+    {
+        std::cout << "[D3D11] SetSourceSize " << m_RenderWidth << "x" << height << ": 0x" << std::hex << sized << std::dec << "\n";
+        lastSized = sized;
+    }
+    if (FAILED(sized) || !m_RenderedNewFrame || !m_VKRightEye.m_Texture)
+        return;
+
+    ID3D11Texture2D *backBuffer = nullptr;
+    if (FAILED(swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&backBuffer)))
+        return;
+    const UINT top = (m_RenderHeight - height) / 2;
+    const D3D11_BOX middle = { 0, top, 0, m_RenderWidth, top + height, 1 };
+    D3D11Hooks::g_Context->CopySubresourceRegion(backBuffer, 0, 0, 0, 0, m_VKRightEye.m_Texture, 0, &middle);
+    backBuffer->Release();
+}
+
 // Copies the game's back buffer into m_VKBackBuffer, which the menu overlay shows. A copy,
 // because back buffers can't be handed to OpenVR (and with the flip model change every frame).
 void VR::CopyBackBuffer(IDXGISwapChain *swapChain)
@@ -218,6 +255,10 @@ void VR::CopyBackBuffer(IDXGISwapChain *swapChain)
 
     D3D11_TEXTURE2D_DESC desc;
     backBuffer->GetDesc(&desc);
+
+    // Only the part Panorama draws to: OpenVR takes the area the laser can hit from the texture's
+    // proportions and ignores the texture bounds. The back buffer is never multisampled (flip model).
+    desc.Height = desc.Height < MenuHeight() ? desc.Height : MenuHeight();
 
     if (!m_VKBackBuffer.m_Texture || m_VKBackBuffer.m_Width != desc.Width || m_VKBackBuffer.m_Height != desc.Height)
     {
@@ -244,10 +285,8 @@ void VR::CopyBackBuffer(IDXGISwapChain *swapChain)
         m_VKBackBuffer.m_VRTexture.handle = m_VKBackBuffer.m_Texture;
     }
 
-    if (desc.SampleDesc.Count > 1)
-        D3D11Hooks::g_Context->ResolveSubresource(m_VKBackBuffer.m_Texture, 0, backBuffer, 0, desc.Format);
-    else
-        D3D11Hooks::g_Context->CopyResource(m_VKBackBuffer.m_Texture, backBuffer);
+    const D3D11_BOX part = { 0, 0, 0, desc.Width, desc.Height, 1 };
+    D3D11Hooks::g_Context->CopySubresourceRegion(m_VKBackBuffer.m_Texture, 0, 0, 0, 0, backBuffer, 0, &part);
     backBuffer->Release();
 }
 
@@ -362,7 +401,10 @@ void VR::initD3D11Callbacks()
     D3D11Hooks::Present_Pre_Callback = [this](IDXGISwapChain *swapChain)
         {
             if (m_IsInitialized)
+            {
                 CopyBackBuffer(swapChain);
+                PrepareWindowImage(swapChain);
+            }
         };
 
     D3D11Hooks::Present_Post_Callback = [this](IDXGISwapChain *)
@@ -544,13 +586,15 @@ void VR::SubmitVRTextures()
         const bool menuVisible = IsMenuVisible();
         if (!menuVisible)
         {
-            // The game view only renders to the window portion of the back buffer (Strata Source
-            // draws its menus over the whole back buffer). Until we figure out a proper fix,
+            // The game view only renders to the window portion of the back buffer (Panorama
+            // draws its menus over a larger part). Until we figure out a proper fix,
             // as a workaround only show that portion of the texture.
             int windowWidth, windowHeight;
             GetWindowSize(windowWidth, windowHeight);
-            bounds.uMax = (float)windowWidth / m_RenderWidth;
-            bounds.vMax = (float)windowHeight / m_RenderHeight;
+            const float uMax = (float)windowWidth / m_VKBackBuffer.m_Width;
+            const float vMax = (float)windowHeight / m_VKBackBuffer.m_Height;
+            bounds.uMax = uMax < 1.0f ? uMax : 1.0f;
+            bounds.vMax = vMax < 1.0f ? vMax : 1.0f;
         }
 
         vr::VROverlay()->SetOverlayTextureBounds(m_MainMenuHandle, &bounds);
@@ -649,10 +693,9 @@ void VR::RepositionOverlays()
         -sinf(hmdYaw), 0.0f, cosf(hmdYaw), menuNewPos.z
     };
 
-    // Panorama lays the menu out for the back buffer (HMD format, nearly square).
-    const float menuHeight = 2.0f; // meters
+    const float menuHeight = 1.8f; // meters
     vr::VROverlay()->SetOverlayTransformAbsolute(m_MainMenuHandle, trackingOrigin, &menuTransform);
-    vr::VROverlay()->SetOverlayWidthInMeters(m_MainMenuHandle, menuHeight * m_RenderWidth / m_RenderHeight);
+    vr::VROverlay()->SetOverlayWidthInMeters(m_MainMenuHandle, menuHeight * m_RenderWidth / MenuHeight());
 
     // Reposition HUD overlay
     /*vr::HmdMatrix34_t hudTransform =
@@ -869,13 +912,13 @@ void VR::ProcessMenuInput()
         vr::VROverlay()->SetOverlayFlag(currentOverlay, vr::VROverlayFlags_MakeOverlaysInteractiveIfVisible, true);
 
         // Laser position on the overlay (back buffer pixels, origin bottom left) -> mouse message
-        // coordinates. Panorama lays the menu out over the whole back buffer (HMD size), not the
-        // window size the engine uses, and takes the message coordinates as back buffer pixels:
+        // coordinates. Panorama lays the menu out over a part of the back buffer, not the window
+        // size the engine uses, and takes the message coordinates as back buffer pixels:
         // window coordinates landed in the top left corner of the menu (also with a real mouse).
         auto toWindow = [&](const vr::VREvent_Mouse_t &mouse, int &x, int &y)
         {
             x = (int)mouse.x;
-            y = (int)(m_RenderHeight - mouse.y);
+            y = (int)(MenuHeight() - mouse.y);
         };
 
         // The menu is Panorama; it gets the mouse from inputsystem.dll, which subclasses the game

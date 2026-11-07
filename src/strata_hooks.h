@@ -11,4 +11,12 @@ namespace StrataHooks
     void **FindVTable(const char *module, const char *className);
 
     bool Init(Game *game);
+
+    // Thread function, to start before the game loads panorama.dll: the hooks must be in place
+    // when Panorama's windows are created.
+    unsigned long __stdcall HookPanorama(void *);
+
+    // The height of the part of the back buffer Panorama lays out for: 16:9, or all of it if the
+    // hooks aren't in place.
+    int PanoramaHeight(int width, int height);
 }

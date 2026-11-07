@@ -8,6 +8,7 @@
 #include "game.h"
 #include "vr.h"
 #include "sdk.h"
+#include "strata_hooks.h"
 
 #ifdef PRVR_DIAGNOSTICS
 #include <cstdint>
@@ -253,6 +254,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
             // Synchronously: the D3D11 callbacks must be set before shaderapidx11 creates the device.
             g_Game = new Game();
             CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)InitPRVR, hModule, 0, NULL);
+            CreateThread(NULL, 0, StrataHooks::HookPanorama, nullptr, 0, NULL);
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
     case DLL_PROCESS_DETACH:
