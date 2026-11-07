@@ -33,6 +33,8 @@ Tested with Oculus Touch controllers. The bindings for Index and Vive Cosmos con
 
 To remove the mod, run `Uninstall_Portal_Revolution_VR_Mod.cmd` in the game folder. An update of the mod replaces `VR/config.txt`, so keep a copy if you changed it. An update of the game can break the mod.
 
+Windows Defender can flag `d3d11.dll` as a potential threat. This is a false alarm: the mod takes the place of a system DLL and hooks functions of the game, as malware also does. If it gets blocked, allow it under Windows Security > Virus & threat protection > Protection history, or build the mod yourself from this source code. Only download it from this page.
+
 ## Controls
 | Oculus Touch | In the game | In the menu |
 |---|---|---|
