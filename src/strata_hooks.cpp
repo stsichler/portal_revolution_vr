@@ -108,6 +108,7 @@ namespace
         bool atWall = false;
         bool walking = false; // with the stick or keyboard
         bool pullingBack = false;
+        bool passedPortal = false; // for the log
     } g_Roomscale;
 
     // C_WeaponPortalgun [332] AddViewmodelBob(viewModel, origin, angles): moves and turns the gun
@@ -521,6 +522,11 @@ namespace
         vr->UpdateHeadPose();
         vr->UpdateHandTracking();
 
+        // Walking after the head goes on behind the portal, the view must not move in this frame either.
+        g_Roomscale.position = MovedByPortal(matrix, g_Roomscale.position);
+        g_Roomscale.direction = RotatedByPortal(matrix, g_Roomscale.direction);
+        g_Roomscale.passedPortal = true;
+
         Vector offset = vr->m_HmdPosRelative;
         offset.z = 0;
         std::cout << "[VR] portal passage: yaw " << yaw << " after " << g_PortalPassage.frames << " frames, head "
@@ -617,8 +623,8 @@ namespace
             return oCalcViewModelView(thisptr, owner, eyePosition, eyeAngles);
 
         VR *vr = g_StrataGame->m_VR;
-        UpdateRoomscale(eyePosition);
         FollowPortalPassage(eyePosition, vr->m_SetupOrigin);
+        UpdateRoomscale(eyePosition);
         const Vector position = vr->GetRecommendedViewmodelAbsPos(eyePosition);
         const QAngle angles = vr->GetRecommendedViewmodelAbsAngle();
         oCalcViewModelView(thisptr, owner, position, angles);
@@ -846,10 +852,14 @@ namespace
         Vector step = eyes - last;
         step.z = 0;
         const float sinceCommand = std::chrono::duration<float>(std::chrono::steady_clock::now() - state.lastCommand).count();
-        // Against the commanded direction or fast, something else moves the player (platform, portal,
-        // push) and the view has to go along.
-        if (!g_PortalPassage.waiting && sinceCommand <= kRoomscale_CoastSeconds && VectorLength(step) <= kRoomscale_MaxStep
-            && DotProduct(step, state.direction) > 0 && PlayerOnGround())
+        // Against the commanded direction or fast, something else moves the player (platform, push)
+        // and the view has to go along.
+        const bool roomMoves = sinceCommand <= kRoomscale_CoastSeconds && VectorLength(step) <= kRoomscale_MaxStep
+            && DotProduct(step, state.direction) > 0 && PlayerOnGround();
+        if (state.passedPortal)
+            std::cout << "[VR] roomscale: step at the portal " << VectorLength(step) << ", room " << (roomMoves ? "moves along" : "stays") << "\n";
+        state.passedPortal = false;
+        if (roomMoves)
             vr->MoveRoom(step);
 
         PullHeadBack(eyes - last);
@@ -1040,11 +1050,11 @@ namespace
 
         const Vector position = view.origin;
         ++g_PortalPassage.frames;
+        FollowPortalPassage(position, vr->m_SetupOrigin);
         // Normally done with the viewmodel, which is placed earlier in the frame.
         if (!g_Roomscale.updatedThisFrame)
             UpdateRoomscale(position);
         g_Roomscale.updatedThisFrame = false;
-        FollowPortalPassage(position, vr->m_SetupOrigin);
         vr->m_SetupOrigin = position;
 
         const Vector viewOrigin = vr->GetViewOrigin(position);
