@@ -7,6 +7,7 @@
 #include <string>
 #include "game.h"
 #include "strata_hooks.h"
+#include "module_placement.h"
 
 // Writes everything to the log file (b) and, if there is one, also to a second stream buffer
 // (a, the console).
@@ -250,6 +251,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
             // Synchronously: the D3D11 callbacks must be set before shaderapidx11 creates the device.
             g_Game = new Game();
             CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)InitPRVR, hModule, 0, NULL);
+            CreateThread(NULL, 0, ModulePlacement::Install, nullptr, 0, NULL);
             CreateThread(NULL, 0, StrataHooks::HookPanorama, nullptr, 0, NULL);
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:

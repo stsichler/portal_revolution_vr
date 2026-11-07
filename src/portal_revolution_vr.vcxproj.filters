@@ -26,6 +26,9 @@
     <ClCompile Include="dllmain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="module_placement.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="game.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -41,6 +44,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="d3d11_hooks.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="module_placement.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="game.h">

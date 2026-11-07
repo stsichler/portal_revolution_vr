@@ -348,10 +348,52 @@ namespace
         return *call == 0xE8 ? call + 5 + *reinterpret_cast<int32_t *>(call + 1) : nullptr;
     }
 
+    bool g_LoggedMemoryNear = false;
+
+    // What MinHook has to search for its trampolines, which must be close to the target: the memory
+    // within 1 GB of it. See module_placement.cpp for how a DLL ends up without any.
+    void LogMemoryNear(const uint8_t *target)
+    {
+        constexpr uintptr_t kRange = 0x40000000, kGranularity = 0x10000;
+        int regions = 0, tooSmall = 0, usable = 0, failed = 0;
+        DWORD lastError = 0;
+        for (uintptr_t address = (uintptr_t)target - kRange; address < (uintptr_t)target + kRange;)
+        {
+            MEMORY_BASIC_INFORMATION info;
+            if (!VirtualQuery(reinterpret_cast<void *>(address), &info, sizeof(info)))
+                break;
+            ++regions;
+            if (info.State == MEM_FREE)
+            {
+                const uintptr_t aligned = (address + kGranularity - 1) & ~(kGranularity - 1);
+                if (aligned + 0x1000 > address + info.RegionSize)
+                    ++tooSmall;
+                else if (void *block = VirtualAlloc(reinterpret_cast<void *>(aligned), 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE))
+                {
+                    VirtualFree(block, 0, MEM_RELEASE);
+                    ++usable;
+                }
+                else
+                {
+                    ++failed;
+                    lastError = GetLastError();
+                }
+            }
+            address = reinterpret_cast<uintptr_t>(info.BaseAddress) + info.RegionSize;
+        }
+        std::cout << "[Hooks] within 1 GB of " << (const void *)target << ": " << regions << " regions, free ones: " << usable << " usable, "
+                  << tooSmall << " too small, " << failed << " refused (error " << lastError << ")\n";
+    }
+
     template <typename F>
     bool InstallHook(const char *name, void *target, F detour, F &original, const char *module = "client.dll")
     {
         const MH_STATUS created = MH_CreateHook(target, reinterpret_cast<void *>(detour), reinterpret_cast<void **>(&original));
+        if (created == MH_ERROR_MEMORY_ALLOC && !g_LoggedMemoryNear)
+        {
+            g_LoggedMemoryNear = true;
+            LogMemoryNear(static_cast<const uint8_t *>(target));
+        }
         const MH_STATUS enabled = created == MH_OK ? MH_EnableHook(target) : created;
         std::cout << "[Hooks] " << name << " " << module << "+0x" << std::hex << ((uint8_t *)target - (uint8_t *)GetModuleHandleA(module))
                   << std::dec << ": create " << created << ", enable " << enabled << "\n";
@@ -1423,6 +1465,7 @@ unsigned long __stdcall StrataHooks::HookPanorama(void *)
 bool StrataHooks::Init(Game *game)
 {
     g_StrataGame = game;
+    std::cout << "[Hooks] client.dll at " << (void *)GetModuleHandleA("client.dll") << ", engine.dll at " << (void *)GetModuleHandleA("engine.dll") << "\n";
 
     // The D3D11 hooks have initialized MinHook already.
     MH_STATUS status = MH_Initialize();
