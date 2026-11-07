@@ -14,7 +14,7 @@ VR mod for Portal: Revolution, playable but work in progress.
 ## What works
 * Stereo view with head tracking; portals, smoke and glass render correctly
 * Menu as an overlay in the headset, used with laser pointer or stick
-* Walking relative to the left controller, snap turning, jumping, crouching
+* Walking where the left controller points, snap or smooth turning, jumping, crouching
 * Portal gun in the right hand with aim laser or aim dot, shots start at its muzzle
 * View turns with the portal when passing through it
 * Picking up cubes
@@ -22,7 +22,8 @@ VR mod for Portal: Revolution, playable but work in progress.
 * Comfort options, see [If you feel sick](#if-you-feel-sick)
 
 ## What's missing
-* HUD
+* HUD and subtitles
+* Videos
 * No release package yet
 
 ## Build instructions
@@ -34,6 +35,12 @@ After building, `d3d11.dll` is copied to `Portal Revolution/bin/win64` (default 
 ## How to use
 * Copy the contents of `package-files` and `thirdparty/openvr/bin/win64/openvr_api.dll` to `Portal Revolution/VR/`
 * Start the game with SteamVR. The mod sets the required launch options itself.
+
+## Playing left-handed or seated
+Change these in `Portal Revolution/VR/config.txt`.
+* `LeftHanded=true`: the portal gun and the buttons change hands.
+* `WalkWithRightStick=true`: the right stick walks, the left one turns.
+* `SeatedMode=true`: for playing seated, also in a wheelchair. Roomscale keeps working.
 
 ## If you feel sick
 Change these in `Portal Revolution/VR/config.txt`, one after the other. They apply at once, no restart needed.

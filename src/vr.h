@@ -2,6 +2,7 @@
 #include "openvr.h"
 #include "vector.h"
 #include <chrono>
+#include <unordered_map>
 
 #define MAX_STR_LEN 256
 
@@ -97,7 +98,7 @@ public:
 	Vector m_ViewmodelPosOffset;
 	QAngle m_ViewmodelAngOffset;
 
-	Vector m_ViewmodelPosCustomOffset; // Custom (from config) viewmodel position offset applied on top of hardcoded ones
+	Vector m_ViewmodelPosCustomOffset = { 8.0f, 7.5f, -12.0f }; // Custom (from config) viewmodel position offset applied on top of hardcoded ones
     QAngle m_ViewmodelAngCustomOffset; // Custom (from config) viewmodel angle offset applied on top of hardcoded ones
     bool m_ViewmodelCarrying = false; // The portal gun holds an object, set by the Strata hooks
     float m_ViewmodelCarryWeight = 0.0f; // 0 = pose of the idle animation, 1 = of the carrying one
@@ -153,6 +154,10 @@ public:
 	vr::VRActionHandle_t m_ShowHUD;
 	vr::VRActionHandle_t m_Pause;
 	vr::VRActionHandle_t m_ThirdAttack;
+	enum class ActionHand { Gun, OtherThanGun, WalkStick, TurnStick };
+	std::unordered_map<vr::VRActionHandle_t, ActionHand> m_ActionHands;
+	vr::VRInputValueHandle_t m_InputHandLeft = vr::k_ulInvalidInputValueHandle;
+	vr::VRInputValueHandle_t m_InputHandRight = vr::k_ulInvalidInputValueHandle;
 	vr::VRActionHandle_t m_ActionPointerLeft;  // pose at /user/hand/left/pose/tip (menu laser)
 	vr::VRActionHandle_t m_ActionPointerRight;
 	// Tip pose relative to the controller pose, per hand (0 = right, 1 = left); learned while the
@@ -169,11 +174,13 @@ public:
 	bool m_OverrideEyeAngles = false;
 	std::chrono::steady_clock::time_point m_PrevFrameTime;
 	bool m_InitialPosReset = false;
+	int m_TrackingSpaceSettleFrames = 0; // until the poses are from the current tracking space
 
 	float m_TurnSpeed = 0.15;
 	bool m_SnapTurning = true;
 	float m_SnapTurnAngle = 30.0;
 	bool m_LeftHanded = false;
+	bool m_WalkWithRightStick = false;
 	float m_VRScale = 43.2;
 	float m_IpdScale = 1.0;
 	bool m_6DOF = true;
@@ -185,7 +192,7 @@ public:
 	bool m_HudAlwaysVisible = false;
 	int m_AimMode = 1;
 	bool m_ApplyPitchAndRollPortalRotationOffset = true; // If `true`, the camera pitch/roll follows the exit portal's orientation when portalling
-	float m_CameraUprightRecoverySpeed = 0.2f; // If the above is `true`, this controls how quickly the camera turns back upright after portalling
+	float m_CameraUprightRecoveryTime = 0.25f; // If the above is `true`, the seconds until the camera is upright again after portalling, 0 = at once
 	float m_VignetteWalking = 0.0f; // 0 = off, 1 = black
 	float m_VignetteTurning = 0.8f; // 0 = off, 1 = black
 	float m_VignetteAfterPortal = 1.0f; // 0 = off, 1 = black
@@ -248,6 +255,9 @@ public:
 	Vector GetViewOriginRight(Vector setupOrigin);
 	bool CheckDigitalActionChanged(vr::VRActionHandle_t& actionHandle, bool& state);
 	bool GetAnalogActionData(vr::VRActionHandle_t &actionHandle, vr::InputAnalogActionData_t &analogDataOut);
+	vr::VRInputValueHandle_t RestrictToHand(vr::VRActionHandle_t action) const;
+	float WalkHandYaw() const;
+	void UpdateTrackingSpace();
 	void ResetPosition();
 	void MoveRoom(const Vector &step);
 	void GetPoseData(vr::TrackedDevicePose_t &poseRaw, TrackedDevicePoseData &poseOut);

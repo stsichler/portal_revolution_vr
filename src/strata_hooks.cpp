@@ -436,7 +436,7 @@ namespace
         TurnMove(cmd->forwardmove, cmd->sidemove, vr->m_HmdAngAbs.y, aim.y, forward, side);
         vr::InputAnalogActionData_t walk;
         if (vr->GetAnalogActionData(vr->m_ActionWalk, walk) && walk.bActive)
-            TurnMove(walk.y * MAX_LINEAR_SPEED, walk.x * MAX_LINEAR_SPEED, vr->m_LeftControllerAngAbs.y, aim.y, forward, side);
+            TurnMove(walk.y * MAX_LINEAR_SPEED, walk.x * MAX_LINEAR_SPEED, vr->WalkHandYaw(), aim.y, forward, side);
         RoomscaleMove(aim.y, forward, side);
         cmd->forwardmove = forward;
         cmd->sidemove = side;

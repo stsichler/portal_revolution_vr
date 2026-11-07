@@ -1,8 +1,9 @@
-TurnSpeed=0.15
-SnapTurning=true
-SnapTurnAngle=30.0
-LeftHanded=false
-VRScale=43.2 # Real word units to source units scale
+TurnSpeed=0.15 # Smooth turning: degrees per millisecond with the stick fully over
+SnapTurning=true # true: the view jumps by SnapTurnAngle. false: it turns smoothly
+SnapTurnAngle=30.0 # Degrees
+LeftHanded=false # true: the portal gun and the buttons change hands, the sticks stay (see below)
+WalkWithRightStick=false # true: the right stick walks, the left one turns. You walk where that hand points
+VRScale=43.2 # Real world units to source units scale
 IPDScale=1.0 # Scale of interpupillary distance 
 6DOF=true # false: only the head's rotation counts, not its position (Roomscale has no effect then)
 SeatedMode=false # false: your real eye height, the floors match. true: the eye height of the game's player
@@ -10,14 +11,14 @@ SeatedHeightOffset=4.0 # Seated mode only: moves the eyes up (+) or down (-) by 
 Roomscale=true # true: the player follows your head when you walk in your room, and your head stops at walls
 AimMode=1 # 0 = None, 1 = Aim dot, 2 = Laser sight/beam
 AntiAliasing=2 # 0, 2, 4, 8 (needs a restart of the game)
-ViewmodelPosCustomOffsetX=8.0
+ViewmodelPosCustomOffsetX=8.0 # Portal gun relative to the hand, source units
 ViewmodelPosCustomOffsetY=7.5
 ViewmodelPosCustomOffsetZ=-12.0
-ViewmodelAngCustomOffsetX=0.0
+ViewmodelAngCustomOffsetX=0.0 # Portal gun relative to the hand, degrees
 ViewmodelAngCustomOffsetY=0.0
 ViewmodelAngCustomOffsetZ=0.0
 ApplyPitchAndRollPortalRotationOffset=true # If `true`, the camera pitch/roll follows the exit portal's orientation when portalling
-CameraUprightRecoverySpeed=0.2 # If the above is `true`, this controls how quickly the camera turns back upright after portalling
+CameraUprightRecoveryTime=0.25 # If the above is `true`, the seconds until the camera is upright again after portalling. 0 = at once
 VignetteWalking=0 # Darkens the edge of the view against nausea when walking with the stick. 0 = off, 1 = black
 VignetteTurning=0.8 # The same when turning with the stick (only with SnapTurning=false). 0 = off, 1 = black
 VignetteAfterPortal=1 # The same while the camera turns back upright after portalling (see above). 0 = off, 1 = black

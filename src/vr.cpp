@@ -107,6 +107,7 @@ void VR::init()
     InstallApplicationManifest("manifest.vrmanifest");
     SetActionManifest("action_manifest.json");
 
+    ParseConfigFile();
     std::thread configParser(&VR::WaitForConfigUpdate, this);
     configParser.detach();
 
@@ -125,9 +126,7 @@ void VR::init()
     CreateAimDot();
     CreateVignette();
 
-    vr::VRCompositor()->SetTrackingSpace(m_SeatedMode
-        ? vr::TrackingUniverseSeated
-        : vr::TrackingUniverseStanding);
+    UpdateTrackingSpace();
 
     UpdatePosesAndActions();
 
@@ -459,6 +458,18 @@ int VR::SetActionManifest(const char *fileName)
     m_Input->GetActionHandle("/actions/main/in/PointerLeft", &m_ActionPointerLeft);
     m_Input->GetActionHandle("/actions/main/in/PointerRight", &m_ActionPointerRight);
 
+    // The bindings have every action on both hands; RestrictToHand picks the one that counts.
+    m_Input->GetInputSourceHandle("/user/hand/left", &m_InputHandLeft);
+    m_Input->GetInputSourceHandle("/user/hand/right", &m_InputHandRight);
+    for (const vr::VRActionHandle_t action : { m_ActionPrimaryAttack, m_ActionSecondaryAttack, m_ActionUse, m_ActionJump, m_ActionActivateVR, m_MenuSelect, m_MenuBack })
+        m_ActionHands[action] = ActionHand::Gun;
+    for (const vr::VRActionHandle_t action : { m_ActionReload, m_ThirdAttack, m_ActionCrouch, m_Scoreboard, m_ActionQuickPing, m_Pause })
+        m_ActionHands[action] = ActionHand::OtherThanGun;
+    for (const vr::VRActionHandle_t action : { m_ActionWalk, m_ActionResetPosition, m_MenuUp, m_MenuDown, m_MenuLeft, m_MenuRight })
+        m_ActionHands[action] = ActionHand::WalkStick;
+    for (const vr::VRActionHandle_t action : { m_ActionTurn, m_ActionRemoteView, m_ActionPrevItem, m_ActionNextItem })
+        m_ActionHands[action] = ActionHand::TurnStick;
+
     m_Input->GetActionSetHandle("/actions/main", &m_ActionSet);
     m_ActiveActionSet = {};
     m_ActiveActionSet.ulActionSet = m_ActionSet;
@@ -498,6 +509,22 @@ void VR::SetScreenSizeOverride(bool bState) {
     }
 }
 
+// SeatedMode can change while the game runs; the position is measured anew then, once the poses
+// are from the new space: WaitGetPoses still reports the old one for a while (measured).
+void VR::UpdateTrackingSpace()
+{
+    m_TrackingSpaceSettleFrames = (std::max)(m_TrackingSpaceSettleFrames - 1, 0);
+
+    const vr::ETrackingUniverseOrigin wanted = m_SeatedMode ? vr::TrackingUniverseSeated : vr::TrackingUniverseStanding;
+    if (vr::VRCompositor()->GetTrackingSpace() == wanted)
+        return;
+    vr::VRCompositor()->SetTrackingSpace(wanted);
+    m_InitialPosReset = false;
+    m_TrackingSpaceSettleFrames = 90;
+    RepositionOverlays();
+    std::cout << "[VR] tracking space: " << (m_SeatedMode ? "seated" : "standing") << "\n";
+}
+
 void VR::Update()
 {
     if (!m_IsInitialized || !m_Game->m_Initialized)
@@ -508,16 +535,10 @@ void VR::Update()
     // rendering, and the RenderView hook resets the render target itself.
 
     SubmitVRTextures();
+    UpdateTrackingSpace();
     UpdatePosesAndActions();
     UpdateHeadTracking();
     UpdateHandTracking();
-
-    if (!m_InitialPosReset)
-    {
-        if (m_SeatedMode)
-            ResetPosition();
-        m_InitialPosReset = true;
-    }
 
     // Portal 2/Reloaded: IsCursorVisible(); in Strata Source the vgui surface reports no cursor in
     // the menus (logged for comparison).
@@ -529,6 +550,13 @@ void VR::Update()
         std::cout << "[VR] menu input: menu visible=" << menuVisible << " (cursor visible=" << cursorVisible << ")\n";
         lastCursorVisible = cursorVisible;
         lastMenuVisible = menuVisible;
+    }
+
+    // Not in the menu: the headset may still lie somewhere when the game starts.
+    if (!m_InitialPosReset && !menuVisible && !m_TrackingSpaceSettleFrames && m_Poses[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid)
+    {
+        ResetPosition();
+        m_InitialPosReset = true;
     }
 
     g_MenuVisible = menuVisible;
@@ -669,12 +697,21 @@ void VR::GetPoseData(vr::TrackedDevicePose_t &poseRaw, TrackedDevicePoseData &po
 
 void VR::RepositionOverlays()
 {
-    vr::TrackedDevicePose_t hmdPose = m_Poses[vr::k_unTrackedDeviceIndex_Hmd];
+    vr::ETrackingUniverseOrigin trackingOrigin = vr::VRCompositor()->GetTrackingSpace();
+
+    // Asked for directly: right after a change of the tracking space, m_Poses are from the old one.
+    vr::TrackedDevicePose_t hmdPose = {};
+    m_System->GetDeviceToAbsoluteTrackingPose(trackingOrigin, 0, &hmdPose, 1);
     vr::HmdMatrix34_t hmdMat = hmdPose.mDeviceToAbsoluteTracking;
     Vector hmdPosition = { hmdMat.m[0][3], hmdMat.m[1][3], hmdMat.m[2][3] };
     Vector hmdForward = { -hmdMat.m[0][2], 0, -hmdMat.m[2][2] };
 
-    vr::ETrackingUniverseOrigin trackingOrigin = vr::VRCompositor()->GetTrackingSpace();
+    static float loggedHeight = 1000;
+    if (std::abs(hmdPosition.y - loggedHeight) > 0.05f)
+    {
+        std::cout << "[VR] menu placed for a head at height " << hmdPosition.y << " m, tracking space " << trackingOrigin << ", pose valid " << hmdPose.bPoseIsValid << "\n";
+        loggedHeight = hmdPosition.y;
+    }
 
     hmdForward[1] = 0;
     VectorNormalize(hmdForward);
@@ -968,10 +1005,33 @@ void VR::GetViewParameters()
     m_EyeToHeadTransformPosRight.z = eyeToHeadRight.m[2][3];
 }
 
+vr::VRInputValueHandle_t VR::RestrictToHand(vr::VRActionHandle_t action) const
+{
+    const auto hand = m_ActionHands.find(action);
+    if (hand == m_ActionHands.end())
+        return vr::k_ulInvalidInputValueHandle;
+
+    bool left = false;
+    switch (hand->second)
+    {
+    case ActionHand::Gun: left = m_LeftHanded; break;
+    case ActionHand::OtherThanGun: left = !m_LeftHanded; break;
+    case ActionHand::WalkStick: left = !m_WalkWithRightStick; break;
+    case ActionHand::TurnStick: left = m_WalkWithRightStick; break;
+    }
+    return left ? m_InputHandLeft : m_InputHandRight;
+}
+
+// GetPoses has swapped the hands if LeftHanded: "right" is the hand with the gun.
+float VR::WalkHandYaw() const
+{
+    return m_WalkWithRightStick != m_LeftHanded ? m_RightControllerAngAbs.y : m_LeftControllerAngAbs.y;
+}
+
 bool VR::CheckDigitalActionChanged(vr::VRActionHandle_t &actionHandle, bool &state)
 {
     vr::InputDigitalActionData_t digitalActionData;
-    vr::EVRInputError result = m_Input->GetDigitalActionData(actionHandle, &digitalActionData, sizeof(digitalActionData), vr::k_ulInvalidInputValueHandle);
+    vr::EVRInputError result = m_Input->GetDigitalActionData(actionHandle, &digitalActionData, sizeof(digitalActionData), RestrictToHand(actionHandle));
     
     if (result == vr::VRInputError_None)
     {
@@ -985,7 +1045,7 @@ bool VR::CheckDigitalActionChanged(vr::VRActionHandle_t &actionHandle, bool &sta
 
 bool VR::GetAnalogActionData(vr::VRActionHandle_t &actionHandle, vr::InputAnalogActionData_t &analogDataOut)
 {
-    vr::EVRInputError result = m_Input->GetAnalogActionData(actionHandle, &analogDataOut, sizeof(analogDataOut), vr::k_ulInvalidInputValueHandle);
+    vr::EVRInputError result = m_Input->GetAnalogActionData(actionHandle, &analogDataOut, sizeof(analogDataOut), RestrictToHand(actionHandle));
 
     if (result == vr::VRInputError_None)
         return true;
@@ -1224,9 +1284,12 @@ void VR::ProcessInput()
             return a * (1.0 - f) + (b * f);
         };
 
-        float lerpedPitch = lerp(m_RotationOffset.x, targetRotation.x, m_CameraUprightRecoverySpeed);
-        float lerpedYaw = lerp(m_RotationOffset.y, targetRotation.y, m_CameraUprightRecoverySpeed);
-        float lerpedRoll = lerp(m_RotationOffset.z, targetRotation.z, m_CameraUprightRecoverySpeed);
+        // After the recovery time 1% of the tilt is left, whatever the frame rate.
+        const float share = m_CameraUprightRecoveryTime > 0 ? 1.0f - std::pow(0.01f, deltaTime / 1000 / m_CameraUprightRecoveryTime) : 1.0f;
+
+        float lerpedPitch = lerp(m_RotationOffset.x, targetRotation.x, share);
+        float lerpedYaw = lerp(m_RotationOffset.y, targetRotation.y, share);
+        float lerpedRoll = lerp(m_RotationOffset.z, targetRotation.z, share);
 
         m_RotationOffset = QAngle(lerpedPitch, lerpedYaw, lerpedRoll);
 
@@ -1763,8 +1826,9 @@ static void concatErrorMsg(Game& game, const Ts&... args)
 
 // [CONFIG PARSING UTILITY FUNCTION]
 // Attempts to parse an entry with key 'key' from the provided 'userConfig'. If the key is
-// missing or if the parsing fails, 'defaultValue' is returned and an error message is
-// generated.
+// missing, 'defaultValue' is returned and logged: every update of the mod with an older config
+// would ask otherwise, on the desktop, unseen in the headset. If the parsing fails, 'defaultValue'
+// is returned and an error message is generated.
 template <typename T>
 static T parseConfigEntry(
     const std::unordered_map<std::string, std::string>& userConfig, Game& game,
@@ -1775,9 +1839,7 @@ try
 
     if (itr == userConfig.end())
     {
-        concatErrorMsg(game, "Config entry with key '", key,
-            "' missing -- reverting to default value of '", defaultValue, "'");
-
+        std::cout << "Config entry '" << key << "' missing, using the default\n";
         return defaultValue;
     }
 
@@ -1785,7 +1847,7 @@ try
 
     if constexpr (std::is_same_v<T, bool>)
     {
-        return configValue == "true";
+        return !_stricmp(configValue.c_str(), "true") || configValue == "1";
     }
     else if constexpr(std::is_floating_point_v<T>)
     {
@@ -1847,19 +1909,18 @@ void VR::ParseConfigFile()
 
     // Parses a vector or angle from the config into 'target'. The XYZ coordinates
     // are read from three separate config entries with key 'keyPrefix' + 'X'/'Y'/'Z'.
-    // If any entry does not exist, or if the parsing fails, sets the corresponding
-    // coordinate in 'target' to zero.
-    const auto parseXYZOrDefaultZero = [&](std::string keyPrefix, auto& target)
+    const auto parseXYZOrDefault = [&](std::string keyPrefix, auto& target, float x, float y, float z)
     {
-        parseOrDefault((keyPrefix + "X").c_str(), target.x, 0.f);
-        parseOrDefault((keyPrefix + "Y").c_str(), target.y, 0.f);
-        parseOrDefault((keyPrefix + "Z").c_str(), target.z, 0.f);
+        parseOrDefault((keyPrefix + "X").c_str(), target.x, x);
+        parseOrDefault((keyPrefix + "Y").c_str(), target.y, y);
+        parseOrDefault((keyPrefix + "Z").c_str(), target.z, z);
     };
 
     parseOrDefault("SnapTurning", m_SnapTurning, true);
     parseOrDefault("SnapTurnAngle", m_SnapTurnAngle, 30.0f);
     parseOrDefault("TurnSpeed", m_TurnSpeed, 0.15f);
     parseOrDefault("LeftHanded", m_LeftHanded, false);
+    parseOrDefault("WalkWithRightStick", m_WalkWithRightStick, false);
     parseOrDefault("VRScale", m_VRScale, 43.2f);
     parseOrDefault("IPDScale", m_IpdScale, 1.0f);
     parseOrDefault("6DOF", m_6DOF, true);
@@ -1870,10 +1931,10 @@ void VR::ParseConfigFile()
     parseOrDefault("HudSize", m_HudSize, 4.0f);
     parseOrDefault("HudAlwaysVisible", m_HudAlwaysVisible, false);*/
     parseOrDefault("AimMode", m_AimMode, 1);
-    parseXYZOrDefaultZero("ViewmodelPosCustomOffset", m_ViewmodelPosCustomOffset);
-    parseXYZOrDefaultZero("ViewmodelAngCustomOffset", m_ViewmodelAngCustomOffset);
+    parseXYZOrDefault("ViewmodelPosCustomOffset", m_ViewmodelPosCustomOffset, 8.0f, 7.5f, -12.0f);
+    parseXYZOrDefault("ViewmodelAngCustomOffset", m_ViewmodelAngCustomOffset, 0.0f, 0.0f, 0.0f);
     parseOrDefault("ApplyPitchAndRollPortalRotationOffset", m_ApplyPitchAndRollPortalRotationOffset, true);
-    parseOrDefault("CameraUprightRecoverySpeed", m_CameraUprightRecoverySpeed, 0.2f);
+    parseOrDefault("CameraUprightRecoveryTime", m_CameraUprightRecoveryTime, 0.25f);
     parseOrDefault("VignetteWalking", m_VignetteWalking, 0.0f);
     parseOrDefault("VignetteTurning", m_VignetteTurning, 0.8f);
     parseOrDefault("VignetteAfterPortal", m_VignetteAfterPortal, 1.0f);
@@ -1889,6 +1950,7 @@ void VR::WaitForConfigUpdate()
     HANDLE fileChangeHandle = FindFirstChangeNotificationA(configDir, false, FILE_NOTIFY_CHANGE_LAST_WRITE);
 
     std::filesystem::file_time_type configLastModified;
+    bool readAlready = true; // by VR::init
     while (1)
     {
         try 
@@ -1898,9 +1960,12 @@ void VR::WaitForConfigUpdate()
             if (configModifiedTime != configLastModified)
             {
                 configLastModified = configModifiedTime;
-                ParseConfigFile();
-                
-                std::cout << "Successfully reloaded 'config.txt'\n";
+                if (!readAlready)
+                {
+                    ParseConfigFile();
+                    std::cout << "Successfully reloaded 'config.txt'\n";
+                }
+                readAlready = false;
             }
         }
         catch (const std::invalid_argument &e)
