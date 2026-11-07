@@ -94,6 +94,7 @@ namespace
     constexpr float kRoomscale_CoastSeconds = 0.3f; // the player slows down after the last command
     constexpr float kRoomscale_MaxStep = 16; // in a frame; more isn't from walking after the head
     constexpr float kRoomscale_WallMargin = 8; // the eyes' near plane stays in front of walls
+    constexpr float kRoomscale_PullBackShare = 0.1f; // of the player's movement, estimated
 
     struct RoomscaleState
     {
@@ -104,6 +105,8 @@ namespace
         std::chrono::steady_clock::time_point lastCommand;
         bool updatedThisFrame = false;
         bool atWall = false;
+        bool walking = false; // with the stick or keyboard
+        bool pullingBack = false;
     } g_Roomscale;
 
     // C_WeaponPortalgun [332] AddViewmodelBob(viewModel, origin, angles): moves and turns the gun
@@ -381,7 +384,7 @@ namespace
     }
 
     // Walks the player after the head, unless the player already walks with the stick or keyboard:
-    // then the head stays where it is relative to the player, and is followed afterwards.
+    // then the head is pulled back to the player instead, see PullHeadBack.
     void RoomscaleMove(float aimYaw, float &forward, float &side)
     {
         VR *vr = g_StrataGame->m_VR;
@@ -396,6 +399,7 @@ namespace
         if (follow != state.following)
             std::cout << "[VR] roomscale: " << (follow ? "following" : "stopped") << ", head " << distance << " away\n";
         state.following = follow;
+        state.walking = walking;
         // From now on the view has to go along with the player, not stay where the head is.
         if (walking)
             state.lastCommand = {};
@@ -516,7 +520,10 @@ namespace
         vr->UpdateHeadPose();
         vr->UpdateHandTracking();
 
-        std::cout << "[VR] portal passage: yaw " << yaw << " after " << g_PortalPassage.frames << " frames\n";
+        Vector offset = vr->m_HmdPosRelative;
+        offset.z = 0;
+        std::cout << "[VR] portal passage: yaw " << yaw << " after " << g_PortalPassage.frames << " frames, head "
+            << VectorLength(offset) << " away\n";
     }
 
     void hkApplyPortalTeleportation(void *thisptr, const float (*matrix)[4], float time, bool undo, bool forcedDuck)
@@ -787,6 +794,27 @@ namespace
             vr->MoveRoom(offset * (1.0f - allowed / distance));
     }
 
+    // With the stick or in the air the player doesn't follow the head. The head returns to the player
+    // then, so that the player is where the view suggests, e.g. when aiming for a portal in a jump.
+    // In proportion to the player's movement (moved): it starts as softly as the player does, and
+    // the view doesn't move on its own while the player stands, e.g. against a wall.
+    void PullHeadBack(const Vector &moved)
+    {
+        RoomscaleState &state = g_Roomscale;
+        VR *vr = g_StrataGame->m_VR;
+
+        Vector offset = vr->m_HmdPosRelative;
+        offset.z = 0;
+        const float distance = VectorLength(offset);
+        const bool pull = (state.walking || !PlayerOnGround()) && !g_PortalPassage.waiting;
+        if (pull != state.pullingBack)
+            std::cout << "[VR] roomscale: pull back " << (pull ? "started" : "ended") << ", head " << distance << " away\n";
+        state.pullingBack = pull;
+        const float movedDistance = VectorLength(moved);
+        if (pull && distance >= 0.01f && movedDistance <= kRoomscale_MaxStep)
+            vr->MoveRoom(offset * (std::min)(1.0f, kRoomscale_PullBackShare * movedDistance / distance));
+    }
+
     // Once per frame, before anything is placed relative to the head.
     void UpdateRoomscale(const Vector &eyes)
     {
@@ -823,6 +851,7 @@ namespace
             && DotProduct(step, state.direction) > 0 && PlayerOnGround())
             vr->MoveRoom(step);
 
+        PullHeadBack(eyes - last);
         KeepHeadOutOfWalls(eyes);
     }
 
