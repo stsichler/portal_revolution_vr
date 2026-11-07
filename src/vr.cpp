@@ -825,44 +825,53 @@ void VR::HideAimDot()
     m_Overlay->HideOverlay(m_AimDotHandle);
 }
 
-namespace
-{
-    // Share of the vignette's half width (texture) where it starts to darken and where it's opaque.
-    constexpr float kVignette_ClearRadius = 0.25f;
-    constexpr float kVignette_OpaqueRadius = 0.5f;
-    constexpr float kVignette_Distance = 2.0f; // meters; further away the eyes disagree less about its center
-}
-
-// Black with a soft round opening, fixed to the head. Fades only with its alpha, so no shaders.
+// Fixed to the head, its edge outside the view. Fades only with its alpha, so no shaders.
 void VR::CreateVignette()
 {
+    constexpr float distance = 2.0f; // meters; further away the eyes disagree less about its center
+
+    m_Overlay->CreateOverlay("VignetteOverlayKey", "VignetteOverlay", &m_VignetteHandle);
+
+    const vr::HmdMatrix34_t inFront =
+    {
+        1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, -distance
+    };
+    std::cout << "[VR] vignette transform: " << m_Overlay->GetOverlayErrorNameFromEnum(
+        m_Overlay->SetOverlayTransformTrackedDeviceRelative(m_VignetteHandle, vr::k_unTrackedDeviceIndex_Hmd, &inFront)) << "\n";
+
+    const float tanHalfFov = tanf(DEG2RAD(m_Fov) / 2);
+    m_VignetteTanHalfWidth = 1.2f * (std::max)(tanHalfFov, tanHalfFov / m_Aspect);
+    m_Overlay->SetOverlayWidthInMeters(m_VignetteHandle, 2 * distance * m_VignetteTanHalfWidth);
+
+    // Same order and distance would sort by distance only; the aim dot has to stay visible.
+    m_Overlay->SetOverlaySortOrder(m_AimDotHandle, 1);
+}
+
+// Black with a soft round opening: clear up to the angle from the center of the view, opaque from
+// softAngle further out.
+void VR::DrawVignette(float clearAngle)
+{
     constexpr int size = 256; // OpenVR limits the data of SetOverlayRaw
+    constexpr float softAngle = 16;
+
+    const float clearRadius = tanf(DEG2RAD(clearAngle)) / m_VignetteTanHalfWidth;
+    const float opaqueRadius = tanf(DEG2RAD(clearAngle + softAngle)) / m_VignetteTanHalfWidth;
     std::vector<uint8_t> pixels(size * size * 4);
     for (int y = 0; y < size; ++y)
     {
         for (int x = 0; x < size; ++x)
         {
             const float dx = (x + 0.5f) * 2 / size - 1, dy = (y + 0.5f) * 2 / size - 1;
-            const float t = std::clamp((sqrtf(dx * dx + dy * dy) - kVignette_ClearRadius) / (kVignette_OpaqueRadius - kVignette_ClearRadius), 0.0f, 1.0f);
+            const float t = std::clamp((sqrtf(dx * dx + dy * dy) - clearRadius) / (opaqueRadius - clearRadius), 0.0f, 1.0f);
             pixels[(y * size + x) * 4 + 3] = static_cast<uint8_t>(255 * t * t * (3 - 2 * t));
         }
     }
 
-    m_Overlay->CreateOverlay("VignetteOverlayKey", "VignetteOverlay", &m_VignetteHandle);
     const vr::EVROverlayError error = m_Overlay->SetOverlayRaw(m_VignetteHandle, pixels.data(), size, size, 4);
-    std::cout << "[VR] vignette overlay: " << m_Overlay->GetOverlayErrorNameFromEnum(error) << "\n";
-
-    const vr::HmdMatrix34_t inFront =
-    {
-        1.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, 1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, -kVignette_Distance
-    };
-    std::cout << "[VR] vignette transform: " << m_Overlay->GetOverlayErrorNameFromEnum(
-        m_Overlay->SetOverlayTransformTrackedDeviceRelative(m_VignetteHandle, vr::k_unTrackedDeviceIndex_Hmd, &inFront)) << "\n";
-
-    // Same order and distance would sort by distance only; the aim dot has to stay visible.
-    m_Overlay->SetOverlaySortOrder(m_AimDotHandle, 1);
+    std::cout << "[VR] vignette clear up to " << clearAngle << " degrees: " << m_Overlay->GetOverlayErrorNameFromEnum(error) << "\n";
+    m_VignetteDrawnAngle = clearAngle;
 }
 
 // Once per frame in the game. walkedDistance: how far the view moved with the stick or keyboard.
@@ -893,20 +902,11 @@ void VR::UpdateVignette(float walkedDistance)
     m_Overlay->SetOverlayAlpha(m_VignetteHandle, alpha);
     if (m_VignetteAlpha == 0)
     {
-        // Wide enough that its edge is outside the view, also with a small opening.
-        const float tanHalfFov = tanf(DEG2RAD(m_Fov) / 2);
-        const float tanHalfWidth = (std::max)(tanf(DEG2RAD(std::clamp(m_VignetteClearAngle, 1.0f, 80.0f))) / kVignette_ClearRadius,
-            1.2f * (std::max)(tanHalfFov, tanHalfFov / m_Aspect));
-        m_Overlay->SetOverlayWidthInMeters(m_VignetteHandle, 2 * kVignette_Distance * tanHalfWidth);
-        const vr::EVROverlayError shown = m_Overlay->ShowOverlay(m_VignetteHandle);
-        static bool logged = false;
-        if (!logged)
-        {
-            std::cout << "[VR] vignette first shown: " << m_Overlay->GetOverlayErrorNameFromEnum(shown) << ", visible " << m_Overlay->IsOverlayVisible(m_VignetteHandle)
-                      << ", clear up to " << RAD2DEG(atanf(tanHalfWidth * kVignette_ClearRadius)) << " degrees, opaque from "
-                      << RAD2DEG(atanf(tanHalfWidth * kVignette_OpaqueRadius)) << ", view " << RAD2DEG(atanf(tanHalfFov)) << " x " << RAD2DEG(atanf(tanHalfFov / m_Aspect)) << "\n";
-            logged = true;
-        }
+        // The config can change while the game runs.
+        const float clearAngle = std::clamp(m_VignetteClearAngle, 0.0f, 70.0f);
+        if (clearAngle != m_VignetteDrawnAngle)
+            DrawVignette(clearAngle);
+        m_Overlay->ShowOverlay(m_VignetteHandle);
         m_VignetteShownAt = now;
         m_VignettePeak = 0;
     }
@@ -1898,11 +1898,11 @@ void VR::ParseConfigFile()
     parseOrDefault("AimMode", m_AimMode, 1);
     parseXYZOrDefaultZero("ViewmodelPosCustomOffset", m_ViewmodelPosCustomOffset);
     parseXYZOrDefaultZero("ViewmodelAngCustomOffset", m_ViewmodelAngCustomOffset);
-    parseOrDefault("ApplyPitchAndRollPortalRotationOffset", m_ApplyPitchAndRollPortalRotationOffset, false);
+    parseOrDefault("ApplyPitchAndRollPortalRotationOffset", m_ApplyPitchAndRollPortalRotationOffset, true);
     parseOrDefault("CameraUprightRecoverySpeed", m_CameraUprightRecoverySpeed, 0.2f);
-    parseOrDefault("VignetteWalking", m_VignetteWalking, 0.8f);
-    parseOrDefault("VignetteAfterPortal", m_VignetteAfterPortal, 0.8f);
-    parseOrDefault("VignetteClearAngle", m_VignetteClearAngle, 25.0f);
+    parseOrDefault("VignetteWalking", m_VignetteWalking, 0.0f);
+    parseOrDefault("VignetteAfterPortal", m_VignetteAfterPortal, 1.0f);
+    parseOrDefault("VignetteClearAngle", m_VignetteClearAngle, 20.0f);
 }
 
 void VR::WaitForConfigUpdate()

@@ -19,7 +19,7 @@ VR mod for Portal: Revolution, playable but work in progress.
 * View turns with the portal when passing through it
 * Picking up cubes
 * Roomscale: the player follows your head when you walk in your room
-* Comfort vignette when walking with the stick (`VignetteWalking` in `VR/config.txt`)
+* Comfort options, see [If you feel sick](#if-you-feel-sick)
 
 ## What's missing
 * HUD
@@ -34,6 +34,11 @@ After building, `d3d11.dll` is copied to `Portal Revolution/bin/win64` (default 
 ## How to use
 * Copy the contents of `package-files` and `thirdparty/openvr/bin/win64/openvr_api.dll` to `Portal Revolution/VR/`
 * Start the game with SteamVR. The mod sets the required launch options itself.
+
+## If you feel sick
+Change these in `Portal Revolution/VR/config.txt`, one after the other. They apply at once, no restart needed.
+1. `ApplyPitchAndRollPortalRotationOffset=false`: the view stays upright when you pass through a portal.
+2. `VignetteWalking=0.8`: darkens the edges of your view while you walk with the stick.
 
 ## Based on
 * Brilliant Portal 2 VR mod from [Gistix](https://github.com/Gistix/portal2vr)

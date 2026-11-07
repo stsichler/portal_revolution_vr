@@ -201,15 +201,17 @@ public:
 	float m_HudSize = 4.0;
 	bool m_HudAlwaysVisible = false;
 	int m_AimMode = 1;
-	bool m_ApplyPitchAndRollPortalRotationOffset = false; // If `true`, the camera pitch/roll follows the exit portal's orientation when portalling
+	bool m_ApplyPitchAndRollPortalRotationOffset = true; // If `true`, the camera pitch/roll follows the exit portal's orientation when portalling
 	float m_CameraUprightRecoverySpeed = 0.2f; // If the above is `true`, this controls how quickly the camera turns back upright after portalling
-	float m_VignetteWalking = 0.8f; // 0 = off, 1 = black
-	float m_VignetteAfterPortal = 0.8f; // 0 = off, 1 = black
-	float m_VignetteClearAngle = 25.0f; // degrees from the center of the view that stay clear
+	float m_VignetteWalking = 0.0f; // 0 = off, 1 = black
+	float m_VignetteAfterPortal = 1.0f; // 0 = off, 1 = black
+	float m_VignetteClearAngle = 20.0f; // degrees from the center of the view that stay clear
 
 	float m_VignetteWalk = 0; // current share of walking, fades in and out
 	float m_VignetteAlpha = 0; // shown right now, 0 = hidden
 	float m_VignettePeak = 0; // highest alpha since it was shown
+	float m_VignetteTanHalfWidth = 1; // of the overlay, seen from the head
+	float m_VignetteDrawnAngle = -1; // the clear angle of its texture
 	std::chrono::steady_clock::time_point m_VignetteTime;
 	std::chrono::steady_clock::time_point m_VignetteShownAt;
 
@@ -234,6 +236,7 @@ public:
 	void ShowAimDot(const Vector &aim, const Vector &viewOrigin);
 	void HideAimDot();
 	void CreateVignette();
+	void DrawVignette(float clearAngle);
 	void UpdateVignette(float walkedDistance);
 	void HideVignette();
 	void GetPoses();

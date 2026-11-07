@@ -16,8 +16,8 @@ ViewmodelPosCustomOffsetZ=-12.0
 ViewmodelAngCustomOffsetX=0.0
 ViewmodelAngCustomOffsetY=0.0
 ViewmodelAngCustomOffsetZ=0.0
-ApplyPitchAndRollPortalRotationOffset=false # If `true`, the camera pitch/roll follows the exit portal's orientation when portalling
+ApplyPitchAndRollPortalRotationOffset=true # If `true`, the camera pitch/roll follows the exit portal's orientation when portalling
 CameraUprightRecoverySpeed=0.2 # If the above is `true`, this controls how quickly the camera turns back upright after portalling
-VignetteWalking=0.8 # Darkens the edge of the view against nausea when walking with the stick. 0 = off, 1 = black
-VignetteAfterPortal=0.8 # The same while the camera turns back upright after portalling (see above). 0 = off, 1 = black
-VignetteClearAngle=25.0 # Degrees from the center of the view that stay clear
+VignetteWalking=0 # Darkens the edge of the view against nausea when walking with the stick. 0 = off, 1 = black
+VignetteAfterPortal=1 # The same while the camera turns back upright after portalling (see above). 0 = off, 1 = black
+VignetteClearAngle=20.0 # Degrees from the center of the view that stay clear
