@@ -1424,9 +1424,16 @@ namespace
         oPanoramaSetUIScale(window, scale, a, b);
     }
 
+    // "Apply" in the video settings sets the video mode again, even unchanged. Then the windows get
+    // the size of the mode (the flat window) instead of the back buffer's, and the menu ended up
+    // in the top left corner. They always get the back buffer's.
     uint64_t hkPanoramaSetClientSize(void *window, uint64_t width, uint64_t height, uint64_t a)
     {
-        return oPanoramaSetClientSize(window, width, Height16x9((int)width, (int)height), a);
+        const VR *vr = g_StrataGame ? g_StrataGame->m_VR : nullptr;
+        const int newWidth = vr && vr->m_RenderWidth ? (int)vr->m_RenderWidth : (int)width;
+        const int newHeight = Height16x9(newWidth, vr && vr->m_RenderHeight ? (int)vr->m_RenderHeight : (int)height);
+        std::cout << "[Panorama] window size " << width << "x" << height << " -> " << newWidth << "x" << newHeight << "\n";
+        return oPanoramaSetClientSize(window, newWidth, newHeight, a);
     }
 }
 

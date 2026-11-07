@@ -38,8 +38,8 @@ public:
 	vr::VROverlayHandle_t m_AimDotHandle = vr::k_ulOverlayHandleInvalid;
 	vr::VROverlayHandle_t m_VignetteHandle = vr::k_ulOverlayHandleInvalid;
 
-	uint32_t m_RenderWidth;
-	uint32_t m_RenderHeight;
+	uint32_t m_RenderWidth = 0;
+	uint32_t m_RenderHeight = 0;
 	uint32_t MenuHeight() const; // of the part of the back buffer Panorama lays the menu out for
 	float m_Aspect;
 	float m_Fov;
