@@ -20,6 +20,7 @@ VR mod for Portal: Revolution.
 * Picking up cubes
 * Roomscale: the player follows your head when you walk in your room
 * Comfort options, see [If you feel sick](#if-you-feel-sick)
+* VR tab in the game's settings, in all languages of the game
 
 ## What's missing
 * HUD and subtitles
@@ -40,7 +41,7 @@ Windows Defender can flag `d3d11.dll` as a potential threat. This is a false ala
 |---|---|---|
 | Left stick | Walk, click to recenter | Navigate |
 | Right stick | Turn | |
-| Right trigger | Blue portal | Click with the laser |
+| Right trigger | Blue portal | Click with the laser, hold to drag |
 | Right grip | Orange portal | |
 | A | Jump | Select |
 | B | Use, pick up | Back |
@@ -50,13 +51,13 @@ Windows Defender can flag `d3d11.dll` as a potential threat. This is a false ala
 You can change them in SteamVR's controller bindings.
 
 ## Playing left-handed or seated
-Change these in `Portal Revolution/VR/config.txt`.
+Change these on the VR tab of the game's settings or in `Portal Revolution/VR/config.txt`.
 * `LeftHanded=true`: the portal gun and the buttons change hands.
 * `WalkWithRightStick=true`: the right stick walks, the left one turns.
 * `SeatedMode=true`: for playing seated, also in a wheelchair. Roomscale keeps working.
 
 ## If you feel sick
-Change these in `Portal Revolution/VR/config.txt`, one after the other. They apply at once, no restart needed.
+Change these on the VR tab of the game's settings or in `Portal Revolution/VR/config.txt`, one after the other. They apply at once, no restart needed.
 1. `ApplyPitchAndRollPortalRotationOffset=false`: the view stays upright when you pass through a portal.
 2. `VignetteWalking=0.8`: darkens the edges of your view while you walk with the stick.
 3. Leave `SnapTurning=true`: the view jumps when you turn. With `false` it turns smoothly, and `VignetteTurning` darkens the edges meanwhile.
