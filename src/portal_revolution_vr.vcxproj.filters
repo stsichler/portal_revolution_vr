@@ -17,6 +17,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="convars.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="d3d11_hooks.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -30,6 +33,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="game.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="settings_menu.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="strata_hooks.cpp">
@@ -49,7 +55,13 @@
     <ClInclude Include="module_placement.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="convars.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="game.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="settings_menu.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="strata_hooks.h">

@@ -164,6 +164,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="convars.h" />
     <ClInclude Include="d3d11_hooks.h" />
     <ClInclude Include="game.h" />
     <ClInclude Include="module_placement.h" />
@@ -175,16 +176,19 @@
     <ClInclude Include="sdk\usercmd.h" />
     <ClInclude Include="sdk\vector.h" />
     <ClInclude Include="sdk\worldsize.h" />
+    <ClInclude Include="settings_menu.h" />
     <ClInclude Include="strata_hooks.h" />
     <ClInclude Include="vr.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="convars.cpp" />
     <ClCompile Include="d3d11_hooks.cpp" />
     <ClCompile Include="d3d11_proxy.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="game.cpp" />
     <ClCompile Include="module_placement.cpp" />
     <ClCompile Include="sdk\checksum_crc.cpp" />
+    <ClCompile Include="settings_menu.cpp" />
     <ClCompile Include="strata_hooks.cpp" />
     <ClCompile Include="vr.cpp" />
   </ItemGroup>

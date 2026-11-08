@@ -4,6 +4,7 @@
 #include "sdk.h"
 #include "game.h"
 #include "strata_hooks.h"
+#include "convars.h"
 #include <dxgi1_3.h>
 #include <iostream>
 #include <fstream>
@@ -381,6 +382,7 @@ void VR::initD3D11Callbacks()
         {
             if (m_IsInitialized)
             {
+                ConVars::Sync(*this);
                 UpdateMenuFormat();
                 CopyBackBuffer(swapChain);
                 PrepareWindowImage(swapChain);

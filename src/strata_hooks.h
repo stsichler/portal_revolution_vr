@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 
 class Game;
 
@@ -6,8 +7,9 @@ class Game;
 // (class name -> vtable) and vtable indices checked in the game's DLLs instead of byte signatures.
 namespace StrataHooks
 {
-    // Returns the vtable of the class with this name in the module, or nullptr.
-    void **FindVTable(const char *module, const char *className);
+    // Returns the vtable of the class with this name in the module, or nullptr. With multiple
+    // inheritance, offset selects the one of the base class at that offset in the object.
+    void **FindVTable(const char *module, const char *className, uint32_t offset = 0);
 
     bool Init(Game *game);
 

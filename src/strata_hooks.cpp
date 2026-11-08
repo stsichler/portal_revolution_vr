@@ -1326,7 +1326,7 @@ namespace
     }
 }
 
-void **StrataHooks::FindVTable(const char *module, const char *className)
+void **StrataHooks::FindVTable(const char *module, const char *className, uint32_t offset)
 {
     auto base = reinterpret_cast<uint8_t *>(GetModuleHandleA(module));
     if (!base)
@@ -1350,15 +1350,15 @@ void **StrataHooks::FindVTable(const char *module, const char *className)
         return nullptr;
     const uint32_t typeDescriptorRva = (uint32_t)(typeDescriptor - base);
 
-    // Complete object locator of the primary vtable: signature 1, offset 0, type descriptor, and
-    // (x64) its own RVA.
+    // Complete object locator of the vtable: signature 1, offset of the subobject, type descriptor,
+    // and (x64) its own RVA.
     uint8_t *locator = nullptr;
     for (const Section &section : sections)
     {
         for (uint8_t *p = section.begin; p + 24 <= section.end && !locator; p += 4)
         {
             auto fields = reinterpret_cast<const uint32_t *>(p);
-            if (fields[0] == 1 && fields[1] == 0 && fields[3] == typeDescriptorRva && fields[5] == (uint32_t)(p - base))
+            if (fields[0] == 1 && fields[1] == offset && fields[3] == typeDescriptorRva && fields[5] == (uint32_t)(p - base))
                 locator = p;
         }
         if (locator)

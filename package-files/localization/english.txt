@@ -1,0 +1,34 @@
+# Texts of the VR tab in the game's settings, UTF-8. Other languages: <steam language name>.txt
+# with the same keys; missing texts come from this file.
+GroupTurning=Turning
+TurnStyle=Turn style
+Snap=Snap
+Smooth=Smooth
+SnapTurnAngle=Snap turn angle
+TurnSpeed=Smooth turn speed (°/s)
+GroupHands=Hands
+GunHand=Portal gun hand
+Right=Right
+Left=Left
+WalkWith=Walk with
+LeftStick=Left stick
+RightStick=Right stick
+AimingAid=Aiming aid
+None=None
+AimDot=Aim dot
+Laser=Laser
+GroupBody=Body
+HeadTracking=Head position tracking
+Roomscale=Walking in your room
+EyeHeight=Eye height
+EyeHeightReal=Your real one (standing)
+EyeHeightPlayer=The player's (seated)
+SeatedOffset=Seated eye height offset
+GroupComfort=Comfort
+PortalTilt=Camera tilts with the exit portal
+UprightTime=Camera upright again after (ms)
+VignetteWalking=Vignette when walking
+VignetteTurning=Vignette when turning smoothly
+VignetteAfterPortal=Vignette after a portal
+VignetteClearAngle=Vignette clear angle
+MoreOptions=More options: config.txt in the folder VR of the game
