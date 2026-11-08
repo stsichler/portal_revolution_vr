@@ -594,6 +594,13 @@ void VR::Update()
         std::cout << "[VR] menu input: menu visible=" << menuVisible << "\n";
         lastMenuVisible = menuVisible;
     }
+    const bool videoVisible = StrataHooks::VideoVisible();
+    static bool lastVideoVisible = false;
+    if (videoVisible != lastVideoVisible)
+    {
+        std::cout << "[VR] video visible=" << videoVisible << "\n";
+        lastVideoVisible = videoVisible;
+    }
 
     // Not in the menu: the headset may still lie somewhere when the game starts.
     if (!m_InitialPosReset && !menuVisible && !m_TrackingSpaceSettleFrames && m_Poses[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid)

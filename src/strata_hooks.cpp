@@ -253,6 +253,21 @@ namespace
 
     void **g_PortalgunVTable = nullptr;
 
+    // Full screen videos like end.webm (logic_playmovie) play in a VGUI VideoPanel, which draws
+    // into the back buffer like the HUD, where the eyes don't see it. Paint is the override of the
+    // empty Panel::Paint that draws a black rect (dims the video under the pause menu).
+    constexpr int kVideoPanel_Paint = 133;
+    constexpr ULONGLONG kVideoPanel_VisibleMs = 250; // since the last Paint
+    typedef void (*tVideoPanelPaint)(void *);
+    tVideoPanelPaint oVideoPanelPaint = nullptr;
+    std::atomic<ULONGLONG> g_VideoPanelPainted{0};
+
+    void hkVideoPanelPaint(void *thisptr)
+    {
+        g_VideoPanelPainted = GetTickCount64();
+        oVideoPanelPaint(thisptr);
+    }
+
     Game *g_StrataGame = nullptr;
     void *g_ViewModelOwner = nullptr; // the player, as last seen by hkCalcViewModelView
 
@@ -283,11 +298,12 @@ namespace
         QAngle angles;
     } g_Gun;
 
-    // The eyes are rendered and the viewmodel is in the hand.
+    // The eyes are rendered and the viewmodel is in the hand. During a video the menu overlay
+    // shows it from the back buffer.
     bool VRViewActive()
     {
         VR *vr = g_StrataGame->m_VR;
-        return vr->m_IsInitialized && !vr->IsMenuVisible();
+        return vr->m_IsInitialized && !vr->IsMenuVisible() && !StrataHooks::VideoVisible();
     }
 
     struct Section
@@ -1461,6 +1477,12 @@ namespace
     }
 }
 
+bool StrataHooks::VideoVisible()
+{
+    const ULONGLONG painted = g_VideoPanelPainted;
+    return painted && GetTickCount64() - painted < kVideoPanel_VisibleMs;
+}
+
 int StrataHooks::PanoramaHeight(int width, int height)
 {
     return g_PanoramaHooked ? MenuHeightFor(width, height) : height;
@@ -1548,6 +1570,12 @@ bool StrataHooks::Init(Game *game)
         return false;
     }
     ok &= InstallHook("AddViewmodelBob", g_PortalgunVTable[kPortalgun_AddViewmodelBob], &hkAddViewmodelBob, oAddViewmodelBob);
+
+    void **videoPanel = FindVTable("client.dll", "VideoPanel");
+    if (videoPanel)
+        InstallHook("VideoPanel Paint", videoPanel[kVideoPanel_Paint], &hkVideoPanelPaint, oVideoPanelPaint);
+    else
+        std::cout << "[Hooks] VideoPanel vtable not found, videos stay invisible in the headset\n";
 
     g_PropPortalVTable = FindVTable("client.dll", "C_Prop_Portal");
     std::cout << "[Hooks] C_Prop_Portal vtable " << (g_PropPortalVTable ? "found" : "not found, an eye in a portal sees black") << "\n";

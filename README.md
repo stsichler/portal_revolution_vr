@@ -21,7 +21,6 @@
 
 ## Things that need fixing
 * HUD and subtitles
-* Videos
 
 Tested with Oculus Touch controllers. The bindings for Index and Vive Cosmos controllers are untested.
 

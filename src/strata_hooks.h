@@ -17,6 +17,9 @@ namespace StrataHooks
     // when Panorama's windows are created.
     unsigned long __stdcall HookPanorama(void *);
 
+    // A full screen video (VGUI VideoPanel) is on the screen.
+    bool VideoVisible();
+
     // The height of the part of the back buffer Panorama lays out for: in the aspect ratio of the
     // video mode, or all of it if the hooks aren't in place. Changes with the video settings.
     int PanoramaHeight(int width, int height);
