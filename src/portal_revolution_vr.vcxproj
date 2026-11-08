@@ -59,6 +59,15 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <!-- sdk\ stays as close to its originals as possible: its warnings are switched off, not fixed -->
+  <PropertyGroup>
+    <ExternalIncludePath>$(ProjectDir)sdk;$(ExternalIncludePath)</ExternalIncludePath>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <!-- The mod is d3d11.dll: shaderapidx11.dll imports it from the game's bin\win64 -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -187,7 +196,9 @@
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="game.cpp" />
     <ClCompile Include="module_placement.cpp" />
-    <ClCompile Include="sdk\checksum_crc.cpp" />
+    <ClCompile Include="sdk\checksum_crc.cpp">
+      <DisableSpecificWarnings>4302;4311;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
     <ClCompile Include="settings_menu.cpp" />
     <ClCompile Include="strata_hooks.cpp" />
     <ClCompile Include="vr.cpp" />

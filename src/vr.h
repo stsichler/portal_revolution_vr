@@ -152,12 +152,12 @@ public:
 	bool m_InitialPosReset = false;
 	int m_TrackingSpaceSettleFrames = 0; // until the poses are from the current tracking space
 
-	float m_TurnSpeed = 0.15;
+	float m_TurnSpeed = 0.15f;
 	bool m_SnapTurning = true;
 	float m_SnapTurnAngle = 30.0;
 	bool m_LeftHanded = false;
 	bool m_WalkWithRightStick = false;
-	float m_VRScale = 43.2;
+	float m_VRScale = 43.2f;
 	float m_IpdScale = 1.0;
 	bool m_6DOF = true;
 	bool m_SeatedMode = false;

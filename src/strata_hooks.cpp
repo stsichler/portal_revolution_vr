@@ -945,7 +945,7 @@ namespace
         uint8_t *gun = g_MuzzleValid && CreatePingPointer && vr->m_AimMode != kAimMode_None && !vr->m_ViewmodelCarrying ? ActivePortalgun(static_cast<uint8_t *>(g_ViewModelOwner)) : nullptr;
         g_AimValid = gun != nullptr;
         if (gun)
-            g_Aim = TraceShot(gun, g_ShotStart, vr->m_RightControllerForward * MAX_TRACE_LENGTH).end;
+            g_Aim = TraceShot(gun, g_ShotStart, vr->m_RightControllerForward * static_cast<float>(MAX_TRACE_LENGTH)).end;
     }
 
     void RemoveLaser()

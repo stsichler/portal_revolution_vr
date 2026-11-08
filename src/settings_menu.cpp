@@ -209,10 +209,10 @@ class PrvrSettings {
                     <Label acceptsfocus="true" text="#Settings_General_Disabled" value="0" id="PrvrRoomscale0"/>
                 </ChaosSettingsEnumDropDown>
 
-                <ChaosSettingsEnumDropDown text="[[EyeHeight]]" class="settings__page-group-item" convar="prvr_seated_mode"
+                <ChaosSettingsEnumDropDown text="[[PlaySeated]]" class="settings__page-group-item" convar="prvr_seated_mode"
                                            id="PrvrSeatedMode" selectionpos="auto" tabindex="auto">
-                    <Label acceptsfocus="true" text="[[EyeHeightReal]]" value="0" id="PrvrSeatedMode0"/>
-                    <Label acceptsfocus="true" text="[[EyeHeightPlayer]]" value="1" id="PrvrSeatedMode1"/>
+                    <Label acceptsfocus="true" text="#Settings_General_Enabled" value="1" id="PrvrSeatedMode1"/>
+                    <Label acceptsfocus="true" text="#Settings_General_Disabled" value="0" id="PrvrSeatedMode0"/>
                 </ChaosSettingsEnumDropDown>
 
                 <ChaosSettingsSlider text="[[SeatedOffset]]" class="settings__page-group-item settings__page-group-item-odd"

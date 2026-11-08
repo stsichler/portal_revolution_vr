@@ -5,13 +5,10 @@
   </p>
 </div>
 
-# Portal Revolution VR Mod
-
+# Portal: Revolution VR Mod
 [<img src="https://www.paypalobjects.com/en_US/DK/i/btn/btn_donateCC_LG.gif" align="right" />](https://www.paypal.com/donate/?hosted_button_id=HLFSYXSE3SDVE)
 
-VR mod for Portal: Revolution.
-
-## What works
+## Things that work
 * Stereo view with head tracking; portals, smoke and glass render correctly
 * Menu as an overlay in the headset, used with laser pointer or stick
 * Walking where the left controller points, snap or smooth turning, jumping, crouching
@@ -22,7 +19,7 @@ VR mod for Portal: Revolution.
 * Comfort options, see [If you feel sick](#if-you-feel-sick)
 * VR tab in the game's settings, in all languages of the game
 
-## What's missing
+## Things that need fixing
 * HUD and subtitles
 * Videos
 
@@ -30,7 +27,8 @@ Tested with Oculus Touch controllers. The bindings for Index and Vive Cosmos con
 
 ## How to use
 1. Download [PortalRevolutionVR.zip](https://github.com/stsichler/portal_revolution_vr/releases/latest/download/PortalRevolutionVR.zip) and extract it to `steamapps/common/Portal Revolution`.
-2. Start the game with SteamVR. The mod sets the required launch options itself.
+2. Start the game with SteamVR.
+3. Adjust VR settings on the VR tab of the game's settings menu.
 
 To remove the mod, run `Uninstall_Portal_Revolution_VR_Mod.cmd` in the game folder. An update of the mod replaces `VR/config.txt`, so keep a copy if you changed it. An update of the game can break the mod.
 
@@ -71,16 +69,10 @@ Please [open an issue](https://github.com/stsichler/portal_revolution_vr/issues)
 
 After building, `d3d11.dll` is copied to `Portal Revolution/bin/win64` (default Steam path), so the game must not be running. Then `tools/package-release.ps1` makes the ZIP.
 
-## Based on
-* Brilliant Portal 2 VR mod from [Gistix](https://github.com/Gistix/portal2vr)
-* Portal Reloaded adaptions from [Scriptor25](https://github.com/Scriptor25)
-* [l4d2vr](https://github.com/sd805/l4d2vr)
-* Development history before Portal Revolution: [portal_reloaded_vr](https://github.com/stsichler/portal_reloaded_vr)
-  
-## Utilizes code from
-* [VirtualFortress2](https://github.com/PinkMilkProductions/VirtualFortress2)
-* [gmcl_openvr](https://github.com/Planimeter/gmcl_openvr/)
-* [source-sdk-2013](https://github.com/ValveSoftware/source-sdk-2013/)
+## Acknowledgements
+Based on the [L4D2 VR Mod](https://github.com/sd805/l4d2vr) from sd805 and the [Portal 2 VR Mod](https://github.com/Gistix/portal2vr) from Gistix, with Portal Reloaded adaptions from [Scriptor25](https://github.com/Scriptor25). The port to Portal: Revolution was done almost entirely by [Claude Code](https://claude.com/claude-code) from Anthropic. Earlier history: [portal_reloaded_vr](https://github.com/stsichler/portal_reloaded_vr).
+
+Uses code from [VirtualFortress2](https://github.com/PinkMilkProductions/VirtualFortress2), [gmcl_openvr](https://github.com/Planimeter/gmcl_openvr/) and [source-sdk-2013](https://github.com/ValveSoftware/source-sdk-2013/).
 
 ## License
 The mod's code is licensed under the [GNU GPL v3](COPYING), like [portal2vr](https://github.com/Gistix/portal2vr) it is based on. Exceptions:

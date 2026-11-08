@@ -6,9 +6,9 @@ Assembles the release ZIP of the Portal Revolution VR mod.
 The ZIP root is the game folder, so players extract it there:
 
   bin\win64\d3d11.dll                     build output
-  VR\                                     package-files\, thirdparty\openvr\bin\win64\openvr_api.dll
+  VR\                                     package-files\ without the .cmd, thirdparty\openvr\bin\win64\openvr_api.dll
   VR\licenses\                            COPYING and the licenses of MinHook, OpenVR, Source SDK
-  Uninstall_Portal_Revolution_VR_Mod.cmd  tools\
+  Uninstall_Portal_Revolution_VR_Mod.cmd  package-files\
 
 Build the configuration first. Players get Release: it writes the same log, but has no frame trace.
 
@@ -45,9 +45,10 @@ $licenses = Join-Path $vr 'licenses'
 New-Item -ItemType Directory -Force $bin, $licenses | Out-Null
 
 Copy-Item $dll $bin
-Copy-Item -Recurse (Join-Path $root 'package-files\*') $vr
+$uninstall = 'Uninstall_Portal_Revolution_VR_Mod.cmd'
+Copy-Item -Recurse (Join-Path $root 'package-files\*') $vr -Exclude $uninstall
 Copy-Item (Join-Path $root 'thirdparty\openvr\bin\win64\openvr_api.dll') $vr
-Copy-Item (Join-Path $root 'tools\Uninstall_Portal_Revolution_VR_Mod.cmd') $stage
+Copy-Item (Join-Path $root "package-files\$uninstall") $stage
 
 # The GPL and the BSD licenses require these with a binary, the GPL also a way to the source.
 Copy-Item (Join-Path $root 'COPYING') (Join-Path $licenses 'COPYING.txt')

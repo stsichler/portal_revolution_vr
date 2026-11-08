@@ -149,8 +149,6 @@ static bool AddLaunchOptions()
 
     if (!hasAny({"-insecure"}))
         append("-insecure", nullptr);
-    // Window mode and size: the game's video settings, they only affect the window on the monitor.
-    // Antialiasing too: the eyes get it.
     if (!hasAny({"-novid"}))
         append("-novid", nullptr);
 #ifdef PRVR_DIAGNOSTICS

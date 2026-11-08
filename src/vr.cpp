@@ -86,7 +86,7 @@ void VR::init()
     m_TextureBounds[1].vMax = 0.5f - 0.5f * r_top / tanHalfFov[1];
 
     m_Aspect = tanHalfFov[0] / tanHalfFov[1];
-    m_Fov = 2.0f * atan(tanHalfFov[0]) * 360 / (3.14159265358979323846 * 2);
+    m_Fov = static_cast<float>(2.0 * atan(tanHalfFov[0]) * 360 / (3.14159265358979323846 * 2));
 
     InstallApplicationManifest("manifest.vrmanifest");
     SetActionManifest("action_manifest.json");
@@ -585,7 +585,7 @@ void VR::SubmitVRTextures()
         // Diagnostics: the first overlay frame and every change of the result codes.
         static int lastOverlayError = -1, lastSubmitError = -1, lastInGame = -1, lastMenu = -1;
         const int inGame = m_Game->m_EngineClient->IsInGame() ? 1 : 0;
-        if (overlayError != lastOverlayError || submitError != lastSubmitError || inGame != lastInGame || menuVisible != lastMenu)
+        if (overlayError != lastOverlayError || submitError != lastSubmitError || inGame != lastInGame || (int)menuVisible != lastMenu)
         {
             lastMenu = menuVisible;
             std::cout << "[VR] overlay frame: inGame=" << inGame << " menu=" << menuVisible << " backbuffer " << m_BackBufferCopy.m_Width << "x"
@@ -616,9 +616,9 @@ void VR::GetPoseData(vr::TrackedDevicePose_t &poseRaw, TrackedDevicePoseData &po
         pos.x = -mat.m[2][3];
         pos.y = -mat.m[0][3];
         pos.z = mat.m[1][3];
-        ang.x = asin(mat.m[1][2]) * (180.0 / 3.141592654);
-        ang.y = atan2f(mat.m[0][2], mat.m[2][2]) * (180.0 / 3.141592654);
-        ang.z = atan2f(-mat.m[1][0], mat.m[1][1]) * (180.0 / 3.141592654);
+        ang.x = asin(mat.m[1][2]) * (180.0f / 3.141592654f);
+        ang.y = atan2f(mat.m[0][2], mat.m[2][2]) * (180.0f / 3.141592654f);
+        ang.z = atan2f(-mat.m[1][0], mat.m[1][1]) * (180.0f / 3.141592654f);
 
         poseOut.TrackedDevicePos = pos;
         poseOut.TrackedDeviceAng = ang;
@@ -1173,7 +1173,7 @@ void VR::ProcessInput()
         // Smooth turning
         else
         {
-            float deadzone = 0.2;
+            float deadzone = 0.2f;
             // smoother turning
             float xNormalized = (abs(analogActionData.x) - deadzone) / (1 - deadzone);
             if (abs(analogActionData.x) > deadzone)
@@ -1201,7 +1201,7 @@ void VR::ProcessInput()
         const QAngle targetRotation(0, lastYaw, 0);
 
         const auto lerp = [](float a, float b, float f) -> float {
-            return a * (1.0 - f) + (b * f);
+            return a * (1.0f - f) + (b * f);
         };
 
         // After the recovery time 1% of the tilt is left, whatever the frame rate.
