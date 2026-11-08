@@ -296,6 +296,95 @@ void VR::CopyBackBuffer(IDXGISwapChain *swapChain)
     backBuffer->Release();
 }
 
+// The engine plays its startup video (media/strata.webm) before the game's DLLs are loaded, so
+// before init(). It draws to the window's part of the back buffer; an overlay of its own shows that
+// part where the menu will be, until the menu overlay takes over.
+void VR::ShowStartupFrame(IDXGISwapChain *swapChain)
+{
+    ID3D11Texture2D *backBuffer = nullptr;
+    if (!D3D11Hooks::g_Device || !vr::VROverlay() || FAILED(swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&backBuffer)))
+        return;
+
+    D3D11_TEXTURE2D_DESC desc;
+    backBuffer->GetDesc(&desc);
+    int windowWidth, windowHeight;
+    GetWindowSize(windowWidth, windowHeight);
+    desc.Width = std::min<UINT>(desc.Width, windowWidth);
+    desc.Height = std::min<UINT>(desc.Height, windowHeight);
+
+    if (!m_StartupCopy.m_Texture || m_StartupCopy.m_Width != desc.Width || m_StartupCopy.m_Height != desc.Height)
+    {
+        if (m_StartupCopy.m_Texture)
+            m_StartupCopy.m_Texture->Release();
+        m_StartupCopy = SharedTextureHolder();
+        D3D11_TEXTURE2D_DESC copyDesc = desc;
+        copyDesc.MipLevels = 1;
+        copyDesc.ArraySize = 1;
+        copyDesc.SampleDesc = { 1, 0 };
+        copyDesc.Usage = D3D11_USAGE_DEFAULT;
+        copyDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        copyDesc.CPUAccessFlags = 0;
+        copyDesc.MiscFlags = 0;
+        if (FAILED(D3D11Hooks::g_Device->CreateTexture2D(&copyDesc, nullptr, &m_StartupCopy.m_Texture)))
+        {
+            backBuffer->Release();
+            return;
+        }
+        m_StartupCopy.m_Width = desc.Width;
+        m_StartupCopy.m_Height = desc.Height;
+        m_StartupCopy.m_VRTexture.handle = m_StartupCopy.m_Texture;
+    }
+    const D3D11_BOX part = { 0, 0, 0, desc.Width, desc.Height, 1 };
+    D3D11Hooks::g_Context->CopySubresourceRegion(m_StartupCopy.m_Texture, 0, 0, 0, 0, backBuffer, 0, &part);
+    backBuffer->Release();
+
+    if (m_StartupHandle == vr::k_ulOverlayHandleInvalid)
+    {
+        const vr::EVROverlayError error = vr::VROverlay()->CreateOverlay("StartupOverlayKey", "StartupOverlay", &m_StartupHandle);
+        std::cout << "[VR] startup video overlay " << desc.Width << "x" << desc.Height << ": " << vr::VROverlay()->GetOverlayErrorNameFromEnum(error) << "\n";
+        if (error != vr::VROverlayError_None)
+            return;
+        vr::VROverlay()->SetOverlayCurvature(m_StartupHandle, 0.15f);
+    }
+
+    // Placed again until the headset's pose is known, at the start it may still be invalid.
+    static bool placed = false;
+    if (!placed)
+    {
+        const vr::ETrackingUniverseOrigin trackingOrigin = vr::VRCompositor()->GetTrackingSpace();
+        const vr::HmdMatrix34_t transform = MenuTransform(trackingOrigin, &placed);
+        vr::VROverlay()->SetOverlayTransformAbsolute(m_StartupHandle, trackingOrigin, &transform);
+    }
+    vr::VROverlay()->SetOverlayWidthInMeters(m_StartupHandle, kMenuOverlayHeight * desc.Width / desc.Height);
+    vr::VROverlay()->SetOverlayTexture(m_StartupHandle, &m_StartupCopy.m_VRTexture);
+    vr::VROverlay()->ShowOverlay(m_StartupHandle);
+}
+
+// The scene around the startup video: black, as around the menu.
+void VR::SubmitStartupFrame()
+{
+    if (m_StartupHandle == vr::k_ulOverlayHandleInvalid)
+        return;
+    CreateBlankTexture();
+    if (!m_BlankTexture.m_Texture)
+        return;
+    vr::VRCompositor()->WaitGetPoses(nullptr, 0, nullptr, 0);
+    vr::VRCompositor()->Submit(vr::Eye_Left, &m_BlankTexture.m_VRTexture, nullptr, vr::Submit_Default);
+    vr::VRCompositor()->Submit(vr::Eye_Right, &m_BlankTexture.m_VRTexture, nullptr, vr::Submit_Default);
+}
+
+void VR::EndStartupFrames()
+{
+    if (m_StartupHandle == vr::k_ulOverlayHandleInvalid)
+        return;
+    vr::VROverlay()->DestroyOverlay(m_StartupHandle);
+    m_StartupHandle = vr::k_ulOverlayHandleInvalid;
+    if (m_StartupCopy.m_Texture)
+        m_StartupCopy.m_Texture->Release();
+    m_StartupCopy = SharedTextureHolder();
+    std::cout << "[VR] startup video overlay removed\n";
+}
+
 // The multisampled target the game is drawing to, nullptr if it isn't one. Needs Release.
 static ID3D11Texture2D *BoundMultisampledTarget()
 {
@@ -386,12 +475,18 @@ void VR::initD3D11Callbacks()
                 UpdateMenuFormat();
                 CopyBackBuffer(swapChain);
                 PrepareWindowImage(swapChain);
+                EndStartupFrames();
             }
+            else
+                ShowStartupFrame(swapChain);
         };
 
     D3D11Hooks::Present_Post_Callback = [this](IDXGISwapChain *)
         {
-            Update();
+            if (m_IsInitialized)
+                Update();
+            else
+                SubmitStartupFrame();
         };
 }
 
@@ -627,11 +722,20 @@ void VR::GetPoseData(vr::TrackedDevicePose_t &poseRaw, TrackedDevicePoseData &po
 
 void VR::RepositionOverlays()
 {
-    vr::ETrackingUniverseOrigin trackingOrigin = vr::VRCompositor()->GetTrackingSpace();
+    const vr::ETrackingUniverseOrigin trackingOrigin = vr::VRCompositor()->GetTrackingSpace();
+    const vr::HmdMatrix34_t menuTransform = MenuTransform(trackingOrigin);
+    vr::VROverlay()->SetOverlayTransformAbsolute(m_MainMenuHandle, trackingOrigin, &menuTransform);
+    vr::VROverlay()->SetOverlayWidthInMeters(m_MainMenuHandle, kMenuOverlayHeight * m_RenderWidth / MenuHeight());
+}
 
+// Where the menu overlay goes, for the head's current position.
+vr::HmdMatrix34_t VR::MenuTransform(vr::ETrackingUniverseOrigin trackingOrigin, bool *poseValid)
+{
     // Asked for directly: right after a change of the tracking space, m_Poses are from the old one.
     vr::TrackedDevicePose_t hmdPose = {};
     m_System->GetDeviceToAbsoluteTrackingPose(trackingOrigin, 0, &hmdPose, 1);
+    if (poseValid)
+        *poseValid = hmdPose.bPoseIsValid;
     vr::HmdMatrix34_t hmdMat = hmdPose.mDeviceToAbsoluteTracking;
     Vector hmdPosition = { hmdMat.m[0][3], hmdMat.m[1][3], hmdMat.m[2][3] };
     Vector hmdForward = { -hmdMat.m[0][2], 0, -hmdMat.m[2][2] };
@@ -653,15 +757,12 @@ void VR::RepositionOverlays()
     Vector menuNewPos = hmdForward * 3 + hmdPosition;
     float hmdYaw = atan2f(hmdMat.m[0][2], hmdMat.m[2][2]);
 
-    vr::HmdMatrix34_t menuTransform =
+    return
     {
         cosf(hmdYaw),  0.0f, sinf(hmdYaw), menuNewPos.x,
         0.0f,          1.0f, 0.0f,         menuNewPos.y - 0.25f,
         -sinf(hmdYaw), 0.0f, cosf(hmdYaw), menuNewPos.z
     };
-
-    vr::VROverlay()->SetOverlayTransformAbsolute(m_MainMenuHandle, trackingOrigin, &menuTransform);
-    vr::VROverlay()->SetOverlayWidthInMeters(m_MainMenuHandle, kMenuOverlayHeight * m_RenderWidth / MenuHeight());
 }
 
 // The menu takes the aspect ratio of the video mode, which the video settings can change (see

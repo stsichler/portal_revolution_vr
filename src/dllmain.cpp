@@ -149,8 +149,6 @@ static bool AddLaunchOptions()
 
     if (!hasAny({"-insecure"}))
         append("-insecure", nullptr);
-    if (!hasAny({"-novid"}))
-        append("-novid", nullptr);
 #ifdef PRVR_DIAGNOSTICS
     // The game's console, in <game>\revolution\console.log.
     if (!hasAny({"-condebug"}))

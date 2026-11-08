@@ -37,6 +37,7 @@ public:
 	vr::VROverlayHandle_t m_MainMenuHandle;
 	vr::VROverlayHandle_t m_AimDotHandle = vr::k_ulOverlayHandleInvalid;
 	vr::VROverlayHandle_t m_VignetteHandle = vr::k_ulOverlayHandleInvalid;
+	vr::VROverlayHandle_t m_StartupHandle = vr::k_ulOverlayHandleInvalid; // the engine's startup video, before init()
 
 	uint32_t m_RenderWidth = 0;
 	uint32_t m_RenderHeight = 0;
@@ -93,6 +94,7 @@ public:
 	SharedTextureHolder m_RightEye;
 	SharedTextureHolder m_BackBufferCopy; // copy of the game's back buffer (menu overlay)
 	SharedTextureHolder m_BlankTexture;
+	SharedTextureHolder m_StartupCopy; // the window's part of the back buffer during the startup video
 
 	bool m_IsInitialized = false;
 	bool m_RenderedNewFrame = false;
@@ -198,6 +200,10 @@ public:
 	void CreateVRTextures();
 	void SubmitVRTextures();
 	void RepositionOverlays();
+	vr::HmdMatrix34_t MenuTransform(vr::ETrackingUniverseOrigin trackingOrigin, bool *poseValid = nullptr);
+	void ShowStartupFrame(struct IDXGISwapChain *swapChain);
+	void SubmitStartupFrame();
+	void EndStartupFrames();
 	void CreateAimDot();
 	void ShowAimDot(const Vector &aim, const Vector &viewOrigin);
 	void HideAimDot();
