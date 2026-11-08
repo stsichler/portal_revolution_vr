@@ -1022,6 +1022,8 @@ void VR::ProcessMenuInput()
         // The menu is Panorama; it gets the mouse from inputsystem.dll, which subclasses the game
         // window. So mouse messages go straight to that window (SendInput hit whatever was under
         // the real cursor, and only if the game had the focus).
+        // Moves with the button held carry MK_LBUTTON: without it, Panorama doesn't drag sliders.
+        static WPARAM buttons = 0;
         vr::VREvent_t vrEvent;
         while (vr::VROverlay()->PollNextOverlayEvent(m_MainMenuHandle, &vrEvent, sizeof(vrEvent)))
         {
@@ -1031,7 +1033,7 @@ void VR::ProcessMenuInput()
             case vr::VREvent_MouseMove:
                 toWindow(vrEvent.data.mouse, x, y);
                 if (window)
-                    PostMessage(window, WM_MOUSEMOVE, laserMark, MAKELPARAM(x, y));
+                    PostMessage(window, WM_MOUSEMOVE, buttons | laserMark, MAKELPARAM(x, y));
                 break;
 
             case vr::VREvent_MouseButtonDown:
@@ -1050,6 +1052,7 @@ void VR::ProcessMenuInput()
                     PostMessage(window, WM_MOUSEMOVE, laserMark, MAKELPARAM(x, y));
                     PostMessage(window, WM_LBUTTONDOWN, MK_LBUTTON | laserMark, MAKELPARAM(x, y));
                 }
+                buttons = MK_LBUTTON;
                 break;
             }
 
@@ -1057,6 +1060,7 @@ void VR::ProcessMenuInput()
                 toWindow(vrEvent.data.mouse, x, y);
                 if (window)
                     PostMessage(window, WM_LBUTTONUP, laserMark, MAKELPARAM(x, y));
+                buttons = 0;
                 break;
 
             case vr::VREvent_ScrollDiscrete:
