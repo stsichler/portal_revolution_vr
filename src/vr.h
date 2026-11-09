@@ -107,6 +107,7 @@ public:
 	bool m_RenderedHud = false;
 
 	bool m_IsInitialized = false;
+	bool m_ShutDown = false; // the game is quitting, the VR connection has ended
 	bool m_RenderedNewFrame = false;
 	bool m_CreatedVRTextures = false;
 
@@ -206,6 +207,7 @@ public:
 	void CreateBlankTexture();
 	bool IsMenuVisible();
 	void init();
+	void Shutdown();
 	int SetActionManifest(const char *fileName);
 	void InstallApplicationManifest(const char *fileName);
 	void Update();

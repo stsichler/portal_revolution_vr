@@ -285,6 +285,18 @@ namespace
     bool g_HudPass = false; // the eye that draws the HUD is rendering
     bool g_HudPainting = false; // the HUD is drawn for the HUD overlay
 
+    // CModAppSystemGroup (engine.dll): [8] Shutdown, called when the main loop has ended, before
+    // Host_PreShutdown. The VR connection ends there (VR::Shutdown).
+    constexpr int kModAppSystemGroup_Shutdown = 8;
+    using tAppSystemGroupShutdown = void (*)(void *thisptr);
+    tAppSystemGroupShutdown oAppSystemGroupShutdown = nullptr;
+
+    void hkAppSystemGroupShutdown(void *thisptr)
+    {
+        g_StrataGame->m_VR->Shutdown();
+        oAppSystemGroupShutdown(thisptr);
+    }
+
     bool VRViewActive();
 
     void hkVGuiPaint(void *thisptr, int mode)
@@ -1665,6 +1677,9 @@ bool StrataHooks::Init(Game *game)
         oVGuiPaint = nullptr;
         std::cout << "[Hooks] VGui_Paint not hooked, no HUD and no subtitles in the headset\n";
     }
+    void **appSystemGroup = FindVTable("engine.dll", "CModAppSystemGroup");
+    if (!appSystemGroup || !InstallHook("CModAppSystemGroup Shutdown", appSystemGroup[kModAppSystemGroup_Shutdown], &hkAppSystemGroupShutdown, oAppSystemGroupShutdown, "engine.dll"))
+        std::cout << "[Hooks] CModAppSystemGroup Shutdown not hooked, SteamVR shows the last frame until the game has quit\n";
     void **quickInfo = FindVTable("client.dll", "CHUDQuickInfo", kHudElement_Panel);
     if (!quickInfo || !InstallHook("CHUDQuickInfo Paint", quickInfo[kPanel_HudPaint], &hkQuickInfoPaint, oQuickInfoPaint))
         std::cout << "[Hooks] CHUDQuickInfo not found, its crosshair is on the HUD overlay\n";

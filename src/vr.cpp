@@ -192,6 +192,18 @@ static void LoadModOpenVR()
     std::cout << "[OpenVR] " << path << (module ? " loaded" : " NOT found, using the game's openvr_api.dll") << "\n";
 }
 
+// The game is quitting, its main loop has ended. Without this SteamVR keeps showing the last
+// frame and the overlays until the process is gone, which takes seconds. Main thread.
+void VR::Shutdown()
+{
+    if (m_ShutDown || !m_System)
+        return;
+    m_ShutDown = true;
+    m_IsInitialized = false;
+    vr::VR_Shutdown();
+    std::cout << "[VR] game quits, VR connection ended\n";
+}
+
 void VR::InitOpenVR()
 {
     if (m_System)
@@ -470,6 +482,8 @@ void VR::initD3D11Callbacks()
 
     D3D11Hooks::Present_Pre_Callback = [this](IDXGISwapChain *swapChain)
         {
+            if (m_ShutDown)
+                return;
             if (m_IsInitialized)
             {
                 ConVars::Sync(*this);
@@ -484,6 +498,8 @@ void VR::initD3D11Callbacks()
 
     D3D11Hooks::Present_Post_Callback = [this](IDXGISwapChain *)
         {
+            if (m_ShutDown)
+                return;
             if (m_IsInitialized)
                 Update();
             else
