@@ -1,9 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
 #pragma once
 #include "vector.h"
-#include "checksum_crc.h"
 
-typedef unsigned int CRC32_t;
 typedef unsigned char byte;
 
 class CUserCmd
@@ -21,6 +19,7 @@ public:
 		command_number = 0;
 		tick_count = 0;
 		viewangles.Init();
+		aimdirection.Init();
 		forwardmove = 0.0f;
 		sidemove = 0.0f;
 		upmove = 0.0f;
@@ -42,6 +41,7 @@ public:
 		command_number = src.command_number;
 		tick_count = src.tick_count;
 		viewangles = src.viewangles;
+		aimdirection = src.aimdirection;
 		forwardmove = src.forwardmove;
 		sidemove = src.sidemove;
 		upmove = src.upmove;
@@ -61,29 +61,6 @@ public:
 	CUserCmd(const CUserCmd &src)
 	{
 		*this = src;
-	}
-
-	CRC32_t GetChecksum(void) const
-	{
-		CRC32_t crc;
-
-		CRC32_Init(&crc);
-		CRC32_ProcessBuffer(&crc, &command_number, sizeof(command_number));
-		CRC32_ProcessBuffer(&crc, &tick_count, sizeof(tick_count));
-		CRC32_ProcessBuffer(&crc, &viewangles, sizeof(viewangles));
-		CRC32_ProcessBuffer(&crc, &forwardmove, sizeof(forwardmove));
-		CRC32_ProcessBuffer(&crc, &sidemove, sizeof(sidemove));
-		CRC32_ProcessBuffer(&crc, &upmove, sizeof(upmove));
-		CRC32_ProcessBuffer(&crc, &buttons, sizeof(buttons));
-		CRC32_ProcessBuffer(&crc, &impulse, sizeof(impulse));
-		CRC32_ProcessBuffer(&crc, &weaponselect, sizeof(weaponselect));
-		CRC32_ProcessBuffer(&crc, &weaponsubtype, sizeof(weaponsubtype));
-		CRC32_ProcessBuffer(&crc, &random_seed, sizeof(random_seed));
-		CRC32_ProcessBuffer(&crc, &mousedx, sizeof(mousedx));
-		CRC32_ProcessBuffer(&crc, &mousedy, sizeof(mousedy));
-		CRC32_Final(&crc);
-
-		return crc;
 	}
 
 	// Allow command, but negate gameplay-affecting values
@@ -119,13 +96,8 @@ public:
 static_assert(sizeof(CUserCmd) == 0x78);
 static_assert(offsetof(CUserCmd, forwardmove) == 0x28 && offsetof(CUserCmd, buttons) == 0x34 && offsetof(CUserCmd, mousedx) == 0x48);
 
-class CVerifiedUserCmd
-{
-public:
-	CUserCmd        m_cmd;
-	CRC32_t         m_crc;
-};
-
+// l4d2vr's declaration. Checked in Strata Source's client.dll: [3] CreateMove, [5]
+// WriteUsercmdDeltaToBuffer, [8] GetUserCmd; their parameters and the other entries are not.
 class CInput
 {
 public:

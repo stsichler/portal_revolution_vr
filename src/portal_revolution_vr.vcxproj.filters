@@ -44,9 +44,6 @@
     <ClCompile Include="vr.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="sdk\checksum_crc.cpp">
-      <Filter>SDK</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="d3d11_hooks.h">
@@ -70,19 +67,7 @@
     <ClInclude Include="vr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="sdk\checksum_crc.h">
-      <Filter>SDK</Filter>
-    </ClInclude>
-    <ClInclude Include="sdk\material.h">
-      <Filter>SDK</Filter>
-    </ClInclude>
     <ClInclude Include="sdk\sdk.h">
-      <Filter>SDK</Filter>
-    </ClInclude>
-    <ClInclude Include="sdk\texture.h">
-      <Filter>SDK</Filter>
-    </ClInclude>
-    <ClInclude Include="sdk\trace.h">
       <Filter>SDK</Filter>
     </ClInclude>
     <ClInclude Include="sdk\usercmd.h">

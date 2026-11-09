@@ -177,11 +177,7 @@
     <ClInclude Include="d3d11_hooks.h" />
     <ClInclude Include="game.h" />
     <ClInclude Include="module_placement.h" />
-    <ClInclude Include="sdk\checksum_crc.h" />
-    <ClInclude Include="sdk\material.h" />
     <ClInclude Include="sdk\sdk.h" />
-    <ClInclude Include="sdk\texture.h" />
-    <ClInclude Include="sdk\trace.h" />
     <ClInclude Include="sdk\usercmd.h" />
     <ClInclude Include="sdk\vector.h" />
     <ClInclude Include="sdk\worldsize.h" />
@@ -196,9 +192,6 @@
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="game.cpp" />
     <ClCompile Include="module_placement.cpp" />
-    <ClCompile Include="sdk\checksum_crc.cpp">
-      <DisableSpecificWarnings>4302;4311;%(DisableSpecificWarnings)</DisableSpecificWarnings>
-    </ClCompile>
     <ClCompile Include="settings_menu.cpp" />
     <ClCompile Include="strata_hooks.cpp" />
     <ClCompile Include="vr.cpp" />
