@@ -168,12 +168,19 @@ namespace
 
     void Create(VR &vr)
     {
-        void **vtable = StrataHooks::FindVTable("vstdlib.dll", "ConVar");
-        void **iconvarVTable = StrataHooks::FindVTable("vstdlib.dll", "ConVar", kConVar_IConVar);
+        // The vtable lengths of Steam build 16912226, which the indices were checked with.
+        void **vtable = StrataHooks::FindCheckedVTable("vstdlib.dll", "ConVar", 18);
+        void **iconvarVTable = StrataHooks::FindCheckedVTable("vstdlib.dll", "ConVar", 8, kConVar_IConVar);
         typedef void *(*tCreateInterface)(const char *name, int *returnCode);
         HMODULE vstdlib = GetModuleHandleA("vstdlib.dll");
         auto createInterface = vstdlib ? (tCreateInterface)GetProcAddress(vstdlib, "CreateInterface") : nullptr;
         void *cvar = createInterface ? createInterface("VEngineCvar007", nullptr) : nullptr;
+        const int cvarLength = cvar ? StrataHooks::VTableLength(*static_cast<void ***>(cvar), "vstdlib.dll") : 0;
+        if (cvar && cvarLength != 45)
+        {
+            std::cout << "[ConVars] ICvar has " << cvarLength << " vtable entries instead of 45: the game has changed\n";
+            cvar = nullptr;
+        }
         if (!vtable || !iconvarVTable || !cvar)
         {
             std::cout << "[ConVars] vstdlib's ConVar or ICvar not found, no options in the menu\n";

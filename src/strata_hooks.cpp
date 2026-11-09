@@ -1488,6 +1488,34 @@ void **StrataHooks::FindVTable(const char *module, const char *className, uint32
     return nullptr;
 }
 
+int StrataHooks::VTableLength(void *const *vtable, const char *module)
+{
+    auto base = reinterpret_cast<uint8_t *>(GetModuleHandleA(module));
+    if (!base || !vtable)
+        return 0;
+    const std::vector<Section> code = Sections(base, true);
+    int length = 0;
+    for (;; ++length)
+    {
+        const auto entry = static_cast<const uint8_t *>(vtable[length]);
+        if (std::none_of(code.begin(), code.end(), [entry](const Section &section) { return entry >= section.begin && entry < section.end; }))
+            return length;
+    }
+}
+
+void **StrataHooks::FindCheckedVTable(const char *module, const char *className, int length, uint32_t offset)
+{
+    void **vtable = FindVTable(module, className, offset);
+    if (!vtable)
+        return nullptr;
+    const int found = VTableLength(vtable, module);
+    if (found == length)
+        return vtable;
+    std::cout << "[Hooks] " << className << " in " << module << " has " << found << " vtable entries instead of " << length
+              << ": the game has changed, what uses them stays off\n";
+    return nullptr;
+}
+
 // Panorama lays out for a height of 1080 and the width that follows from its window size. For the
 // back buffer (HMD format, nearly square) that's about 1030 wide, too narrow for the menu. So its
 // windows get a part of the back buffer in the aspect ratio of the video mode. The size is passed
@@ -1599,6 +1627,15 @@ unsigned long __stdcall StrataHooks::HookPanorama(void *)
         std::cout << "[Panorama] vtables not found, the menu keeps the format of the back buffer\n";
         return 0;
     }
+    // The lengths of Steam build 16912226, which the indices were checked with.
+    const int engineLength = VTableLength(engine, "panorama.dll"), windowLength = VTableLength(g_PanoramaWindowVTable, "panorama.dll");
+    if (engineLength != 183 || windowLength != 88)
+    {
+        std::cout << "[Panorama] vtables with " << engineLength << " and " << windowLength
+                  << " entries instead of 183 and 88: the game has changed, the menu keeps the format of the back buffer\n";
+        g_PanoramaWindowVTable = nullptr;
+        return 0;
+    }
 
     MH_Initialize(); // MH_ERROR_ALREADY_INITIALIZED is fine
     g_PanoramaHooked =
@@ -1621,7 +1658,8 @@ bool StrataHooks::Init(Game *game)
         return false;
     }
 
-    void **viewRender = FindVTable("client.dll", "CViewRender");
+    // The vtable lengths are those of Steam build 16912226, which the indices were checked with.
+    void **viewRender = FindCheckedVTable("client.dll", "CViewRender", 44);
     if (!viewRender)
     {
         std::cout << "[Hooks] CViewRender vtable not found, no stereo rendering\n";
@@ -1631,7 +1669,7 @@ bool StrataHooks::Init(Game *game)
     bool ok = InstallHook("RenderView", viewRender[kViewRender_RenderView], &hkRenderView, oRenderView);
 
     // ClientModePortalNormal inherits CreateMove from ClientModeShared.
-    void **clientMode = FindVTable("client.dll", "ClientModeShared");
+    void **clientMode = FindCheckedVTable("client.dll", "ClientModeShared", 64);
     if (!clientMode)
     {
         std::cout << "[Hooks] ClientModeShared vtable not found, no VR movement\n";
@@ -1639,7 +1677,7 @@ bool StrataHooks::Init(Game *game)
     }
     ok &= InstallHook("CreateMove", clientMode[kClientMode_CreateMove], &hkCreateMove, oCreateMove);
 
-    void **viewModel = FindVTable("client.dll", "C_BaseViewModel");
+    void **viewModel = FindCheckedVTable("client.dll", "C_BaseViewModel", 262);
     if (!viewModel)
     {
         std::cout << "[Hooks] C_BaseViewModel vtable not found, viewmodel not in the hand\n";
@@ -1656,7 +1694,7 @@ bool StrataHooks::Init(Game *game)
     }
     ok &= InstallHook("FormatViewModelAttachment", formatAttachment, &hkFormatViewModelAttachment, oFormatViewModelAttachment);
 
-    g_PortalgunVTable = FindVTable("client.dll", "C_WeaponPortalgun");
+    g_PortalgunVTable = FindCheckedVTable("client.dll", "C_WeaponPortalgun", 399);
     if (!g_PortalgunVTable)
     {
         std::cout << "[Hooks] C_WeaponPortalgun vtable not found, the gun bobs and there is no aim laser\n";
@@ -1664,26 +1702,26 @@ bool StrataHooks::Init(Game *game)
     }
     ok &= InstallHook("AddViewmodelBob", g_PortalgunVTable[kPortalgun_AddViewmodelBob], &hkAddViewmodelBob, oAddViewmodelBob);
 
-    void **videoPanel = FindVTable("client.dll", "VideoPanel");
+    void **videoPanel = FindCheckedVTable("client.dll", "VideoPanel", 241);
     if (videoPanel)
         InstallHook("VideoPanel Paint", videoPanel[kVideoPanel_Paint], &hkVideoPanelPaint, oVideoPanelPaint);
     else
         std::cout << "[Hooks] VideoPanel vtable not found, videos stay invisible in the headset\n";
 
-    void **renderView = FindVTable("engine.dll", "CVRenderView");
+    void **renderView = FindCheckedVTable("engine.dll", "CVRenderView", 57);
     if (!renderView || !InstallHook("VGui_Paint", renderView[kRenderView_VGuiPaint], &hkVGuiPaint, oVGuiPaint, "engine.dll"))
     {
         oVGuiPaint = nullptr;
         std::cout << "[Hooks] VGui_Paint not hooked, no HUD and no subtitles in the headset\n";
     }
-    void **appSystemGroup = FindVTable("engine.dll", "CModAppSystemGroup");
+    void **appSystemGroup = FindCheckedVTable("engine.dll", "CModAppSystemGroup", 11);
     if (!appSystemGroup || !InstallHook("CModAppSystemGroup Shutdown", appSystemGroup[kModAppSystemGroup_Shutdown], &hkAppSystemGroupShutdown, oAppSystemGroupShutdown, "engine.dll"))
         std::cout << "[Hooks] CModAppSystemGroup Shutdown not hooked, SteamVR shows the last frame until the game has quit\n";
-    void **quickInfo = FindVTable("client.dll", "CHUDQuickInfo", kHudElement_Panel);
+    void **quickInfo = FindCheckedVTable("client.dll", "CHUDQuickInfo", 212, kHudElement_Panel);
     if (!quickInfo || !InstallHook("CHUDQuickInfo Paint", quickInfo[kPanel_HudPaint], &hkQuickInfoPaint, oQuickInfoPaint))
         std::cout << "[Hooks] CHUDQuickInfo not found, its crosshair is on the HUD overlay\n";
-    void **crosshair = FindVTable("client.dll", "CHudCrosshair", kHudElement_Panel);
-    void **portalCrosshair = FindVTable("client.dll", "CHudPortalCrosshair", kHudElement_Panel);
+    void **crosshair = FindCheckedVTable("client.dll", "CHudCrosshair", 212, kHudElement_Panel);
+    void **portalCrosshair = FindCheckedVTable("client.dll", "CHudPortalCrosshair", 212, kHudElement_Panel);
     if (!crosshair || !InstallHook("CHudCrosshair Paint", crosshair[kPanel_HudPaint], &hkCrosshairPaint, oCrosshairPaint))
         std::cout << "[Hooks] CHudCrosshair not found, its crosshair is on the HUD overlay\n";
     if (!portalCrosshair || !InstallHook("CHudPortalCrosshair Paint", portalCrosshair[kPanel_HudPaint], &hkPortalCrosshairPaint, oPortalCrosshairPaint))
@@ -1692,7 +1730,7 @@ bool StrataHooks::Init(Game *game)
     g_PropPortalVTable = FindVTable("client.dll", "C_Prop_Portal");
     std::cout << "[Hooks] C_Prop_Portal vtable " << (g_PropPortalVTable ? "found" : "not found, an eye in a portal sees black") << "\n";
 
-    void **player = FindVTable("client.dll", "C_Portal_Player");
+    void **player = FindCheckedVTable("client.dll", "C_Portal_Player", 420);
     g_PortalPlayerVTable = player;
     if (!player)
     {

@@ -11,6 +11,14 @@ namespace StrataHooks
     // inheritance, offset selects the one of the base class at that offset in the object.
     void **FindVTable(const char *module, const char *className, uint32_t offset = 0);
 
+    // The number of entries: pointers into the module's code, up to the first that isn't one.
+    int VTableLength(void *const *vtable, const char *module);
+
+    // FindVTable, but nullptr (and a line in the log) if the vtable doesn't have the length it had
+    // in the game version the indices were checked with: after a game update with added or
+    // removed entries the indices would point to other functions.
+    void **FindCheckedVTable(const char *module, const char *className, int length, uint32_t offset = 0);
+
     bool Init(Game *game);
 
     // Thread function, to start before the game loads panorama.dll: the hooks must be in place
