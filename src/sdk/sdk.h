@@ -65,40 +65,6 @@ struct PositionAngle
 	QAngle angle;
 };
 
-// VClientEntityList003. Strata Source: GetClientEntity is index 3 here too (checked, vtable of the
-// IClientEntityList base of CClientEntityList in client.dll); the other entries are not checked.
-class IClientEntityList
-{
-public:
-	virtual	~IClientEntityList() { }
-
-	// Get IClientNetworkable interface for specified entity
-	virtual void* GetClientNetworkable(int entnum) = 0;
-
-	virtual void* GetClientNetworkableArray(void) = 0;
-	virtual void* GetClientEntity(int entnum) = 0;
-
-	// Returns number of entities currently in use
-	virtual int  NumberOfEntities(bool bIncludeNonNetworkable) = 0;
-
-	virtual void* GetClientUnknownFromHandle(int hEnt) = 0;
-	virtual void* GetClientNetworkableFromHandle(int hEnt) = 0;
-
-	// NOTE: This function is only a convenience wrapper.
-	// It returns GetClientNetworkable( entnum )->GetIClientEntity().
-	virtual void* GetClientEntityFromHandle(int hEnt) = 0;
-
-
-
-
-    // Returns highest index actually used
-    virtual int					GetHighestEntityIndex(void) = 0;
-
-    // Sizes entity list to specified size
-    virtual void				SetMaxEntities(int maxents) = 0;
-    virtual int					GetMaxEntities() = 0;
-};
-
 // Calls the virtual function with the given vtable index. Used for the interfaces whose layout
 // differs in Strata Source (Portal: Revolution, x64) from the Portal 2 SDK: only methods whose
 // index was checked in the game's binaries are declared.
@@ -108,6 +74,20 @@ inline R CallVirtual(const void *object, int index, Args... args)
 	using Fn = R(*)(const void *, Args...); // x64: one calling convention, 'this' first
 	return (*reinterpret_cast<Fn const *const *>(object))[index](object, args...);
 }
+
+// VClientEntityList003 of Strata Source (client.dll, the IClientEntityList base of
+// CClientEntityList at +0x80028). Checked there: [3] GetClientEntity, [5] NumberOfEntities,
+// [6] GetHighestEntityIndex, [8] GetMaxEntities. The entries before [3] only hold its place.
+class IClientEntityList
+{
+public:
+	virtual	~IClientEntityList() { }
+	virtual void* GetClientNetworkable(int entnum) = 0;
+	virtual void* GetClientNetworkableArray(void) = 0;
+	virtual void* GetClientEntity(int entnum) = 0;
+
+	int GetHighestEntityIndex() { return CallVirtual<int>(this, 6); }
+};
 
 // VEngineVGui001 of Strata Source (engine.dll, vtable of CEngineVGui): [2] is GetPanel(type), [3]
 // returns staticGameUIPanel && staticGameUIPanel->IsVisible().

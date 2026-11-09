@@ -68,7 +68,6 @@ namespace
     int g_Portal_Activated = 0x5d80;
     int g_Portal_HalfWidth = 0x5d84;
     int g_Portal_HalfHeight = 0x5d88;
-    constexpr int kEntityList_GetHighestEntityIndex = 6;
     void **g_PropPortalVTable = nullptr;
 
     // C_Portal_Player: the view is on the other side of a portal than the player, through the portal
@@ -734,7 +733,7 @@ namespace
     {
         const auto dot = [](const Vector &a, const Vector &b) { return a.x * b.x + a.y * b.y + a.z * b.z; };
         Game *game = g_StrataGame;
-        const int highest = CallVirtual<int>(game->m_ClientEntityList, kEntityList_GetHighestEntityIndex);
+        const int highest = game->m_ClientEntityList->GetHighestEntityIndex();
         for (int i = 1; i <= highest; ++i)
         {
             auto portal = reinterpret_cast<const uint8_t *>(game->GetClientEntity(i));
