@@ -28,4 +28,6 @@ VignetteWalking=Виньетка при ходьбе
 VignetteTurning=Виньетка при плавном повороте
 VignetteAfterPortal=Виньетка после портала
 VignetteClearAngle=Свободный угол виньетки
+GroupHud=HUD и субтитры
+HudDistance=Расстояние (см)
 MoreOptions=Другие настройки: config.txt в папке VR игры

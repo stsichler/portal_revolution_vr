@@ -29,4 +29,6 @@ VignetteWalking=Vignette when walking
 VignetteTurning=Vignette when turning smoothly
 VignetteAfterPortal=Vignette after a portal
 VignetteClearAngle=Vignette clear angle
+GroupHud=HUD and subtitles
+HudDistance=Distance (cm)
 MoreOptions=More options: config.txt in the folder VR of the game

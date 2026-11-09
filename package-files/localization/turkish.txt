@@ -28,4 +28,6 @@ VignetteWalking=Yürürken vinyet
 VignetteTurning=Akıcı dönüşte vinyet
 VignetteAfterPortal=Portaldan sonra vinyet
 VignetteClearAngle=Vinyetin açık açısı
+GroupHud=HUD ve altyazılar
+HudDistance=Uzaklık (cm)
 MoreOptions=Diğer seçenekler: oyunun VR klasöründeki config.txt

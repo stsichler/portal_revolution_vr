@@ -28,4 +28,6 @@ VignetteWalking=歩行時のビネット
 VignetteTurning=スムーズ回転時のビネット
 VignetteAfterPortal=ポータル通過後のビネット
 VignetteClearAngle=ビネットのない範囲の角度
+GroupHud=HUD と字幕
+HudDistance=距離（cm）
 MoreOptions=その他の設定：ゲームの VR フォルダーにある config.txt

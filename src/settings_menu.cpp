@@ -262,6 +262,16 @@ class PrvrSettings {
 
             </Panel>
 
+            <Label text="[[GroupHud]]" class="settings__page-group-title"/>
+            <Panel class="settings__page-group">
+
+                <ChaosSettingsSlider text="[[HudDistance]]" class="settings__page-group-item"
+                                     convar="prvr_hud_distance" id="PrvrHudDistance"
+                                     min="30" max="500" increment="0.0212766" snaptoincrement="true"
+                                     selectionpos="auto" tabindex="auto"/>
+
+            </Panel>
+
             <Label text="[[MoreOptions]]" class="settings__page-group-title"/>
 
         </Panel>

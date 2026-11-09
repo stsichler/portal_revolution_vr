@@ -18,7 +18,7 @@
 * Roomscale: the player follows your head when you walk in your room
 * Comfort options, see [If you feel sick](#if-you-feel-sick)
 * VR tab in the game's settings, in all languages of the game
-* HUD, hints and subtitles in front of your eyes (`HudDistance` in `VR/config.txt`)
+* HUD, hints and subtitles in front of your eyes, distance on the VR tab
 
 Tested with Oculus Touch controllers. The bindings for Index and Vive Cosmos controllers are untested.
 

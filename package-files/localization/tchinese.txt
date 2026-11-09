@@ -28,4 +28,6 @@ VignetteWalking=行走時的暗角
 VignetteTurning=平滑轉向時的暗角
 VignetteAfterPortal=穿過傳送門後的暗角
 VignetteClearAngle=暗角的清晰視角
+GroupHud=HUD 和字幕
+HudDistance=距離（公分）
 MoreOptions=更多選項：遊戲 VR 資料夾中的 config.txt

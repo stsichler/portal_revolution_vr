@@ -78,6 +78,7 @@ namespace
         {"VignetteTurning", "prvr_vignette_turning", "The same when turning smoothly. 0: off, 1: black", &VR::m_VignetteTurning},
         {"VignetteAfterPortal", "prvr_vignette_after_portal", "The same while the camera turns upright after a portal. 0: off, 1: black", &VR::m_VignetteAfterPortal},
         {"VignetteClearAngle", "prvr_vignette_clear_angle", "Degrees from the center of the view that stay clear", &VR::m_VignetteClearAngle},
+        {"HudDistance", "prvr_hud_distance", "Centimeters from the eyes to the HUD and the subtitles; they always span 60 degrees", &VR::m_HudDistance, 100},
     };
 
     bool g_Tried = false;

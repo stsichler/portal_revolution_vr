@@ -28,4 +28,6 @@ VignetteWalking=Vignette beim Gehen
 VignetteTurning=Vignette beim fließenden Drehen
 VignetteAfterPortal=Vignette nach einem Portal
 VignetteClearAngle=Freier Winkel der Vignette
+GroupHud=HUD und Untertitel
+HudDistance=Abstand (cm)
 MoreOptions=Weitere Optionen: config.txt im Ordner VR des Spiels
