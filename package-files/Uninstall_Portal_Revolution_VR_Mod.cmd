@@ -12,6 +12,7 @@ goto :choice
 del /Q ".\bin\win64\d3d11.dll"
 RD /Q /S ".\VR"
 del /Q ".\prvr_debug.log" 2>nul
+del /Q ".\prvr_frame_*.txt" 2>nul
 echo The mod is uninstalled. You can delete this file.
 pause
 exit

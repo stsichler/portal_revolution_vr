@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Assembles the release ZIP of the Portal Revolution VR mod.
+Assembles the release ZIP and the setup of the Portal Revolution VR mod.
 
 .DESCRIPTION
 The ZIP root is the game folder, so players extract it there:
@@ -9,6 +9,8 @@ The ZIP root is the game folder, so players extract it there:
   VR\                                     package-files\ without the .cmd, thirdparty\openvr\bin\win64\openvr_api.dll
   VR\licenses\                            COPYING and the licenses of MinHook, OpenVR, Source SDK
   Uninstall_Portal_Revolution_VR_Mod.cmd  package-files\
+
+The setup (tools\installer.iss) installs the same files, without the .cmd. It needs Inno Setup 6.
 
 Build the configuration first. Players get Release: it writes the same log, but has no frame trace.
 
@@ -36,8 +38,10 @@ $name = "PortalRevolutionVR-$Version"
 if ($Configuration -ne 'Release') { $name += "-$Configuration" }
 $stage = Join-Path $root "dist\$name"
 $zip = "$stage.zip"
+$setup = "$stage-Setup.exe"
 if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
 if (Test-Path $zip) { Remove-Item -Force $zip }
+if (Test-Path $setup) { Remove-Item -Force $setup }
 
 $bin = Join-Path $stage 'bin\win64'
 $vr = Join-Path $stage 'VR'
@@ -67,3 +71,13 @@ $archive = [IO.Compression.ZipFile]::OpenRead($zip)
 try { $archive.Entries | Where-Object { $_.Length -gt 0 } | ForEach-Object { '{0,10}  {1}' -f $_.Length, $_.FullName } }
 finally { $archive.Dispose() }
 "-> $zip"
+
+$iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
+if (-not $iscc) {
+    $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" |
+        Where-Object { Test-Path $_ } | Select-Object -First 1
+}
+if (-not $iscc) { Write-Warning 'Inno Setup 6 not found: no setup.'; return }
+& $iscc /Q "/DStage=$stage" "/DVersion=$Version" "/O$(Split-Path -Parent $stage)" "/F$name-Setup" (Join-Path $PSScriptRoot 'installer.iss')
+if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
+"-> $setup"

@@ -26,11 +26,15 @@
 Tested with Oculus Touch controllers. The bindings for Index and Vive Cosmos controllers are untested.
 
 ## How to use
-1. Download [PortalRevolutionVR.zip](https://github.com/stsichler/portal_revolution_vr/releases/latest/download/PortalRevolutionVR.zip) and extract it to `steamapps/common/Portal Revolution`.
+1. Download and run [PortalRevolutionVR-Setup.exe](https://github.com/stsichler/portal_revolution_vr/releases/latest/download/PortalRevolutionVR-Setup.exe). It finds the game folder itself.
 2. Start the game with SteamVR.
 3. Adjust VR settings on the VR tab of the game's settings menu.
 
-To remove the mod, run `Uninstall_Portal_Revolution_VR_Mod.cmd` in the game folder. An update of the mod replaces `VR/config.txt`, so keep a copy if you changed it. An update of the game can break the mod.
+To remove the mod, uninstall "Portal Revolution VR" under Windows Settings > Apps. Updates keep your settings. An update of the game can break the mod.
+
+Without the setup (e.g. on Linux): extract [PortalRevolutionVR.zip](https://github.com/stsichler/portal_revolution_vr/releases/latest/download/PortalRevolutionVR.zip) to `steamapps/common/Portal Revolution`; `Uninstall_Portal_Revolution_VR_Mod.cmd` removes it.
+
+The setup isn't signed, so Windows SmartScreen can warn: click "More info", then "Run anyway".
 
 Windows Defender can flag `d3d11.dll` as a potential threat. This is a false alarm: the mod takes the place of a system DLL and hooks functions of the game, as malware also does. If it gets blocked, allow it under Windows Security > Virus & threat protection > Protection history, or build the mod yourself from this source code. Only download it from this page.
 
@@ -67,7 +71,7 @@ Please [open an issue](https://github.com/stsichler/portal_revolution_vr/issues)
 1. Clone the repository
 2. Open `portal_revolution_vr.sln`, set to x64 (Debug, Release or RelWithDebInfo), build
 
-After building, `d3d11.dll` is copied to `Portal Revolution/bin/win64` (default Steam path), so the game must not be running. Then `tools/package-release.ps1` makes the ZIP.
+After building, `d3d11.dll` is copied to `Portal Revolution/bin/win64` (default Steam path), so the game must not be running. Then `tools/package-release.ps1` makes the ZIP and, with [Inno Setup 6](https://jrsoftware.org/isinfo.php), the setup.
 
 ## Acknowledgements
 Based on the [L4D2 VR Mod](https://github.com/sd805/l4d2vr) from sd805 and the [Portal 2 VR Mod](https://github.com/Gistix/portal2vr) from Gistix, with Portal Reloaded adaptions from [Scriptor25](https://github.com/Scriptor25). The port to Portal: Revolution was done almost entirely by [Claude Code](https://claude.com/claude-code) from Anthropic. Earlier history: [portal_reloaded_vr](https://github.com/stsichler/portal_reloaded_vr).

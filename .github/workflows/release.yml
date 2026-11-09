@@ -1,7 +1,8 @@
 name: Release
 
-# Pushing a tag v* builds the Release configuration, packages PortalRevolutionVR.zip and creates
-# a draft GitHub release for the tag, with d3d11.pdb to read the addresses in a player's log.
+# Pushing a tag v* builds the Release configuration, packages PortalRevolutionVR.zip and
+# PortalRevolutionVR-Setup.exe and creates a draft GitHub release for the tag, with d3d11.pdb to
+# read the addresses in a player's log.
 # The release notes are the message of the annotated tag
 # (--cleanup=verbatim, otherwise git drops Markdown headings as comment lines):
 #   git tag -a v1.0 --cleanup=verbatim -F release-notes.md
@@ -35,13 +36,17 @@ jobs:
       - name: Build
         run: msbuild portal_revolution_vr.sln /m /p:Configuration=Release /p:Platform=x64 /p:PostBuildEventUseInBuild=false /p:PrvrVersion=${{ github.ref_name }}
 
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
       - name: Package
         shell: pwsh
         run: |
           $version = '${{ github.ref_name }}' -replace '^v', ''
           tools/package-release.ps1 -Version $version
-          # Same name in every release: the README links to the latest one.
+          # Same names in every release: the README links to the latest one.
           Copy-Item "dist/PortalRevolutionVR-$version.zip" dist/PortalRevolutionVR.zip
+          Copy-Item "dist/PortalRevolutionVR-$version-Setup.exe" dist/PortalRevolutionVR-Setup.exe
 
       - name: Create draft release
         shell: pwsh
@@ -56,5 +61,5 @@ jobs:
             Write-Warning "$tag is a lightweight tag: no release notes, edit the draft before publishing."
             Set-Content -Encoding utf8NoBOM release-notes.md ''
           }
-          gh release create $tag dist/PortalRevolutionVR.zip x64/Release/d3d11.pdb --draft --verify-tag --title $tag --notes-file release-notes.md
+          gh release create $tag dist/PortalRevolutionVR.zip dist/PortalRevolutionVR-Setup.exe x64/Release/d3d11.pdb --draft --verify-tag --title $tag --notes-file release-notes.md
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
