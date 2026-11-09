@@ -22,3 +22,4 @@ VignetteWalking=0 # Darkens the edge of the view against nausea when walking wit
 VignetteTurning=0.8 # The same when turning with the stick (only with SnapTurning=false). 0 = off, 1 = black
 VignetteAfterPortal=1 # The same while the camera turns back upright after portalling (see above). 0 = off, 1 = black
 VignetteClearAngle=20.0 # Degrees from the center of the view that stay clear
+HudDistance=0.8 # Meters from the eyes to the HUD (subtitles, hints); it always spans 60 degrees

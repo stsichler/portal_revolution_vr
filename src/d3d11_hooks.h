@@ -25,6 +25,19 @@ namespace D3D11Hooks
     // with PRVR_DIAGNOSTICS, i.e. not in Release).
     void TraceNote(const char *note);
 
+    // Until EndRedirect, the game's binds of this texture as render target bind the view instead,
+    // without depth, and its alpha blending keeps the alpha of what is below (premultiplied colors
+    // over transparent black). False if the hooks for it are missing. EndRedirect tells what
+    // happened meanwhile.
+    struct RedirectCounts
+    {
+        unsigned binds = 0; // redirected
+        unsigned otherBinds = 0; // of other targets
+        unsigned blends = 0; // blend states set
+    };
+    bool RedirectRenderTarget(ID3D11Resource *from, ID3D11RenderTargetView *to);
+    RedirectCounts EndRedirect();
+
     // Called by the proxy after the system's D3D11CreateDevice succeeded.
     void OnDeviceCreated(ID3D11Device *device, ID3D11DeviceContext *context);
     // Called by the proxy after the system's D3D11CreateDeviceAndSwapChain succeeded.

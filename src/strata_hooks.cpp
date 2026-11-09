@@ -271,6 +271,82 @@ namespace
     Game *g_StrataGame = nullptr;
     void *g_ViewModelOwner = nullptr; // the player, as last seen by hkCalcViewModelView
 
+    // IVRenderView (engine.dll, CVRenderView): [41] VGui_Paint(mode), calls EngineVGui()->Paint(mode).
+    // RenderView calls it with PAINT_INGAMEPANELS when whatToDraw has RENDERVIEW_DRAWHUD: the VGUI
+    // HUD with subtitles, hints and credits. The eye that draws it sends it to a texture of its own.
+    // After RenderView, CViewRender::Render paints the full screen panels with PAINT_UIPANELS, among
+    // them GetFullscreenClientMode()'s viewport with the captions (CHudCloseCaption). In the game
+    // they go to the HUD overlay as well, over the frame's HUD; in the menus to the back buffer.
+    constexpr int kRenderView_VGuiPaint = 41;
+    constexpr int PAINT_UIPANELS = 1 << 0;
+    constexpr int PAINT_INGAMEPANELS = 1 << 1;
+    using tVGuiPaint = void (*)(void *thisptr, int mode);
+    tVGuiPaint oVGuiPaint = nullptr;
+    bool g_HudPass = false; // the eye that draws the HUD is rendering
+    bool g_HudPainting = false; // the HUD is drawn for the HUD overlay
+
+    bool VRViewActive();
+
+    void hkVGuiPaint(void *thisptr, int mode)
+    {
+        static int loggedModes = 0;
+        if (!(loggedModes & (1 << (mode & 7))))
+        {
+            loggedModes |= 1 << (mode & 7);
+            std::cout << "[Hooks] VGui_Paint mode " << mode << (g_HudPass ? " in the HUD pass" : "") << "\n";
+        }
+        if (!g_HudPass && (mode & PAINT_UIPANELS) && VRViewActive())
+        {
+            VR *vr = g_StrataGame->m_VR;
+            if (!vr->BeginHudPaint(true))
+                return oVGuiPaint(thisptr, mode);
+            g_HudPainting = true;
+            oVGuiPaint(thisptr, mode);
+            g_HudPainting = false;
+            vr->EndHudPaint(true);
+            return;
+        }
+        if (!g_HudPass || mode != PAINT_INGAMEPANELS)
+            return oVGuiPaint(thisptr, mode);
+        g_HudPass = false;
+        VR *vr = g_StrataGame->m_VR;
+        if (!vr->BeginHudPaint())
+            return; // in the eye it would sit in a corner
+        g_HudPainting = true;
+        oVGuiPaint(thisptr, mode);
+        g_HudPainting = false;
+        vr->EndHudPaint();
+    }
+
+    // The game's crosshair, which also shows the placed portals: the aim dot replaces it in VR.
+    // CHUDQuickInfo, CHudCrosshair and CHudPortalCrosshair (client.dll, vgui::Panel at 0x60): [130]
+    // Paint, found as the entry differing from other HUD elements that uses the screen size; [89]
+    // is ApplySchemeSettings ("crosshair_default").
+    constexpr uint32_t kHudElement_Panel = 0x60;
+    constexpr int kPanel_HudPaint = 130;
+    using tPanelPaint = void (*)(void *thisptr);
+    tPanelPaint oQuickInfoPaint = nullptr;
+    tPanelPaint oCrosshairPaint = nullptr;
+    tPanelPaint oPortalCrosshairPaint = nullptr;
+
+    void hkQuickInfoPaint(void *thisptr)
+    {
+        if (!g_HudPainting)
+            oQuickInfoPaint(thisptr);
+    }
+
+    void hkCrosshairPaint(void *thisptr)
+    {
+        if (!g_HudPainting)
+            oCrosshairPaint(thisptr);
+    }
+
+    void hkPortalCrosshairPaint(void *thisptr)
+    {
+        if (!g_HudPainting)
+            oPortalCrosshairPaint(thisptr);
+    }
+
     // Where the viewmodel's muzzle is in this frame, for the laser and the shot; the server's code
     // runs outside of rendering, where client bones may not be set up.
     Vector g_Muzzle;
@@ -1268,8 +1344,12 @@ namespace
         eyeView.zNearViewmodel = 2;
         eyeView.angles = hmdAngle;
 
-        // The HUD is laid out for the window; drawn into the eyes it would sit in a corner.
+        // The HUD is laid out for the window; drawn into the eyes it would sit in a corner. The
+        // right eye draws it into a texture of its own (hkVGuiPaint), the HUD overlay shows it.
         const int eyeWhatToDraw = whatToDraw & ~RENDERVIEW_DRAWHUD;
+        const int hudWhatToDraw = oVGuiPaint ? whatToDraw : eyeWhatToDraw;
+        if (hudWhatToDraw & RENDERVIEW_DRAWHUD)
+            vr->SetHudRect(hudView.x, hudView.y, hudView.width, hudView.height);
 
         // The engine renders each eye as it renders the flat view; only the result in the back
         // buffer is complete (parts like the portal views go to an internal target, which is
@@ -1278,7 +1358,7 @@ namespace
         // An eye can be through a portal while the player isn't yet: it's beside and in front of the
         // game's eye. Behind the portal's wall it would see nothing, so it looks from the other side,
         // with the gun moved along. The game is told, or it draws its copy of the player right there.
-        auto renderEye = [&](SharedTextureHolder &eye, const Vector &origin)
+        auto renderEye = [&](SharedTextureHolder &eye, const Vector &origin, int eyeDraws)
         {
             eyeView.origin = origin;
             eyeView.angles = hmdAngle;
@@ -1311,7 +1391,9 @@ namespace
                     oCalcViewModelView(g_Gun.viewModel, g_Gun.owner, MovedByPortal(matrix, g_Gun.position), TurnedByPortal(matrix, g_Gun.angles));
             }
 
-            oRenderView(thisptr, eyeView, hudView, nClearFlags, eyeWhatToDraw);
+            g_HudPass = (eyeDraws & RENDERVIEW_DRAWHUD) != 0;
+            oRenderView(thisptr, eyeView, hudView, nClearFlags, eyeDraws);
+            g_HudPass = false;
             vr->CopyBackBufferToEye(eye);
 
             if (moveGun)
@@ -1323,9 +1405,9 @@ namespace
             }
         };
         D3D11Hooks::TraceNote("left eye");
-        renderEye(vr->m_LeftEye, vr->GetViewOriginLeft(position));
+        renderEye(vr->m_LeftEye, vr->GetViewOriginLeft(position), eyeWhatToDraw);
         D3D11Hooks::TraceNote("right eye");
-        renderEye(vr->m_RightEye, vr->GetViewOriginRight(position));
+        renderEye(vr->m_RightEye, vr->GetViewOriginRight(position), hudWhatToDraw);
         D3D11Hooks::TraceNote("eyes done");
         g_Gun.viewModel = nullptr; // placed again in the next frame, if there still is one
 
@@ -1576,6 +1658,22 @@ bool StrataHooks::Init(Game *game)
         InstallHook("VideoPanel Paint", videoPanel[kVideoPanel_Paint], &hkVideoPanelPaint, oVideoPanelPaint);
     else
         std::cout << "[Hooks] VideoPanel vtable not found, videos stay invisible in the headset\n";
+
+    void **renderView = FindVTable("engine.dll", "CVRenderView");
+    if (!renderView || !InstallHook("VGui_Paint", renderView[kRenderView_VGuiPaint], &hkVGuiPaint, oVGuiPaint, "engine.dll"))
+    {
+        oVGuiPaint = nullptr;
+        std::cout << "[Hooks] VGui_Paint not hooked, no HUD and no subtitles in the headset\n";
+    }
+    void **quickInfo = FindVTable("client.dll", "CHUDQuickInfo", kHudElement_Panel);
+    if (!quickInfo || !InstallHook("CHUDQuickInfo Paint", quickInfo[kPanel_HudPaint], &hkQuickInfoPaint, oQuickInfoPaint))
+        std::cout << "[Hooks] CHUDQuickInfo not found, its crosshair is on the HUD overlay\n";
+    void **crosshair = FindVTable("client.dll", "CHudCrosshair", kHudElement_Panel);
+    void **portalCrosshair = FindVTable("client.dll", "CHudPortalCrosshair", kHudElement_Panel);
+    if (!crosshair || !InstallHook("CHudCrosshair Paint", crosshair[kPanel_HudPaint], &hkCrosshairPaint, oCrosshairPaint))
+        std::cout << "[Hooks] CHudCrosshair not found, its crosshair is on the HUD overlay\n";
+    if (!portalCrosshair || !InstallHook("CHudPortalCrosshair Paint", portalCrosshair[kPanel_HudPaint], &hkPortalCrosshairPaint, oPortalCrosshairPaint))
+        std::cout << "[Hooks] CHudPortalCrosshair not found, its crosshair is on the HUD overlay\n";
 
     g_PropPortalVTable = FindVTable("client.dll", "C_Prop_Portal");
     std::cout << "[Hooks] C_Prop_Portal vtable " << (g_PropPortalVTable ? "found" : "not found, an eye in a portal sees black") << "\n";

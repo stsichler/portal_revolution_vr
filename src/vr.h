@@ -96,6 +96,16 @@ public:
 	SharedTextureHolder m_BlankTexture;
 	SharedTextureHolder m_StartupCopy; // the window's part of the back buffer during the startup video
 
+	// The VGUI HUD (subtitles, hints), drawn over transparent black while the right eye renders.
+	vr::VROverlayHandle_t m_HudHandle = vr::k_ulOverlayHandleInvalid;
+	SharedTextureHolder m_HudTarget; // as large as the game's render target
+	SharedTextureHolder m_HudCopy; // the HUD's part of it, which the HUD overlay shows
+	struct ID3D11RenderTargetView *m_HudTargetView = nullptr;
+	struct ID3D11RenderTargetView *m_HudSavedView = nullptr; // the game's, during the HUD's paint
+	struct ID3D11DepthStencilView *m_HudSavedDepth = nullptr;
+	int m_HudRect[4] = {}; // x, y, width, height in the render target
+	bool m_RenderedHud = false;
+
 	bool m_IsInitialized = false;
 	bool m_RenderedNewFrame = false;
 	bool m_CreatedVRTextures = false;
@@ -172,6 +182,8 @@ public:
 	float m_VignetteTurning = 0.8f; // 0 = off, 1 = black
 	float m_VignetteAfterPortal = 1.0f; // 0 = off, 1 = black
 	float m_VignetteClearAngle = 20.0f; // degrees from the center of the view that stay clear
+	float m_HudDistance = 0.8f; // meters from the eyes to the HUD overlay
+	float m_HudPlacedDistance = 0; // the distance the HUD overlay is placed at
 
 	float m_SmoothTurnRate = 0; // degrees per second the stick turns right now, 0 with snap turning
 	float m_VignetteMoving = 0; // current alpha from walking and turning, fades in and out
@@ -211,6 +223,13 @@ public:
 	void DrawVignette(float clearAngle);
 	void UpdateVignette(float walkedDistance);
 	void HideVignette();
+	void CreateHudOverlay();
+	void PlaceHudOverlay();
+	void SetHudRect(int x, int y, int width, int height);
+	bool BeginHudPaint(bool overHud = false);
+	void EndHudPaint(bool overHud = false);
+	void ShowHud();
+	void HideHud();
 	void GetPoses();
 	void UpdatePosesAndActions();
 	void GetViewParameters();

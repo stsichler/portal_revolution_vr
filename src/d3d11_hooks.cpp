@@ -1,6 +1,8 @@
 #include "d3d11_hooks.h"
 #include "MinHook.h"
+#include <cstring>
 #include <iostream>
+#include <vector>
 #ifdef PRVR_DIAGNOSTICS
 #include <fstream>
 #include <string>
@@ -87,7 +89,6 @@ namespace
     constexpr int kContext_Draw = 13;
     constexpr int kContext_DrawIndexedInstanced = 20;
     constexpr int kContext_DrawInstanced = 21;
-    constexpr int kContext_OMSetRenderTargets = 33;
     constexpr int kContext_OMSetDepthStencilState = 36;
     constexpr int kContext_RSSetViewports = 44;
     constexpr int kContext_RSSetScissorRects = 45;
@@ -102,7 +103,6 @@ namespace
     typedef void(STDMETHODCALLTYPE *tDraw)(ID3D11DeviceContext *, UINT, UINT);
     typedef void(STDMETHODCALLTYPE *tDrawIndexedInstanced)(ID3D11DeviceContext *, UINT, UINT, UINT, INT, UINT);
     typedef void(STDMETHODCALLTYPE *tDrawInstanced)(ID3D11DeviceContext *, UINT, UINT, UINT, UINT);
-    typedef void(STDMETHODCALLTYPE *tOMSetRenderTargets)(ID3D11DeviceContext *, UINT, ID3D11RenderTargetView *const *, ID3D11DepthStencilView *);
     typedef void(STDMETHODCALLTYPE *tOMSetDepthStencilState)(ID3D11DeviceContext *, ID3D11DepthStencilState *, UINT);
     typedef void(STDMETHODCALLTYPE *tRSSetViewports)(ID3D11DeviceContext *, UINT, const D3D11_VIEWPORT *);
     typedef void(STDMETHODCALLTYPE *tRSSetScissorRects)(ID3D11DeviceContext *, UINT, const D3D11_RECT *);
@@ -117,7 +117,6 @@ namespace
     tDraw oDraw = nullptr;
     tDrawIndexedInstanced oDrawIndexedInstanced = nullptr;
     tDrawInstanced oDrawInstanced = nullptr;
-    tOMSetRenderTargets oOMSetRenderTargets = nullptr;
     tOMSetDepthStencilState oOMSetDepthStencilState = nullptr;
     tRSSetViewports oRSSetViewports = nullptr;
     tRSSetScissorRects oRSSetScissorRects = nullptr;
@@ -324,16 +323,6 @@ namespace
         oDrawInstanced(context, vertexCount, instanceCount, startVertex, startInstance);
     }
 
-    void STDMETHODCALLTYPE hkOMSetRenderTargets(ID3D11DeviceContext *context, UINT count, ID3D11RenderTargetView *const *targets, ID3D11DepthStencilView *depth)
-    {
-        if (TraceActive(context))
-        {
-            TraceFlushDraws();
-            g_TraceFile << "RT " << TraceViewName(count && targets ? targets[0] : nullptr) << " | DS " << TraceViewName(depth) << "\n";
-        }
-        oOMSetRenderTargets(context, count, targets, depth);
-    }
-
     void STDMETHODCALLTYPE hkOMSetDepthStencilState(ID3D11DeviceContext *context, ID3D11DepthStencilState *state, UINT stencilRef)
     {
         if (TraceActive(context) && (state != g_TraceDepthState || stencilRef != g_TraceStencilRef))
@@ -434,6 +423,106 @@ namespace
     void TraceStart() {}
     void TraceEnd(IDXGISwapChain *) {}
 #endif
+
+    // See RedirectRenderTarget.
+    constexpr int kContext_OMSetRenderTargets = 33;
+    constexpr int kContext_OMSetBlendState = 35;
+    typedef void(STDMETHODCALLTYPE *tOMSetRenderTargets)(ID3D11DeviceContext *, UINT, ID3D11RenderTargetView *const *, ID3D11DepthStencilView *);
+    typedef void(STDMETHODCALLTYPE *tOMSetBlendState)(ID3D11DeviceContext *, ID3D11BlendState *, const FLOAT[4], UINT);
+    tOMSetRenderTargets oOMSetRenderTargets = nullptr;
+    tOMSetBlendState oOMSetBlendState = nullptr;
+
+    ID3D11Resource *g_RedirectFrom = nullptr;
+    ID3D11RenderTargetView *g_RedirectTo = nullptr;
+    D3D11Hooks::RedirectCounts g_RedirectCounts;
+
+    // The blend state the game set during the redirect, set again after it.
+    ID3D11BlendState *g_GameBlend = nullptr;
+    FLOAT g_GameBlendFactor[4] = {};
+    UINT g_GameSampleMask = 0xffffffff;
+
+    // Blending with transparent black, the target gets premultiplied colors, but the game's
+    // alpha blending replaces the target's alpha (boxes around the letters). These states blend
+    // the alpha over the target's instead, by the game's state's description.
+    std::vector<std::pair<D3D11_BLEND_DESC, ID3D11BlendState *>> g_OverBlends;
+
+    ID3D11BlendState *OverBlend(ID3D11BlendState *state)
+    {
+        if (!state)
+            return state;
+        D3D11_BLEND_DESC desc;
+        state->GetDesc(&desc);
+        D3D11_RENDER_TARGET_BLEND_DESC &target = desc.RenderTarget[0];
+        if (!target.BlendEnable)
+            return state;
+        for (const auto &[gameDesc, over] : g_OverBlends)
+            if (!memcmp(&gameDesc, &desc, sizeof desc))
+                return over ? over : state;
+
+        const D3D11_BLEND_DESC gameDesc = desc;
+        target.SrcBlendAlpha = D3D11_BLEND_ONE;
+        target.DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+        target.BlendOpAlpha = D3D11_BLEND_OP_ADD;
+        target.RenderTargetWriteMask |= D3D11_COLOR_WRITE_ENABLE_ALPHA;
+        ID3D11BlendState *over = nullptr;
+        if (FAILED(g_Device->CreateBlendState(&desc, &over)))
+            over = nullptr;
+        g_OverBlends.emplace_back(gameDesc, over);
+        if (g_OverBlends.size() == 1)
+            std::cout << "[D3D11] HUD blend: game's alpha " << gameDesc.RenderTarget[0].SrcBlendAlpha << "/" << gameDesc.RenderTarget[0].DestBlendAlpha
+                      << " op " << gameDesc.RenderTarget[0].BlendOpAlpha << " mask 0x" << std::hex << (int)gameDesc.RenderTarget[0].RenderTargetWriteMask
+                      << std::dec << ", color " << gameDesc.RenderTarget[0].SrcBlend << "/" << gameDesc.RenderTarget[0].DestBlend << (over ? "" : ": can't create")
+                      << "\n";
+        return over ? over : state;
+    }
+
+    void STDMETHODCALLTYPE hkOMSetRenderTargets(ID3D11DeviceContext *context, UINT count, ID3D11RenderTargetView *const *targets, ID3D11DepthStencilView *depth)
+    {
+#ifdef PRVR_DIAGNOSTICS
+        if (TraceActive(context))
+        {
+            TraceFlushDraws();
+            g_TraceFile << "RT " << TraceViewName(count && targets ? targets[0] : nullptr) << " | DS " << TraceViewName(depth) << "\n";
+        }
+#endif
+        if (g_RedirectTo && context == g_Context && count && targets && targets[0])
+        {
+            ID3D11Resource *resource = nullptr;
+            targets[0]->GetResource(&resource);
+            const bool redirect = resource == g_RedirectFrom;
+            resource->Release();
+            if (redirect)
+            {
+                ++g_RedirectCounts.binds;
+                return oOMSetRenderTargets(context, 1, &g_RedirectTo, nullptr);
+            }
+            ++g_RedirectCounts.otherBinds;
+        }
+        oOMSetRenderTargets(context, count, targets, depth);
+    }
+
+    void SaveGameBlend(ID3D11BlendState *state, const FLOAT factor[4], UINT sampleMask)
+    {
+        if (state)
+            state->AddRef();
+        if (g_GameBlend)
+            g_GameBlend->Release();
+        g_GameBlend = state;
+        for (int i = 0; i < 4; ++i)
+            g_GameBlendFactor[i] = factor ? factor[i] : 1.0f;
+        g_GameSampleMask = sampleMask;
+    }
+
+    void STDMETHODCALLTYPE hkOMSetBlendState(ID3D11DeviceContext *context, ID3D11BlendState *state, const FLOAT factor[4], UINT sampleMask)
+    {
+        if (g_RedirectTo && context == g_Context)
+        {
+            SaveGameBlend(state, factor, sampleMask);
+            ++g_RedirectCounts.blends;
+            state = OverBlend(state);
+        }
+        oOMSetBlendState(context, state, factor, sampleMask);
+    }
 
     HRESULT STDMETHODCALLTYPE hkResizeBuffers(IDXGISwapChain *swapChain, UINT bufferCount, UINT width, UINT height,
         DXGI_FORMAT format, UINT flags)
@@ -576,7 +665,6 @@ void D3D11Hooks::OnDeviceCreated(ID3D11Device *device, ID3D11DeviceContext *cont
     Hook(g_Context, kContext_Draw, (void *)&hkDraw, oDraw, "Draw");
     Hook(g_Context, kContext_DrawIndexedInstanced, (void *)&hkDrawIndexedInstanced, oDrawIndexedInstanced, "DrawIndexedInstanced");
     Hook(g_Context, kContext_DrawInstanced, (void *)&hkDrawInstanced, oDrawInstanced, "DrawInstanced");
-    Hook(g_Context, kContext_OMSetRenderTargets, (void *)&hkOMSetRenderTargets, oOMSetRenderTargets, "OMSetRenderTargets");
     Hook(g_Context, kContext_OMSetDepthStencilState, (void *)&hkOMSetDepthStencilState, oOMSetDepthStencilState, "OMSetDepthStencilState");
     Hook(g_Context, kContext_RSSetScissorRects, (void *)&hkRSSetScissorRects, oRSSetScissorRects, "RSSetScissorRects");
     Hook(g_Context, kContext_CopySubresourceRegion, (void *)&hkCopySubresourceRegion, oCopySubresourceRegion, "CopySubresourceRegion");
@@ -585,7 +673,38 @@ void D3D11Hooks::OnDeviceCreated(ID3D11Device *device, ID3D11DeviceContext *cont
     Hook(g_Context, kContext_ClearDepthStencilView, (void *)&hkClearDepthStencilView, oClearDepthStencilView, "ClearDepthStencilView");
     Hook(g_Context, kContext_ResolveSubresource, (void *)&hkResolveSubresource, oResolveSubresource, "ResolveSubresource");
 #endif
+    Hook(g_Context, kContext_OMSetRenderTargets, (void *)&hkOMSetRenderTargets, oOMSetRenderTargets, "OMSetRenderTargets");
+    Hook(g_Context, kContext_OMSetBlendState, (void *)&hkOMSetBlendState, oOMSetBlendState, "OMSetBlendState");
     HookFactory(device);
+}
+
+bool D3D11Hooks::RedirectRenderTarget(ID3D11Resource *from, ID3D11RenderTargetView *to)
+{
+    if (!oOMSetRenderTargets || !oOMSetBlendState)
+        return false;
+    g_RedirectFrom = from;
+    g_RedirectTo = to;
+    g_RedirectCounts = RedirectCounts();
+    ID3D11BlendState *state = nullptr;
+    FLOAT factor[4];
+    UINT sampleMask = 0;
+    g_Context->OMGetBlendState(&state, factor, &sampleMask);
+    SaveGameBlend(state, factor, sampleMask);
+    if (state)
+        state->Release(); // SaveGameBlend keeps it
+    oOMSetBlendState(g_Context, OverBlend(g_GameBlend), g_GameBlendFactor, g_GameSampleMask);
+    return true;
+}
+
+D3D11Hooks::RedirectCounts D3D11Hooks::EndRedirect()
+{
+    if (!g_RedirectTo)
+        return g_RedirectCounts;
+    g_RedirectFrom = nullptr;
+    g_RedirectTo = nullptr;
+    oOMSetBlendState(g_Context, g_GameBlend, g_GameBlendFactor, g_GameSampleMask);
+    SaveGameBlend(nullptr, nullptr, 0xffffffff);
+    return g_RedirectCounts;
 }
 
 void D3D11Hooks::TraceNote(const char *note)

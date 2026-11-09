@@ -106,6 +106,7 @@ void VR::init()
     m_Overlay->SetOverlayMouseScale(m_MainMenuHandle, &mouseScaleMenu);
     CreateAimDot();
     CreateVignette();
+    CreateHudOverlay();
 
     UpdateTrackingSpace();
 
@@ -680,6 +681,7 @@ void VR::SubmitVRTextures()
         vr::VROverlay()->ShowOverlay(m_MainMenuHandle);
         HideAimDot();
         HideVignette();
+        HideHud();
 
         vr::EVRCompositorError submitError = vr::VRCompositor()->Submit(vr::Eye_Left, &m_BlankTexture.m_VRTexture, NULL, vr::Submit_Default);
         vr::VRCompositor()->Submit(vr::Eye_Right, &m_BlankTexture.m_VRTexture, NULL, vr::Submit_Default);
@@ -704,6 +706,7 @@ void VR::SubmitVRTextures()
 
     vr::VRCompositor()->Submit(vr::Eye_Left, &m_LeftEye.m_VRTexture, &(m_TextureBounds)[0], vr::Submit_Default);
     vr::VRCompositor()->Submit(vr::Eye_Right, &m_RightEye.m_VRTexture, &(m_TextureBounds)[1], vr::Submit_Default);
+    ShowHud();
 
     m_RenderedNewFrame = false;
 }
@@ -964,6 +967,254 @@ void VR::HideVignette()
     m_VignetteAlpha = 0;
     std::cout << "[VR] vignette for " << std::chrono::duration<float>(std::chrono::steady_clock::now() - m_VignetteShownAt).count()
               << " s, up to " << m_VignettePeak << "\n";
+}
+
+// Fixed to the head, in front of it (PlaceHudOverlay).
+void VR::CreateHudOverlay()
+{
+    const vr::EVROverlayError error = m_Overlay->CreateOverlay("HudOverlayKey", "HudOverlay", &m_HudHandle);
+    std::cout << "[VR] HUD overlay: " << m_Overlay->GetOverlayErrorNameFromEnum(error) << "\n";
+    if (error != vr::VROverlayError_None)
+    {
+        m_HudHandle = vr::k_ulOverlayHandleInvalid;
+        return;
+    }
+    PlaceHudOverlay();
+    // Drawn over transparent black, the colors are multiplied by the alpha VGUI writes. If it
+    // writes none, the alpha stays 0 and the HUD adds its light to the scene.
+    m_Overlay->SetOverlayFlag(m_HudHandle, vr::VROverlayFlags_IsPremultiplied, true);
+    m_Overlay->SetOverlaySortOrder(m_HudHandle, 2); // over the vignette and the aim dot
+}
+
+// At HudDistance, as wide as a monitor seen from the usual distance at any distance.
+void VR::PlaceHudOverlay()
+{
+    constexpr float angle = 60.0f; // horizontal, degrees
+    const float distance = std::clamp(m_HudDistance, 0.3f, 5.0f);
+    const vr::HmdMatrix34_t inFront =
+    {
+        1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, -distance
+    };
+    m_Overlay->SetOverlayTransformTrackedDeviceRelative(m_HudHandle, vr::k_unTrackedDeviceIndex_Hmd, &inFront);
+    m_Overlay->SetOverlayWidthInMeters(m_HudHandle, 2 * distance * tanf(DEG2RAD(angle / 2)));
+    m_HudPlacedDistance = m_HudDistance;
+}
+
+void VR::SetHudRect(int x, int y, int width, int height)
+{
+    m_HudRect[0] = x;
+    m_HudRect[1] = y;
+    m_HudRect[2] = width;
+    m_HudRect[3] = height;
+}
+
+static DXGI_FORMAT TypelessOf(DXGI_FORMAT format)
+{
+    switch (format)
+    {
+    case DXGI_FORMAT_B8G8R8A8_UNORM:
+    case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
+        return DXGI_FORMAT_B8G8R8A8_TYPELESS;
+    case DXGI_FORMAT_R8G8B8A8_UNORM:
+    case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+        return DXGI_FORMAT_R8G8B8A8_TYPELESS;
+    default:
+        return format;
+    }
+}
+
+// Called by the VGui_Paint hook before the HUD is drawn: binds m_HudTarget instead of the game's
+// target, cleared to transparent black. False if the game's target can't be replaced.
+// overHud: for the full screen panels (captions) after the HUD of the frame, which stays.
+bool VR::BeginHudPaint(bool overHud)
+{
+    if (overHud && (!m_RenderedHud || !m_HudTargetView))
+        return false;
+    ID3D11DeviceContext *context = D3D11Hooks::g_Context;
+    if (!context || m_HudHandle == vr::k_ulOverlayHandleInvalid)
+        return false;
+    ID3D11RenderTargetView *view = nullptr;
+    ID3D11DepthStencilView *depth = nullptr;
+    context->OMGetRenderTargets(1, &view, &depth);
+    auto release = [&]
+        {
+            if (view)
+                view->Release();
+            if (depth)
+                depth->Release();
+        };
+    if (!view)
+    {
+        release();
+        return false;
+    }
+
+    ID3D11Resource *resource = nullptr;
+    view->GetResource(&resource);
+    ID3D11Texture2D *texture = nullptr;
+    const HRESULT hr = resource->QueryInterface(__uuidof(ID3D11Texture2D), (void **)&texture);
+    resource->Release();
+    if (FAILED(hr))
+    {
+        release();
+        return false;
+    }
+    D3D11_TEXTURE2D_DESC desc;
+    texture->GetDesc(&desc);
+    texture->Release(); // the view keeps it
+    D3D11_RENDER_TARGET_VIEW_DESC viewDesc;
+    view->GetDesc(&viewDesc);
+    // The HUD is laid out for the window, which can be wider than the eyes.
+    const UINT width = (std::max)(desc.Width, (UINT)(std::max)(0, m_HudRect[0] + m_HudRect[2]));
+    const UINT height = (std::max)(desc.Height, (UINT)(std::max)(0, m_HudRect[1] + m_HudRect[3]));
+
+    static DXGI_FORMAT targetViewFormat = DXGI_FORMAT_UNKNOWN;
+    if (overHud)
+    {
+        static bool loggedOver = false;
+        if (!loggedOver)
+        {
+            std::cout << "[VR] full screen panels over the HUD: game's target " << desc.Width << "x" << desc.Height << " format " << desc.Format
+                      << " view " << viewDesc.Format << " samples " << desc.SampleDesc.Count << "\n";
+            loggedOver = true;
+        }
+    }
+    else if (!m_HudTarget.m_Texture || m_HudTarget.m_Width != width || m_HudTarget.m_Height != height || targetViewFormat != viewDesc.Format)
+    {
+        if (m_HudTargetView)
+            m_HudTargetView->Release();
+        m_HudTargetView = nullptr;
+        if (m_HudTarget.m_Texture)
+            m_HudTarget.m_Texture->Release();
+        m_HudTarget = SharedTextureHolder();
+
+        D3D11_TEXTURE2D_DESC hudDesc = {};
+        hudDesc.Width = width;
+        hudDesc.Height = height;
+        hudDesc.MipLevels = 1;
+        hudDesc.ArraySize = 1;
+        hudDesc.Format = TypelessOf(viewDesc.Format);
+        hudDesc.SampleDesc = { 1, 0 };
+        hudDesc.Usage = D3D11_USAGE_DEFAULT;
+        hudDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+        D3D11_RENDER_TARGET_VIEW_DESC hudViewDesc = {};
+        hudViewDesc.Format = viewDesc.Format;
+        hudViewDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+        const bool created = SUCCEEDED(D3D11Hooks::g_Device->CreateTexture2D(&hudDesc, nullptr, &m_HudTarget.m_Texture)) &&
+            SUCCEEDED(D3D11Hooks::g_Device->CreateRenderTargetView(m_HudTarget.m_Texture, &hudViewDesc, &m_HudTargetView));
+        std::cout << "[VR] HUD target " << width << "x" << height << " format " << hudDesc.Format << ", game's target " << desc.Width << "x"
+                  << desc.Height << " format " << desc.Format << " view " << viewDesc.Format << " samples " << desc.SampleDesc.Count
+                  << (created ? "" : ": can't create") << "\n";
+        targetViewFormat = viewDesc.Format;
+        if (!created)
+        {
+            if (m_HudTarget.m_Texture)
+                m_HudTarget.m_Texture->Release();
+            m_HudTarget = SharedTextureHolder();
+            release();
+            return false;
+        }
+        m_HudTarget.m_Width = width;
+        m_HudTarget.m_Height = height;
+    }
+
+    static bool logged = false;
+    if (!logged)
+    {
+        D3D11_VIEWPORT viewport = {};
+        UINT viewports = 1;
+        context->RSGetViewports(&viewports, &viewport);
+        std::cout << "[VR] HUD: rect " << m_HudRect[0] << "," << m_HudRect[1] << " " << m_HudRect[2] << "x" << m_HudRect[3] << ", viewport "
+                  << viewport.TopLeftX << "," << viewport.TopLeftY << " " << viewport.Width << "x" << viewport.Height << "\n";
+        logged = true;
+    }
+
+    const float transparent[4] = { 0, 0, 0, 0 };
+    context->OMSetRenderTargets(1, &m_HudTargetView, nullptr);
+    if (!overHud)
+        context->ClearRenderTargetView(m_HudTargetView, transparent);
+    // The engine binds its target again while it draws the HUD.
+    if (!D3D11Hooks::RedirectRenderTarget(texture, m_HudTargetView))
+    {
+        context->OMSetRenderTargets(1, &view, depth);
+        release();
+        return false;
+    }
+    m_HudSavedView = view;
+    m_HudSavedDepth = depth;
+    return true;
+}
+
+// After the HUD is drawn: the game's target again.
+void VR::EndHudPaint(bool overHud)
+{
+    const D3D11Hooks::RedirectCounts counts = D3D11Hooks::EndRedirect();
+    static bool logged[2] = {};
+    if (!logged[overHud] && counts.binds)
+    {
+        std::cout << "[VR] " << (overHud ? "full screen panels" : "HUD") << " drawn: " << counts.binds << " binds of the game's target redirected, "
+                  << counts.otherBinds << " of other targets, " << counts.blends << " blend states\n";
+        logged[overHud] = true;
+    }
+    D3D11Hooks::g_Context->OMSetRenderTargets(1, &m_HudSavedView, m_HudSavedDepth);
+    m_HudSavedView->Release();
+    if (m_HudSavedDepth)
+        m_HudSavedDepth->Release();
+    m_HudSavedView = nullptr;
+    m_HudSavedDepth = nullptr;
+    m_RenderedHud = true;
+}
+
+// With the eyes of the frame: the HUD's part of m_HudTarget, if it was drawn.
+void VR::ShowHud()
+{
+    if (!m_RenderedHud || !m_HudTarget.m_Texture)
+        return HideHud();
+    m_RenderedHud = false;
+
+    const int x = std::clamp(m_HudRect[0], 0, (int)m_HudTarget.m_Width);
+    const int y = std::clamp(m_HudRect[1], 0, (int)m_HudTarget.m_Height);
+    const int width = std::clamp(m_HudRect[2], 0, (int)m_HudTarget.m_Width - x);
+    const int height = std::clamp(m_HudRect[3], 0, (int)m_HudTarget.m_Height - y);
+    if (!width || !height)
+        return HideHud();
+
+    if (!m_HudCopy.m_Texture || m_HudCopy.m_Width != (uint32_t)width || m_HudCopy.m_Height != (uint32_t)height)
+    {
+        if (m_HudCopy.m_Texture)
+            m_HudCopy.m_Texture->Release();
+        m_HudCopy = SharedTextureHolder();
+        D3D11_TEXTURE2D_DESC desc;
+        m_HudTarget.m_Texture->GetDesc(&desc);
+        desc.Width = width;
+        desc.Height = height;
+        desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        const bool created = SUCCEEDED(D3D11Hooks::g_Device->CreateTexture2D(&desc, nullptr, &m_HudCopy.m_Texture));
+        std::cout << "[VR] HUD overlay " << width << "x" << height << " from " << x << "," << y << (created ? "" : ": can't create") << "\n";
+        if (!created)
+        {
+            m_HudCopy = SharedTextureHolder();
+            return HideHud();
+        }
+        m_HudCopy.m_Width = width;
+        m_HudCopy.m_Height = height;
+        m_HudCopy.m_VRTexture.handle = m_HudCopy.m_Texture;
+    }
+    const D3D11_BOX part = { (UINT)x, (UINT)y, 0, (UINT)(x + width), (UINT)(y + height), 1 };
+    D3D11Hooks::g_Context->CopySubresourceRegion(m_HudCopy.m_Texture, 0, 0, 0, 0, m_HudTarget.m_Texture, 0, &part);
+    if (m_HudDistance != m_HudPlacedDistance)
+        PlaceHudOverlay();
+    m_Overlay->SetOverlayTexture(m_HudHandle, &m_HudCopy.m_VRTexture);
+    m_Overlay->ShowOverlay(m_HudHandle);
+}
+
+void VR::HideHud()
+{
+    m_RenderedHud = false;
+    if (m_HudHandle != vr::k_ulOverlayHandleInvalid)
+        m_Overlay->HideOverlay(m_HudHandle);
 }
 
 void VR::GetPoses()
@@ -1895,6 +2146,7 @@ void VR::ParseConfigFile()
     parseOrDefault("VignetteTurning", m_VignetteTurning, 0.8f);
     parseOrDefault("VignetteAfterPortal", m_VignetteAfterPortal, 1.0f);
     parseOrDefault("VignetteClearAngle", m_VignetteClearAngle, 20.0f);
+    parseOrDefault("HudDistance", m_HudDistance, 0.8f);
 }
 
 void VR::WaitForConfigUpdate()
