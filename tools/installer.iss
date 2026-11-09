@@ -14,12 +14,12 @@
 [Setup]
 ; Never change the AppId: updates and the uninstaller find the installation by it.
 AppId={{2B7B446F-DAEA-4E32-A6D4-E19EAA3ACE99}
-AppName=Portal Revolution VR
+AppName=Portal: Revolution VR Mod
 AppVersion={#Version}
 AppPublisher=Stefan Sichler
 AppPublisherURL=https://github.com/stsichler/portal_revolution_vr
 AppSupportURL=https://github.com/stsichler/portal_revolution_vr/issues
-UninstallDisplayName=Portal Revolution VR {#Version}
+UninstallDisplayName=Portal: Revolution VR Mod {#Version}
 DefaultDirName={code:GameDir}
 AppendDefaultDirName=no
 DirExistsWarning=no
@@ -202,15 +202,18 @@ begin
   end;
 end;
 
+var
+  DeleteSettings: Boolean;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
-  if (CurUninstallStep = usUninstall) and
-     (SuppressibleMsgBox(CustomMessage('DeleteConfig'), mbConfirmation, MB_YESNO or MB_DEFBUTTON2, IDNO) = IDYES) then
-    DeleteFile(ExpandConstant('{app}\VR\config.txt'));
-  // VR\ stays if it still has the config.
+  if CurUninstallStep = usUninstall then
+    DeleteSettings := SuppressibleMsgBox(CustomMessage('DeleteConfig'), mbConfirmation,
+      MB_YESNO or MB_DEFBUTTON2, IDNO) = IDYES;
+  // With the settings the whole VR\ goes; otherwise VR\ stays with config.txt.
   if CurUninstallStep = usPostUninstall then
-  begin
-    RemoveDir(ExpandConstant('{app}\VR\uninstall'));
-    RemoveDir(ExpandConstant('{app}\VR'));
-  end;
+    if DeleteSettings then
+      DelTree(ExpandConstant('{app}\VR'), True, True, True)
+    else
+      RemoveDir(ExpandConstant('{app}\VR\uninstall'));
 end;
