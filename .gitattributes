@@ -9,14 +9,14 @@
 # After changing this file: git add --renormalize . && git status
 * text=auto eol=lf
 
-# CRLF: Visual Studio; cmd.exe (labels and goto break in LF files); config.txt is edited by
-# players with Windows Notepad.
+# CRLF: Visual Studio; cmd.exe (labels and goto break in LF files); config.default.txt becomes
+# the players' config.txt, which they edit with Windows Notepad.
 *.sln              text eol=crlf
 *.vcxproj          text eol=crlf
 *.vcxproj.filters  text eol=crlf
 *.bat              text eol=crlf
 *.cmd              text eol=crlf
-package-files/config.txt  text eol=crlf
+package-files/config.default.txt  text eol=crlf
 
 # Binary
 *.png   binary

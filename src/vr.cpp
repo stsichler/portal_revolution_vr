@@ -20,6 +20,10 @@
 #include "d3d11_hooks.h"
 #include "settings_menu.h"
 #include <cstring>
+#include <iterator>
+#include <unordered_set>
+
+static void CompleteConfigFile();
 
 // The window shows the menu's part of the back buffer scaled to its size, but Panorama takes mouse
 // coordinates as pixels of that part. So mouse messages of the window get scaled in the menu.
@@ -93,6 +97,7 @@ void VR::init()
     InstallApplicationManifest("manifest.vrmanifest");
     SetActionManifest("action_manifest.json");
 
+    CompleteConfigFile();
     ParseConfigFile();
     std::thread configParser(&VR::WaitForConfigUpdate, this);
     configParser.detach();
@@ -2224,6 +2229,68 @@ catch (const std::logic_error& e)
         "' -- reverting to default value of '", defaultValue, "' -- error: (", e.what(), ")");
 
     throw;
+}
+
+// Updates keep the player's VR\config.txt: the mod ships VR\config.default.txt, makes config.txt
+// from it if it's missing, and adds the keys that are new in it, with their comments.
+static void CompleteConfigFile()
+{
+    const auto read = [](const char *path, std::string &text)
+    {
+        std::ifstream file(path, std::ios::binary);
+        if (!file)
+            return false;
+        text.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+        return true;
+    };
+    // The key as ParseConfigFile reads it; empty for comments and lines without one.
+    const auto keyOf = [](const std::string &line)
+    {
+        const size_t equals = line.find('=');
+        return equals == std::string::npos || line[0] == '#' ? std::string() : line.substr(0, equals);
+    };
+
+    std::string defaults;
+    if (!read("VR\\config.default.txt", defaults))
+    {
+        std::cout << "VR\\config.default.txt missing, config.txt not checked\n";
+        return;
+    }
+    std::string text;
+    if (!read("VR\\config.txt", text))
+    {
+        std::error_code error;
+        std::filesystem::copy_file("VR\\config.default.txt", "VR\\config.txt", error);
+        std::cout << (error ? "Can't make VR\\config.txt: " + error.message() : "VR\\config.txt made from config.default.txt") << "\n";
+        return;
+    }
+
+    std::unordered_set<std::string> keys;
+    std::istringstream lines(text);
+    for (std::string line; std::getline(lines, line);)
+        keys.insert(keyOf(line));
+
+    const char *newline = text.find("\r\n") != std::string::npos ? "\r\n" : "\n";
+    std::string added;
+    std::istringstream defaultLines(defaults);
+    for (std::string line; std::getline(defaultLines, line);)
+    {
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
+        const std::string key = keyOf(line);
+        if (key.empty() || keys.count(key))
+            continue;
+        added += line + newline;
+        std::cout << "Config entry '" << key << "' added to config.txt\n";
+    }
+    if (added.empty())
+        return;
+    if (!text.empty() && text.back() != '\n')
+        text += newline;
+    std::ofstream file("VR\\config.txt", std::ios::binary | std::ios::trunc);
+    file << text << added;
+    if (!file)
+        std::cout << "Can't write VR\\config.txt\n";
 }
 
 void VR::ParseConfigFile()

@@ -84,7 +84,7 @@
     <None Include="d3d11.def">
       <Filter>Source Files</Filter>
     </None>
-    <Text Include="..\package-files\config.txt" />
+    <Text Include="..\package-files\config.default.txt" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\thirdparty\minhook\src\buffer.c">
