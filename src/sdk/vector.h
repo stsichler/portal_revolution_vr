@@ -894,7 +894,7 @@ inline vec_t VectorNormalize(Vector &v)
 inline Vector VectorRotate(const Vector &v, const Vector &k, float degrees)
 {
 	// Rodrigues rotation
-	float radians = degrees * 3.14159265 / 180;
+	float radians = static_cast<float>(degrees * 3.14159265 / 180);
 
 	Vector crossProduct;
 	CrossProduct(k, v, crossProduct);
@@ -904,8 +904,8 @@ inline Vector VectorRotate(const Vector &v, const Vector &k, float degrees)
 
 inline void VectorPivotXY(Vector &point, const Vector &pivot, float degrees)
 {
-	float s = sin(degrees * 3.14159265 / 180);
-	float c = cos(degrees * 3.14159265 / 180);
+	float s = static_cast<float>(sin(degrees * 3.14159265 / 180));
+	float c = static_cast<float>(cos(degrees * 3.14159265 / 180));
 	point.x -= pivot.x;
 	point.y -= pivot.y;
 	float xnew = point.x * c - point.y * s;
@@ -1137,12 +1137,12 @@ inline void QAngle::VectorAngles(const Vector &forward, QAngle &angles)
 	}
 	else
 	{
-		yaw = (atan2(forward[1], forward[0]) * 180 / M_PI);
+		yaw = static_cast<float>(atan2(forward[1], forward[0]) * 180 / M_PI);
 		if (yaw < 0)
 			yaw += 360;
 
 		tmp = sqrt(forward[0] * forward[0] + forward[1] * forward[1]);
-		pitch = (atan2(-forward[2], tmp) * 180 / M_PI);
+		pitch = static_cast<float>(atan2(-forward[2], tmp) * 180 / M_PI);
 		if (pitch < 0)
 			pitch += 360;
 	}

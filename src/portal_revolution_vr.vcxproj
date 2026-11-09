@@ -59,15 +59,6 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <!-- sdk\ stays as close to its originals as possible: its warnings are switched off, not fixed -->
-  <PropertyGroup>
-    <ExternalIncludePath>$(ProjectDir)sdk;$(ExternalIncludePath)</ExternalIncludePath>
-  </PropertyGroup>
-  <ItemDefinitionGroup>
-    <ClCompile>
-      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
-    </ClCompile>
-  </ItemDefinitionGroup>
   <!-- The mod is d3d11.dll: shaderapidx11.dll imports it from the game's bin\win64 -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
