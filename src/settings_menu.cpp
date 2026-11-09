@@ -8,6 +8,7 @@
 #include <iostream>
 #include <iterator>
 #include <map>
+#include <mutex>
 #include <string>
 #include <system_error>
 
@@ -26,6 +27,10 @@ namespace
     constexpr const char *kAddSearchPath_Name = "CBaseFileSystem::AddSearchPath";
     constexpr int kPathAddToHead = 0;
     constexpr int kPathAddToTail = 1;
+
+    // The game's language once Steam has told it (Install), for SettingsMenu::Text.
+    std::mutex g_LanguageMutex;
+    std::string g_Language = "english";
 
     constexpr const char *kSettings = "panorama\\layout\\pages\\main-menu\\settings.xml";
     constexpr const char *kPage = "panorama\\layout\\pages\\main-menu\\settings-vr.xml";
@@ -507,9 +512,31 @@ unsigned long __stdcall SettingsMenu::Install(void *)
               << (GetModuleHandleA("panorama.dll") ? " (panorama.dll was loaded already)" : "") << "\n";
 
     const std::string language = GameLanguage();
+    {
+        std::lock_guard<std::mutex> lock(g_LanguageMutex);
+        g_Language = language;
+    }
     if (language != "english" && !WriteText(overrideDir / kPage, Localize(localizationDir, language)))
         std::cout << "[SettingsMenu] can't write the VR tab in " << language << "\n";
     std::cout << "[SettingsMenu] language " << language
               << (language == "english" || std::filesystem::exists(localizationDir / (language + ".txt")) ? "" : " (no texts, English)") << "\n";
     return 0;
+}
+
+std::string SettingsMenu::Text(const char *key)
+{
+    char currentDir[MAX_PATH];
+    GetCurrentDirectoryA(MAX_PATH, currentDir);
+    const std::filesystem::path localizationDir = std::filesystem::path(currentDir) / "VR" / "localization";
+    std::string language;
+    {
+        std::lock_guard<std::mutex> lock(g_LanguageMutex);
+        language = g_Language;
+    }
+    std::map<std::string, std::string> texts;
+    ReadTexts(localizationDir / "english.txt", texts);
+    if (language != "english")
+        ReadTexts(localizationDir / (language + ".txt"), texts);
+    const auto text = texts.find(key);
+    return text != texts.end() ? text->second : key;
 }

@@ -18,6 +18,8 @@
 #include <atomic>
 #include <vector>
 #include "d3d11_hooks.h"
+#include "settings_menu.h"
+#include <cstring>
 
 // The window shows the menu's part of the back buffer scaled to its size, but Panorama takes mouse
 // coordinates as pixels of that part. So mouse messages of the window get scaled in the menu.
@@ -626,6 +628,8 @@ void VR::Update()
         m_InitialPosReset = true;
     }
 
+    UpdateNotice(menuVisible);
+
     g_MenuVisible = menuVisible;
     if (menuVisible) {
         m_SmoothTurnRate = 0;
@@ -1231,6 +1235,130 @@ void VR::HideHud()
     m_RenderedHud = false;
     if (m_HudHandle != vr::k_ulOverlayHandleInvalid)
         m_Overlay->HideOverlay(m_HudHandle);
+}
+
+// The text (UTF-8) centered in white on dark red, as RGBA for SetOverlayRaw. Empty if GDI fails.
+static std::vector<uint8_t> RenderNoticeText(const std::string &utf8, int width, int height)
+{
+    std::vector<uint8_t> rgba;
+    const int length = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
+    if (length <= 1)
+        return rgba;
+    std::wstring text(length - 1, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, text.data(), length);
+
+    BITMAPINFO info = {};
+    info.bmiHeader.biSize = sizeof(info.bmiHeader);
+    info.bmiHeader.biWidth = width;
+    info.bmiHeader.biHeight = -height; // top-down
+    info.bmiHeader.biPlanes = 1;
+    info.bmiHeader.biBitCount = 32;
+    info.bmiHeader.biCompression = BI_RGB;
+    void *bits = nullptr;
+    HDC dc = CreateCompatibleDC(nullptr);
+    HBITMAP bitmap = dc ? CreateDIBSection(dc, &info, DIB_RGB_COLORS, &bits, nullptr, 0) : nullptr;
+    HFONT font = CreateFontW(-height / 7, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                             CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH, L"Segoe UI");
+    if (bitmap && font)
+    {
+        memset(bits, 0, (size_t)width * height * 4);
+        const HGDIOBJ oldBitmap = SelectObject(dc, bitmap);
+        const HGDIOBJ oldFont = SelectObject(dc, font);
+        SetBkMode(dc, TRANSPARENT);
+        SetTextColor(dc, RGB(255, 255, 255));
+        RECT rect = { width / 20, height / 10, width - width / 20, height - height / 10 };
+        RECT measured = rect;
+        DrawTextW(dc, text.c_str(), -1, &measured, DT_CALCRECT | DT_WORDBREAK | DT_CENTER);
+        rect.top += (std::max)(0L, ((rect.bottom - rect.top) - (measured.bottom - measured.top)) / 2);
+        DrawTextW(dc, text.c_str(), -1, &rect, DT_WORDBREAK | DT_CENTER);
+        GdiFlush();
+        SelectObject(dc, oldFont);
+        SelectObject(dc, oldBitmap);
+
+        // Grey antialiasing: any channel is the text's coverage.
+        const uint8_t background[3] = { 70, 16, 16 };
+        const uint8_t *bgra = static_cast<const uint8_t *>(bits);
+        rgba.resize((size_t)width * height * 4);
+        for (size_t i = 0; i < (size_t)width * height; ++i)
+        {
+            const int coverage = (std::max)({ bgra[i * 4], bgra[i * 4 + 1], bgra[i * 4 + 2] });
+            for (int c = 0; c < 3; ++c)
+                rgba[i * 4 + c] = (uint8_t)(background[c] + (255 - background[c]) * coverage / 255);
+            rgba[i * 4 + 3] = 235;
+        }
+    }
+    if (font)
+        DeleteObject(font);
+    if (bitmap)
+        DeleteObject(bitmap);
+    if (dc)
+        DeleteDC(dc);
+    return rgba;
+}
+
+// Just above the menu overlay, in the game's language.
+bool VR::CreateNotice()
+{
+    constexpr int width = 1024, height = 256;
+    constexpr float widthInMeters = 2.0f;
+    const std::vector<uint8_t> pixels = RenderNoticeText(SettingsMenu::Text("GameUpdated"), width, height);
+    const vr::EVROverlayError error =
+        pixels.empty() ? vr::VROverlayError_InvalidParameter : m_Overlay->CreateOverlay("NoticeOverlayKey", "NoticeOverlay", &m_NoticeHandle);
+    std::cout << "[VR] game update notice: " << m_Overlay->GetOverlayErrorNameFromEnum(error) << "\n";
+    if (error != vr::VROverlayError_None)
+    {
+        m_NoticeHandle = vr::k_ulOverlayHandleInvalid;
+        return false;
+    }
+    m_NoticeAboveMenu = kMenuOverlayHeight / 2 + widthInMeters * height / width / 2 + 0.05f;
+    m_Overlay->SetOverlayWidthInMeters(m_NoticeHandle, widthInMeters);
+    m_Overlay->SetOverlayRaw(m_NoticeHandle, (void *)pixels.data(), width, height, 4);
+    m_NoticeLast = std::chrono::steady_clock::now();
+    return true;
+}
+
+// With the menus, until they were open for kNoticeSeconds; once per game start.
+void VR::UpdateNotice(bool menuVisible)
+{
+    constexpr float kNoticeSeconds = 20;
+    if (!m_Game->m_UntestedGameVersion || m_NoticeDone)
+        return;
+    if (m_NoticeHandle == vr::k_ulOverlayHandleInvalid)
+    {
+        if (!menuVisible)
+            return;
+        if (!CreateNotice())
+        {
+            m_NoticeDone = true;
+            return;
+        }
+    }
+    const auto now = std::chrono::steady_clock::now();
+    if (menuVisible)
+    {
+        m_NoticeSeconds += std::chrono::duration<float>(now - m_NoticeLast).count();
+        // Where the menu is (RepositionOverlays moves it), m_NoticeAboveMenu up in its plane and a
+        // bit in front of it.
+        vr::ETrackingUniverseOrigin origin;
+        vr::HmdMatrix34_t transform;
+        if (m_Overlay->GetOverlayTransformAbsolute(m_MainMenuHandle, &origin, &transform) == vr::VROverlayError_None)
+        {
+            const float up = m_NoticeAboveMenu, forward = 0.05f;
+            for (int row = 0; row < 3; ++row)
+                transform.m[row][3] += transform.m[row][1] * up + transform.m[row][2] * forward;
+            m_Overlay->SetOverlayTransformAbsolute(m_NoticeHandle, origin, &transform);
+        }
+        m_Overlay->ShowOverlay(m_NoticeHandle);
+    }
+    else
+        m_Overlay->HideOverlay(m_NoticeHandle);
+    m_NoticeLast = now;
+    if (m_NoticeSeconds >= kNoticeSeconds)
+    {
+        m_Overlay->DestroyOverlay(m_NoticeHandle);
+        m_NoticeHandle = vr::k_ulOverlayHandleInvalid;
+        m_NoticeDone = true;
+    }
 }
 
 void VR::GetPoses()

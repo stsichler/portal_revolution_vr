@@ -2,6 +2,7 @@
 #include <Windows.h>
 #include <initializer_list>
 #include <iostream>
+#include <string>
 #include "sdk.h"
 #include "vr.h"
 #include "strata_hooks.h"
@@ -22,14 +23,7 @@ void Game::init()
             Sleep(50);
     }
 
-    // Tells the version of the game: the mod depends on fixed positions in these DLLs.
-    for (const char *dll : { "client.dll", "engine.dll" })
-    {
-        const auto base = reinterpret_cast<uintptr_t>(GetModuleHandle(dll));
-        const auto dos = reinterpret_cast<const IMAGE_DOS_HEADER *>(base);
-        const auto nt = reinterpret_cast<const IMAGE_NT_HEADERS *>(base + dos->e_lfanew);
-        std::cout << "[Game] " << dll << " built at " << nt->FileHeader.TimeDateStamp << "\n";
-    }
+    CheckGameVersion();
 
     m_ClientEntityList = (IClientEntityList *)GetInterface("client.dll", "VClientEntityList003");
     m_BaseClientDll = (IBaseClientDLL *)GetInterface("client.dll", "VClient018");
@@ -46,6 +40,42 @@ void Game::init()
     StrataHooks::Init(this);
 
     m_Initialized = true;
+}
+
+// The mod depends on fixed positions in the game's DLLs (vtable indices, offsets), checked with
+// Steam build 16912226 of the game. After an update they may have moved: the build times of the
+// DLLs tell.
+void Game::CheckGameVersion()
+{
+    static const struct
+    {
+        const char *dll;
+        DWORD built;
+    } kTested[] = {
+        {"client.dll", 1736038611},   {"engine.dll", 1736038585},         {"server.dll", 1736038626},
+        {"vstdlib.dll", 1736038502},  {"tier0.dll", 1736038483},          {"materialsystem.dll", 1736038553},
+        {"vgui2.dll", 1736038536},    {"vguimatsurface.dll", 1736038537}, {"panorama.dll", 1736038584},
+    };
+    std::string differing;
+    for (const auto &tested : kTested)
+    {
+        const auto base = reinterpret_cast<uintptr_t>(GetModuleHandle(tested.dll));
+        if (!base)
+        {
+            differing += std::string(" ") + tested.dll + " not loaded;";
+            continue;
+        }
+        const auto dos = reinterpret_cast<const IMAGE_DOS_HEADER *>(base);
+        const auto nt = reinterpret_cast<const IMAGE_NT_HEADERS *>(base + dos->e_lfanew);
+        const DWORD built = nt->FileHeader.TimeDateStamp;
+        if (built != tested.built)
+            differing += std::string(" ") + tested.dll + " built at " + std::to_string(built) + ", tested " + std::to_string(tested.built) + ";";
+    }
+    m_UntestedGameVersion = !differing.empty();
+    if (m_UntestedGameVersion)
+        std::cout << "[Game] WARNING: not the game version the mod was tested with (Steam build 16912226):" << differing << "\n";
+    else
+        std::cout << "[Game] the game version the mod was tested with (Steam build 16912226)\n";
 }
 
 void *Game::GetInterface(const char *dllname, const char *interfacename)

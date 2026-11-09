@@ -31,3 +31,5 @@ VignetteClearAngle=暗角的清晰視角
 GroupHud=HUD 和字幕
 HudDistance=距離（公分）
 MoreOptions=更多選項：遊戲 VR 資料夾中的 config.txt
+# In the headset after a game update
+GameUpdated=遊戲在此版本的 VR 模組之後更新過。部分功能可能無法正常運作。請查看模組是否有更新。

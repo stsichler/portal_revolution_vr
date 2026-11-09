@@ -31,3 +31,5 @@ VignetteClearAngle=Angle dégagé de la vignette
 GroupHud=HUD et sous-titres
 HudDistance=Distance (cm)
 MoreOptions=Plus d'options : config.txt dans le dossier VR du jeu
+# In the headset after a game update
+GameUpdated=Le jeu a été mis à jour après cette version du mod VR. Certaines choses peuvent ne pas fonctionner. Cherchez une mise à jour du mod.

@@ -98,6 +98,13 @@ public:
 
 	// The VGUI HUD (subtitles, hints), drawn over transparent black while the right eye renders.
 	vr::VROverlayHandle_t m_HudHandle = vr::k_ulOverlayHandleInvalid;
+
+	// Above the menu after a game update (Game::CheckGameVersion), for some seconds of menu time.
+	vr::VROverlayHandle_t m_NoticeHandle = vr::k_ulOverlayHandleInvalid;
+	float m_NoticeSeconds = 0; // shown so long
+	float m_NoticeAboveMenu = 0; // meters from the menu's center to the notice's
+	std::chrono::steady_clock::time_point m_NoticeLast;
+	bool m_NoticeDone = false;
 	SharedTextureHolder m_HudTarget; // as large as the game's render target
 	SharedTextureHolder m_HudCopy; // the HUD's part of it, which the HUD overlay shows
 	struct ID3D11RenderTargetView *m_HudTargetView = nullptr;
@@ -232,6 +239,8 @@ public:
 	void EndHudPaint(bool overHud = false);
 	void ShowHud();
 	void HideHud();
+	bool CreateNotice();
+	void UpdateNotice(bool menuVisible);
 	void GetPoses();
 	void UpdatePosesAndActions();
 	void GetViewParameters();

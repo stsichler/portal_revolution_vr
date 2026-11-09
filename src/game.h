@@ -32,9 +32,11 @@ public:
     VR *m_VR = nullptr;
 
     bool m_Initialized = false;
+    bool m_UntestedGameVersion = false; // the game's DLLs aren't those the mod was tested with
 
     Game();
     void init();
+    void CheckGameVersion();
 
     void *GetInterface(const char *dllname, const char *interfacename);
 

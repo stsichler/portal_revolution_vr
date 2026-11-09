@@ -31,3 +31,5 @@ VignetteClearAngle=ビネットのない範囲の角度
 GroupHud=HUD と字幕
 HudDistance=距離（cm）
 MoreOptions=その他の設定：ゲームの VR フォルダーにある config.txt
+# In the headset after a game update
+GameUpdated=このバージョンの VR MOD の後にゲームが更新されました。一部が動作しない可能性があります。MOD の更新を確認してください。

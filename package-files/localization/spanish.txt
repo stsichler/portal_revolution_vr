@@ -31,3 +31,5 @@ VignetteClearAngle=Ángulo libre de la viñeta
 GroupHud=HUD y subtítulos
 HudDistance=Distancia (cm)
 MoreOptions=Más opciones: config.txt en la carpeta VR del juego
+# In the headset after a game update
+GameUpdated=El juego se actualizó después de esta versión del mod de RV. Puede que algunas cosas no funcionen. Busca una actualización del mod.

@@ -31,3 +31,5 @@ VignetteClearAngle=Вільний кут віньєтки
 GroupHud=HUD і субтитри
 HudDistance=Відстань (см)
 MoreOptions=Інші налаштування: config.txt у теці VR гри
+# In the headset after a game update
+GameUpdated=Гру оновлено після виходу цієї версії VR-мода. Дещо може не працювати. Пошукайте оновлення мода.
