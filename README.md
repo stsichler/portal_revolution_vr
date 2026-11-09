@@ -20,6 +20,9 @@
 * VR tab in the game's settings, in all languages of the game
 * HUD, hints and subtitles in front of your eyes, distance on the VR tab
 
+## Known issues
+* After quitting, a black square can stay in the headset for about 10 seconds. It is Steam's Desktop Game Theatre, not the mod.
+
 Tested with Oculus Touch controllers. The bindings for Index and Vive Cosmos controllers are untested.
 
 ## How to use
