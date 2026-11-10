@@ -252,6 +252,10 @@ public:
 	void ProcessMenuInput();
 	void ProcessInput();
 	void UpdateRumble(bool menuVisible);
+	// The VR button for a hint of the game instructor, named by SteamVR, for a command of a lesson
+	// ("+use"); nullptr if the mod doesn't send that command. The text stays valid.
+	const char *HintButtonName(const char *binding);
+	void LogHintButtons();
 	vr::HmdMatrix34_t GetControllerTipMatrix(vr::ETrackedControllerRole controllerRole);
 	int GetPointerPose(vr::ETrackedControllerRole controllerRole, vr::HmdMatrix34_t &pose);
 	bool CheckOverlayIntersectionForController(vr::VROverlayHandle_t overlayHandle, vr::ETrackedControllerRole controllerRole);

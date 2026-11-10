@@ -1565,6 +1565,57 @@ bool StrataHooks::Rumble(float &amplitude, bool &gunOnly)
     return player;
 }
 
+// Hints of the game instructor: client.dll asks the engine for the key names of a lesson's command
+// (CEngineClient [157] Key_LookupBindingEx(binding, slot, nth, flags), nth = 0, 1, ... until null)
+// and shows them in key icons. For those two calls the mod answers with the VR button instead
+// (VR::HintButtonName); key names elsewhere (e.g. the game's key settings) stay.
+namespace
+{
+    // Steam build 16912226. CEngineClient [157]: a jmp to Key_LookupBindingEx with the arguments moved.
+    constexpr int kEngineClient_KeyLookupBinding = 157;
+    constexpr uint8_t kKeyLookupBinding_Start[] = { 0x41, 0x8B, 0xC1, 0x45, 0x8B, 0xD0, 0x44, 0x8B, 0x4C, 0x24, 0x28,
+                                                    0x48, 0x8B, 0xCA, 0x44, 0x8B, 0xC0, 0x41, 0x8B, 0xD2, 0xE9 };
+    // The calls in client.dll (call [rax+0x4e8]) for the first key and for the next ones.
+    constexpr uint32_t kHintLookupFirst_ReturnRva = 0x3566ba;
+    constexpr uint32_t kHintLookupNext_ReturnRva = 0x3566fe;
+    constexpr uint8_t kHintLookup_Call[] = { 0xFF, 0x90, 0xE8, 0x04, 0x00, 0x00 };
+
+    using tKeyLookupBinding = const char *(*)(void *thisptr, const char *binding, int slot, int nth, int flags);
+    tKeyLookupBinding oKeyLookupBinding = nullptr;
+    const uint8_t *g_HintLookupFirstReturn = nullptr;
+    const uint8_t *g_HintLookupNextReturn = nullptr;
+
+    const char *hkKeyLookupBinding(void *thisptr, const char *binding, int slot, int nth, int flags)
+    {
+        const void *caller = _ReturnAddress();
+        if (binding && g_StrataGame->m_VR && (caller == g_HintLookupFirstReturn || caller == g_HintLookupNextReturn))
+        {
+            // One button per command: nullptr after the first ends the list.
+            if (const char *button = g_StrataGame->m_VR->HintButtonName(binding))
+                return nth == 0 ? button : nullptr;
+        }
+        return oKeyLookupBinding(thisptr, binding, slot, nth, flags);
+    }
+
+    void InstallHintHooks()
+    {
+        auto client = reinterpret_cast<uint8_t *>(GetModuleHandleA("client.dll"));
+        const uint8_t *first = client + kHintLookupFirst_ReturnRva - sizeof(kHintLookup_Call);
+        const uint8_t *next = client + kHintLookupNext_ReturnRva - sizeof(kHintLookup_Call);
+        void **engineClient = StrataHooks::FindCheckedVTable("engine.dll", "CEngineClient", 207);
+        auto lookup = engineClient ? static_cast<const uint8_t *>(engineClient[kEngineClient_KeyLookupBinding]) : nullptr;
+        if (!lookup || memcmp(lookup, kKeyLookupBinding_Start, sizeof(kKeyLookupBinding_Start)) != 0
+            || memcmp(first, kHintLookup_Call, sizeof(kHintLookup_Call)) != 0 || memcmp(next, kHintLookup_Call, sizeof(kHintLookup_Call)) != 0)
+        {
+            std::cout << "[Hooks] hint key lookup not found (other game version?): the hints show keyboard keys\n";
+            return;
+        }
+        g_HintLookupFirstReturn = client + kHintLookupFirst_ReturnRva;
+        g_HintLookupNextReturn = client + kHintLookupNext_ReturnRva;
+        InstallHook("Hints Key_LookupBindingEx", engineClient[kEngineClient_KeyLookupBinding], &hkKeyLookupBinding, oKeyLookupBinding, "engine.dll");
+    }
+}
+
 void **StrataHooks::FindVTable(const char *module, const char *className, uint32_t offset)
 {
     auto base = reinterpret_cast<uint8_t *>(GetModuleHandleA(module));
@@ -1934,6 +1985,7 @@ bool StrataHooks::Init(Game *game)
     std::cout << "[Hooks] aim laser " << (CreatePingPointer ? "available" : "not found") << "\n";
 
     InstallRumbleHooks();
+    InstallHintHooks();
 
     return ok;
 }

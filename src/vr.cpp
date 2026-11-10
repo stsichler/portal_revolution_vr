@@ -636,6 +636,7 @@ void VR::Update()
     {
         ResetPosition();
         m_InitialPosReset = true;
+        LogHintButtons();
     }
 
     UpdateNotice(menuVisible);
@@ -685,6 +686,140 @@ void VR::UpdateRumble(bool menuVisible)
             std::cout << "[Rumble] TriggerHapticVibrationAction: error " << error << "\n";
         }
     }
+}
+
+namespace
+{
+    // The commands ProcessInput sends (and walking/turning, which move without one).
+    const std::pair<const char *, vr::VRActionHandle_t VR::*> kHintCommands[] = {
+        {"attack", &VR::m_ActionPrimaryAttack}, {"attack2", &VR::m_ActionSecondaryAttack},
+        {"jump", &VR::m_ActionJump}, {"duck", &VR::m_ActionCrouch}, {"toggle_duck", &VR::m_ActionCrouch},
+        {"use", &VR::m_ActionUse}, {"quick_ping", &VR::m_ActionQuickPing}, {"remote_view", &VR::m_ActionRemoteView},
+        {"reload", &VR::m_ActionReload}, {"invprev", &VR::m_ActionPrevItem}, {"invnext", &VR::m_ActionNextItem},
+        {"impulse 100", &VR::m_ActionFlashlight}, {"impulse 201", &VR::m_Spray}, {"gameui_activate", &VR::m_Pause},
+        {"forward", &VR::m_ActionWalk}, {"back", &VR::m_ActionWalk}, {"moveleft", &VR::m_ActionWalk},
+        {"moveright", &VR::m_ActionWalk}, {"left", &VR::m_ActionTurn}, {"right", &VR::m_ActionTurn},
+    };
+    bool g_HintLogQuiet = false; // LogHintButtons logs them all in one line
+}
+
+const char *VR::HintButtonName(const char *binding)
+{
+    constexpr auto kRefresh = std::chrono::seconds(1); // the bindings or the gun hand may change
+
+    std::string command = binding[0] == '+' || binding[0] == '-' ? binding + 1 : binding;
+    std::transform(command.begin(), command.end(), command.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+
+    struct Entry
+    {
+        const char *name = nullptr;
+        std::chrono::steady_clock::time_point at;
+    };
+    static std::unordered_map<std::string, Entry> cache;
+    static std::unordered_set<std::string> names; // the game keeps the pointers: never freed
+    const auto now = std::chrono::steady_clock::now();
+    const auto cached = cache.find(command);
+    if (cached != cache.end() && now - cached->second.at < kRefresh)
+        return cached->second.name;
+
+    const auto known = std::find_if(std::begin(kHintCommands), std::end(kHintCommands), [&](const auto &c) { return command == c.first; });
+    const char *name = nullptr;
+    if (known != std::end(kHintCommands))
+    {
+        // Short names for the game's key icons (2 characters fit a square one), with R/L in front
+        // if the other hand has the same input bound to the action too.
+        struct Origin
+        {
+            bool left;
+            std::string label;
+        };
+        const auto describe = [&](vr::VRInputValueHandle_t origin, Origin &out)
+        {
+            vr::InputOriginInfo_t info = {};
+            if (m_Input->GetOriginTrackedDeviceInfo(origin, &info, sizeof(info)) != vr::VRInputError_None)
+                return false;
+            out.left = info.devicePath == m_InputHandLeft;
+            std::string part = info.rchRenderModelComponentName;
+            std::transform(part.begin(), part.end(), part.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+            // The component of the controller's model, e.g. "trigger", "thumbstick".
+            static const std::pair<const char *, const char *> kParts[] = {
+                {"trigger", "Trigger"}, {"grip", "Grip"}, {"stick", "Stick"}, {"pad", "Pad"}, {"menu", "Menu"}, {"system", "Menu"},
+            };
+            for (const auto &[contains, label] : kParts)
+            {
+                if (part.find(contains) != std::string::npos)
+                {
+                    out.label = label;
+                    return true;
+                }
+            }
+            // A button with a letter: SteamVR's name has it as a word of its own ("B-Taste", "B Button").
+            // Otherwise SteamVR's name (SteamVR gives no model component for the Touch controllers).
+            char text[64] = {};
+            if (m_Input->GetOriginLocalizedName(origin, text, sizeof(text), vr::VRInputString_InputSource) != vr::VRInputError_None || !text[0])
+                return false;
+            const size_t length = strlen(text);
+            for (size_t i = 0; i < length; ++i)
+            {
+                const bool startsWord = i == 0 || !isalnum((unsigned char)text[i - 1]);
+                const bool endsWord = i + 1 == length || !isalnum((unsigned char)text[i + 1]);
+                if (startsWord && endsWord && strchr("ABXY", text[i]))
+                {
+                    out.label = std::string(1, text[i]);
+                    return true;
+                }
+            }
+            out.label = text; // can be long
+            return true;
+        };
+
+        const vr::VRActionHandle_t action = this->*known->second;
+        const vr::VRInputValueHandle_t hand = RestrictToHand(action);
+        const bool wantLeft = hand == m_InputHandLeft;
+        vr::VRInputValueHandle_t origins[16] = {};
+        std::vector<Origin> found;
+        if (m_Input->GetActionOrigins(m_ActionSet, action, origins, (uint32_t)std::size(origins)) == vr::VRInputError_None)
+        {
+            for (const vr::VRInputValueHandle_t origin : origins)
+            {
+                Origin described;
+                if (origin == vr::k_ulInvalidInputValueHandle)
+                    break;
+                if (describe(origin, described))
+                    found.push_back(described);
+            }
+        }
+        const auto mine = std::find_if(found.begin(), found.end(), [&](const Origin &o) { return hand == vr::k_ulInvalidInputValueHandle || o.left == wantLeft; });
+        if (mine != found.end())
+        {
+            const bool both = std::any_of(found.begin(), found.end(), [&](const Origin &o) { return o.left != mine->left && o.label == mine->label; });
+            name = names.insert(both ? std::string(mine->left ? "L " : "R ") + mine->label : mine->label).first->c_str();
+        }
+        // No origins while SteamVR's overlay or the menu has the input: keep the last name.
+        if (!name && cached != cache.end())
+            name = cached->second.name;
+    }
+
+    const bool changed = cached == cache.end() || cached->second.name != name;
+    cache[command] = { name, now };
+    if (changed && !g_HintLogQuiet)
+        std::cout << "[Hints] " << binding << ": " << (name ? name : known != std::end(kHintCommands) ? "no VR button bound" : "no VR action, keyboard key") << "\n";
+    return name;
+}
+
+// One line in the log with the button of every command, for reports (most hints are rare).
+void VR::LogHintButtons()
+{
+    g_HintLogQuiet = true;
+    std::string line = "[Hints] VR buttons:";
+    for (const auto &[command, action] : kHintCommands)
+    {
+        const char *name = HintButtonName(command);
+        line += std::string(" ") + command + "=" + (name ? name : "-") + ",";
+    }
+    line.back() = '\n';
+    g_HintLogQuiet = false;
+    std::cout << line;
 }
 
 // What the compositor gets: CopyBackBufferToEye fills them, the game doesn't know them.
