@@ -23,6 +23,7 @@ namespace
 {
     // IFileSystem (filesystem_stdio.dll, VFileSystem018): AddSearchPath(path, pathID, addType),
     // index checked against the DLL of 2025-01-05. addType 0 adds in front, 1 at the end.
+    // CFileSystem_Stdio [11] rva 0x008f90: 48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48
     constexpr int kFileSystem_AddSearchPath = 11;
     constexpr const char *kAddSearchPath_Name = "CBaseFileSystem::AddSearchPath";
     constexpr int kPathAddToHead = 0;

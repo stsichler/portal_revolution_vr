@@ -19,25 +19,30 @@
 
 namespace
 {
-    // CViewRender (client.dll): [5] Render(vrect_t *), [6] RenderView(view, hudView, nClearFlags,
-    // whatToDraw); checked in client.dll ("CViewRender::Render", which calls [6] with both views).
+    // After a game update: vtables are found by RTTI class name, the log names those whose length
+    // changed. rva and first bytes: Steam build 16912226; ?? = displacement, changes every build.
+
+    // CViewRender [6] RenderView(view, hudView, nClearFlags, whatToDraw), called by [5] Render
+    // ("CViewRender::Render").
+    // [6] rva 0x37e5c0: 48 8B C4 44 89 48 20 4C 89 40 18 48 89 50 10 55
     constexpr int kViewRender_RenderView = 6;
     constexpr int RENDERVIEW_DRAWHUD = 1 << 1; // Render() sets it when there is a local player
 
     using tRenderView = void (*)(void *thisptr, const CViewSetup &view, const CViewSetup &hudView, int nClearFlags, int whatToDraw);
     tRenderView oRenderView = nullptr;
 
-    // ClientModeShared (client.dll): [24] CreateMove(flInputSampleTime, cmd), called by
-    // CInput::CreateMove; if it returns true, the engine takes over cmd->viewangles as its view
-    // angles.
+    // ClientModeShared [24] CreateMove(sampleTime, cmd), called by CInput [3] CreateMove; returning
+    // true makes cmd->viewangles the engine's view angles.
+    // [24] rva 0x287530: 40 53 48 83 EC 30 0F 29 74 24 20 B9 FF FF FF FF
     constexpr int kClientMode_CreateMove = 24;
 
     using tCreateMove = bool (*)(void *thisptr, float flInputSampleTime, CUserCmd *cmd);
     tCreateMove oCreateMove = nullptr;
 
-    // C_BaseViewModel (client.dll): [254] CalcViewModelView(owner, eyePosition, eyeAngles), adds
-    // lag [253], bob [255] and shake, then sets the viewmodel's position. C_PredictedViewModel's
-    // [253] only calls this one.
+    // C_BaseViewModel [254] CalcViewModelView(owner, eyePosition, eyeAngles) (uses the path of
+    // baseviewmodel_shared.cpp): lag [253], bob [255], then places the viewmodel.
+    // [254] rva 0x194c00: 48 8B C4 48 89 70 18 48 89 78 20 55 48 8D 68 E8
+    // [253] rva 0x194a10: 48 89 5C 24 10 57 48 81 EC 80 00 00 00 0F 29 74
     constexpr int kViewModel_CalcViewModelLag = 253;
     constexpr int kViewModel_CalcViewModelView = 254;
 
@@ -46,9 +51,9 @@ namespace
     using tCalcViewModelView = void (*)(void *thisptr, void *owner, const Vector &eyePosition, const QAngle &eyeAngles);
     tCalcViewModelView oCalcViewModelView = nullptr;
 
-    // C_Portal_Player (client.dll): [379] ApplyPortalTeleportation(matThisToLinked, time, undo,
-    // forcedDuck). Every portal passage of a player runs through it; a predicted one that is taken
-    // back runs through it again with undo set and the inverse matrix.
+    // C_Portal_Player [379] ApplyPortalTeleportation(matrix, time, undo, forcedDuck): every portal
+    // passage, called by [380]-[382]; a retracted prediction calls it again with undo.
+    // [379] rva 0x0d6be0: 48 8B C4 55 57 48 8D A8 B8 FE FF FF 48 81 EC 38
     constexpr int kPlayer_ApplyPortalTeleportation = 379;
 
     using tApplyPortalTeleportation = void (*)(void *thisptr, const float (*matrix)[4], float time, bool undo, bool forcedDuck);
@@ -112,41 +117,46 @@ namespace
         bool passedPortal = false; // for the log
     } g_Roomscale;
 
-    // C_WeaponPortalgun [332] AddViewmodelBob(viewModel, origin, angles): moves and turns the gun
-    // with the walking speed, called by CalcViewModelView.
+    // C_WeaponPortalgun [332] AddViewmodelBob(viewModel, origin, angles), called by
+    // CalcViewModelView; [333] is CalcViewmodelBob.
+    // [332] rva 0x3d65e0: 48 89 5C 24 18 48 89 74 24 20 55 57 41 56 48 8D
     constexpr int kPortalgun_AddViewmodelBob = 332;
 
     using tAddViewmodelBob = void (*)(void *thisptr, void *viewModel, Vector &origin, QAngle &angles);
     tAddViewmodelBob oAddViewmodelBob = nullptr;
 
-    // OnRenderStart: after the view is set up, ParticleMgr()->Simulate(frameTime) moves the particles
-    // to their control points, called this far after loading the name for the profiler. They are
-    // drawn from there, so a later change of a control point shows one frame late.
+    // ParticleMgr()->Simulate(frameTime) in OnRenderStart, called this far after loading its profiler
+    // name: moves the particles to their control points, later changes show a frame late.
+    // rva 0x2da2a0: 48 83 B9 88 00 00 00 00 C7 05 ?? ?? ?? ?? 00 00
     constexpr const char *kParticleSimulate_Name = "ParticleMgr()->Simulate";
     constexpr int kParticleSimulate_CallOffset = 0x21;
 
     using tParticleSimulate = void (*)(void *thisptr, float frameTime);
     tParticleSimulate oParticleSimulate = nullptr;
 
-    // Reads the muzzle as C_WeaponPortalgun does: player [281] GetViewModel(index), then the
-    // IClientRenderable part of the viewmodel, [32] LookupAttachment(name), [34] GetAttachment(number,
-    // origin, angles).
+    // Muzzle as the gun reads it: C_Portal_Player [281] GetViewModel(index), then on its renderable
+    // (+8) [32] LookupAttachment(name), [34] GetAttachment(number, origin, angles).
+    // [281] rva 0x227e40: 48 89 5C 24 10 48 89 6C 24 18 56 48 83 EC 20 48
+    // C_BaseAnimating +8 (C_BaseViewModel's entries jump there):
+    // [32] rva 0x1f0520: 48 89 5C 24 08 57 48 83 EC 20 48 8D 59 F8 48 8B
+    // [34] rva 0x1ec690: 48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57
     constexpr int kPlayer_GetViewModel = 281;
     constexpr int kEntity_RenderableOffset = 8;
     constexpr int kRenderable_LookupAttachment = 32;
     constexpr int kRenderable_GetAttachment = 34;
 
-    // Effect "PortalBlast" (the shot), callback(const CEffectData &): m_vOrigin at 0 is where it
-    // starts, at 0x58 who fired it. The game computes that start from the eye position.
+    // Callback of the effect "PortalBlast" (the shot), CEffectData: +0 start (from the eyes), +0x58
+    // who fired it.
+    // rva 0x0e0e50: 48 89 5C 24 10 48 89 6C 24 18 56 57 41 56 48 83
     constexpr int kPortalBlast_PlacedByOffset = 0x58;
     constexpr int PORTAL_PLACED_BY_PLAYER = 2;
 
     using tPortalBlast = void (*)(void *effectData);
     tPortalBlast oPortalBlast = nullptr;
 
-    // TraceFirePortal(start, direction, portal2, placedBy, result, test), in client.dll and
-    // server.dll, finds where the portal lands; called only by FirePortal, at these distances from
-    // where FirePortal loads "PortalBlast" with `lea rcx`. Both start with these bytes.
+    // TraceFirePortal(start, direction, portal2, placedBy, result, test), client and server: where
+    // the portal lands. Only FirePortal calls it, this far from its `lea rcx, "PortalBlast"`.
+    // rva client 0x3da380, server 0x0a97f0.
     constexpr int kTraceFirePortal_CallOffsetClient = -0x1E5;
     constexpr int kTraceFirePortal_CallOffsetServer = -0x1C5;
     constexpr uint8_t kTraceFirePortal_Start[] = { 0x48, 0x8B, 0xC4, 0x44, 0x88, 0x48, 0x20, 0x55 };
@@ -155,26 +165,24 @@ namespace
     tTraceFirePortal oTraceFirePortalClient = nullptr;
     tTraceFirePortal oTraceFirePortalServer = nullptr;
 
-    // Attack of C_WeaponPortalgun: DispatchParticleEffect("portalgun_muzzleflash", ...) on the
-    // weapon, called this far after loading the name, next to "portalgun_muzzleflash_FP" on the
-    // viewmodel.
+    // DispatchParticleEffect, called this far after `lea rcx, "portalgun_muzzleflash"` in the gun's
+    // attack. rva 0x1b0220: 48 89 5C 24 08 48 89 74 24 10 48 89 7C 24 18 55
     constexpr int kMuzzleFlash_CallOffset = 0x14;
     constexpr const char *kMuzzleFlash_WorldEffect = "portalgun_muzzleflash";
 
     using tDispatchParticleEffect = void *(*)(const char *name, int attachType, void *entity, const char *attachment, bool reset, int slot, void *filter);
     tDispatchParticleEffect oDispatchParticleEffect = nullptr;
 
-    // C_BaseViewModel [243] FormatViewModelAttachment(attachment, matrix) calls the global
-    // FormatViewModelAttachment(player, origin, inverse) here; the global one has no vtable entry.
+    // C_BaseViewModel [243] calls the global FormatViewModelAttachment(player, origin, inverse) here.
+    // rva 0x22e530: 48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 57
     constexpr int kViewModel_FormatAttachment = 243;
     constexpr int kFormatAttachment_CallOffset = 0x5c;
 
     using tFormatViewModelAttachment = void (*)(void *player, Vector &origin, bool inverse);
     tFormatViewModelAttachment oFormatViewModelAttachment = nullptr;
 
-    // The game's ping laser, used as the aim laser: CreatePingPointer(player, destination) starts the
-    // effect robot_point_beam at the viewmodel's muzzle; control point 1 is its end, 2 its color. No
-    // vtable entry: found through its warning, see the offsets into the function.
+    // Ping laser as aim laser: CreatePingPointer(player, destination) starts robot_point_beam at the
+    // muzzle (control point 1 end, 2 color). Found by its warning; rva 0x3e6700.
     constexpr const char *kPingPointer_Warning = "Trying to create a ping laser, but we have no view model!";
     constexpr int kPingPointer_WarningOffset = 0x39;
     constexpr uint8_t kPingPointer_Start[] = { 0x40, 0x56, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83, 0xEC, 0x50 };
@@ -184,9 +192,8 @@ namespace
     constexpr int kPingPointer_SetDrawOnlyCallOffset = 0x279;
     constexpr int kPingPointer_SetControlPointCallOffset = 0x289;
 
-    // The server precaches the effect only in coop: PrecacheParticleSystem(name), called right after
-    // loading the name, adds it to a string table. It can do so at any time, and more than once. The
-    // client gets it with the next update, before that the effect wouldn't be drawn.
+    // The server precaches the effect only in coop: PrecacheParticleSystem(name), called after
+    // loading the name, works any time; the client draws it after its next update.
     constexpr const char *kLaserEffect = "robot_point_beam";
     constexpr int kPrecacheParticle_CallOffset = 7;
     constexpr int kLaser_PrecacheWaitFrames = 30;
@@ -205,8 +212,8 @@ namespace
     tPrecacheParticleSystem PrecacheParticleSystem = nullptr;
     int g_PingEffectOffset = 0; // of the player
 
-    // The trace filter of the shot, built as at the start of TraceFirePortal: the constructor, then
-    // the list of classes the shot passes (physics objects, the player, ...). [3] SetPassEntity.
+    // The shot's trace filter as TraceFirePortal builds it: CTraceFilterSimpleClassnameList's
+    // constructor (rva 0x1d3a10), then the classes it passes. [3] SetPassEntity is 48 89 51 08 C3.
     constexpr int kTraceFirePortal_FilterConstructorCallOffset = 0x46;
     constexpr int kTraceFirePortal_FilterListCallOffset = 0x4F;
     constexpr int kTraceFilter_SetPassEntity = 3;
@@ -233,6 +240,8 @@ namespace
     };
     static_assert(offsetof(StrataRay, isRay) == 0x48 && offsetof(StrataRay, unknown58) == 0x58);
 
+    // EngineTraceClient004 is CEngineTraceClient (engine.dll): [5] TraceRay(ray, mask, filter, trace),
+    // rva 0x1d1c80: 48 89 5C 24 10 44 89 44 24 18 48 89 4C 24 08 55
     constexpr int kEngineTrace_TraceRay = 5;
     constexpr unsigned int kShotMask = 0x2004003; // of TraceFirePortal
     constexpr int kTrace_EndPosOffset = 0x0C;
@@ -252,9 +261,9 @@ namespace
 
     void **g_PortalgunVTable = nullptr;
 
-    // Full screen videos like end.webm (logic_playmovie) play in a VGUI VideoPanel, which draws
-    // into the back buffer like the HUD, where the eyes don't see it. Paint is the override of the
-    // empty Panel::Paint that draws a black rect (dims the video under the pause menu).
+    // Videos (logic_playmovie) play in a VideoPanel, drawn into the back buffer the eyes don't see.
+    // [133] Paint: the override of the empty Panel::Paint that draws a black rect.
+    // [133] rva 0x441170: 40 55 48 83 EC 30 48 8B E9 48 8B 0D ?? ?? ?? ??
     constexpr int kVideoPanel_Paint = 133;
     constexpr ULONGLONG kVideoPanel_VisibleMs = 250; // since the last Paint
     typedef void (*tVideoPanelPaint)(void *);
@@ -270,12 +279,10 @@ namespace
     Game *g_StrataGame = nullptr;
     void *g_ViewModelOwner = nullptr; // the player, as last seen by hkCalcViewModelView
 
-    // IVRenderView (engine.dll, CVRenderView): [41] VGui_Paint(mode), calls EngineVGui()->Paint(mode).
-    // RenderView calls it with PAINT_INGAMEPANELS when whatToDraw has RENDERVIEW_DRAWHUD: the VGUI
-    // HUD with subtitles, hints and credits. The eye that draws it sends it to a texture of its own.
-    // After RenderView, CViewRender::Render paints the full screen panels with PAINT_UIPANELS, among
-    // them GetFullscreenClientMode()'s viewport with the captions (CHudCloseCaption). In the game
-    // they go to the HUD overlay as well, over the frame's HUD; in the menus to the back buffer.
+    // CVRenderView (engine.dll) [41] VGui_Paint(mode), calls EngineVGui()->Paint(mode). From
+    // RenderView with PAINT_INGAMEPANELS: the HUD, into a texture. From Render with PAINT_UIPANELS
+    // (captions among them): to the HUD overlay in the game, to the back buffer in the menus.
+    // [41] rva 0x019710: 40 53 48 83 EC 20 8B DA E8 ?? ?? ?? ?? 8B D3 48
     constexpr int kRenderView_VGuiPaint = 41;
     constexpr int PAINT_UIPANELS = 1 << 0;
     constexpr int PAINT_INGAMEPANELS = 1 << 1;
@@ -284,8 +291,8 @@ namespace
     bool g_HudPass = false; // the eye that draws the HUD is rendering
     bool g_HudPainting = false; // the HUD is drawn for the HUD overlay
 
-    // CModAppSystemGroup (engine.dll): [8] Shutdown, called when the main loop has ended, before
-    // Host_PreShutdown. The VR connection ends there (VR::Shutdown).
+    // CModAppSystemGroup (engine.dll) [8] Shutdown, after the main loop: ends the VR connection.
+    // [8] rva 0x22fbc0: 40 53 48 83 EC 20 80 B9 A0 00 00 00 00 48 8B D9
     constexpr int kModAppSystemGroup_Shutdown = 8;
     using tAppSystemGroupShutdown = void (*)(void *thisptr);
     tAppSystemGroupShutdown oAppSystemGroupShutdown = nullptr;
@@ -329,10 +336,11 @@ namespace
         vr->EndHudPaint();
     }
 
-    // The game's crosshair, which also shows the placed portals: the aim dot replaces it in VR.
-    // CHUDQuickInfo, CHudCrosshair and CHudPortalCrosshair (client.dll, vgui::Panel at 0x60): [130]
-    // Paint, found as the entry differing from other HUD elements that uses the screen size; [89]
-    // is ApplySchemeSettings ("crosshair_default").
+    // Crosshairs, replaced by the aim dot: [130] Paint of the panel at 0x60 ([89] uses
+    // "crosshair_default"). rva and first bytes:
+    // CHUDQuickInfo 0x3f6960: 40 55 41 54 41 57 48 8D AC 24 30 FD FF FF 48 81
+    // CHudCrosshair 0x4446c0: 40 55 57 48 8D AC 24 D8 FE FF FF 48 81 EC 28 02
+    // CHudPortalCrosshair 0x3f8070: 40 53 48 81 EC A0 00 00 00 48 83 B9 10 02 00 00
     constexpr uint32_t kHudElement_Panel = 0x60;
     constexpr int kPanel_HudPaint = 130;
     using tPanelPaint = void (*)(void *thisptr);
@@ -1204,6 +1212,8 @@ namespace
         RecvTable *table;
         ClientClass *next;
     };
+    // VClient018 is CHLClient: [8] returns the list of client classes,
+    // rva 0x270a10: 48 8B 05 ?? ?? ?? ?? C3 (mov rax, [global]; ret)
     constexpr int kBaseClient_GetAllClasses = 8;
 
     const struct
@@ -1523,6 +1533,11 @@ void **StrataHooks::FindCheckedVTable(const char *module, const char *className,
 // doesn't arrange the panels again.
 namespace
 {
+    // RTTI names end in "@panorama". CUIEngineSource2 [13] CreateTopLevelWindow, called by client.dll;
+    // CTopLevelWindowSource2 [9] SetUIScale (stores at +0x88, [10] returns it), [17] SetClientSize.
+    // [13] rva 0x174030: 48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48
+    // [9] rva 0x0c9910: 48 89 74 24 10 57 48 83 EC 20 F3 0F 11 89 88 00
+    // [17] rva 0x178320: 40 53 48 83 EC 20 48 83 B9 08 02 00 00 00 48 8B
     constexpr int kPanoramaEngine_CreateWindow = 13; // CUIEngineSource2
     constexpr int kPanoramaWindow_SetUIScale = 9;    // CTopLevelWindowSource2
     constexpr int kPanoramaWindow_SetClientSize = 17;

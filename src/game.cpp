@@ -51,7 +51,7 @@ void Game::CheckGameVersion()
     {
         const char *dll;
         DWORD built;
-    } kTested[] = {
+    } kTested[] = { // PE TimeDateStamp, Unix time: all 2025-01-05 00:54-00:57 UTC
         {"client.dll", 1736038611},   {"engine.dll", 1736038585},         {"server.dll", 1736038626},
         {"vstdlib.dll", 1736038502},  {"tier0.dll", 1736038483},          {"materialsystem.dll", 1736038553},
         {"vgui2.dll", 1736038536},    {"vguimatsurface.dll", 1736038537}, {"panorama.dll", 1736038584},

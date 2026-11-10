@@ -18,6 +18,9 @@
 
 namespace
 {
+    // ICvar is CCvar, [10] rva 0x007060: 40 56 48 83 EC 60 48 8B 02 48 8B F2 48 89 BC 24
+    // ConVar [14] rva 0x01cb60: 48 89 5C 24 20 57 48 83 EC 50 48 8B 01 48 8B FA
+    // ConVar [17] rva 0x01c4b0: 40 57 41 56 48 83 EC 48 F3 0F 10 84 24 90 00 00
     constexpr int kCvar_RegisterConCommand = 10; // ICvar (VEngineCvar007)
     constexpr int kConVar_InternalSetValue = 14;  // (const char *value), checks and clamps
     constexpr int kConVar_Create = 17;            // see tCreate
