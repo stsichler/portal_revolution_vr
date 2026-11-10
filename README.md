@@ -11,14 +11,14 @@
 ## Things that work
 * Stereo view with head tracking; portals, smoke and glass render correctly
 * Menu as an overlay in the headset, used with laser pointer or stick
-* Walking where the left controller points, snap or smooth turning, jumping, crouching
-* Portal gun in the right hand with aim laser or aim dot, shots start at its muzzle
-* View turns with the portal when passing through it
-* Picking up cubes
+* Walking where the left (or right) controller points, snap or smooth turning, jumping, crouching
+* Portal gun in the right (or left) hand with aim laser or aim dot, shots start at its muzzle
+* View turns with the portal when passing through it (can be switched off)
+* Picking up cubes, activating buttons
 * Roomscale: the player follows your head when you walk in your room
 * Comfort options, see [If you feel sick](#if-you-feel-sick)
-* VR tab in the game's settings, in all languages of the game
-* HUD, hints and subtitles in front of your eyes, distance on the VR tab
+* VR tab integrated into the game's settings, in all languages of the game
+* HUD, hints and subtitles in front of your eyes, configurable distance on the VR tab
 
 ## Known issues
 * After quitting, a black square can stay in the headset for about 10 seconds. It is Steam's Desktop Game Theatre, not the mod.
