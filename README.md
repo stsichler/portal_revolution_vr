@@ -19,11 +19,11 @@
 * Comfort options, see [If you feel sick](#if-you-feel-sick)
 * VR tab integrated into the game's settings, in all languages of the game
 * HUD, hints and subtitles in front of your eyes, configurable distance on the VR tab
+* Hints show the buttons of your VR controllers
+* Controller vibration from the game (portal gun, damage), on/off and strength on the VR tab
 
 ## Known issues
 * After quitting, a black square can stay in the headset for about 10 seconds. It is Steam's Desktop Game Theatre, not the mod.
-* Action assignments shown in HUD are keyboard assignments, not VR Controller assignments
-* No force feedback (does the game have?)
 * No hands. Buttons can only be activated by pressing a controller button.
 
 Tested with Oculus Touch controllers. The bindings for Index and Vive Cosmos controllers are untested.
