@@ -554,6 +554,8 @@ int VR::SetActionManifest(const char *fileName)
     m_Input->GetActionHandle("/actions/main/in/ThirdAttack", &m_ThirdAttack);
     m_Input->GetActionHandle("/actions/main/in/PointerLeft", &m_ActionPointerLeft);
     m_Input->GetActionHandle("/actions/main/in/PointerRight", &m_ActionPointerRight);
+    m_Input->GetActionHandle("/actions/base/out/vibration_left", &m_ActionVibrationLeft);
+    m_Input->GetActionHandle("/actions/base/out/vibration_right", &m_ActionVibrationRight);
 
     // The bindings have every action on both hands; RestrictToHand picks the one that counts.
     m_Input->GetInputSourceHandle("/user/hand/left", &m_InputHandLeft);
@@ -568,8 +570,11 @@ int VR::SetActionManifest(const char *fileName)
         m_ActionHands[action] = ActionHand::TurnStick;
 
     m_Input->GetActionSetHandle("/actions/main", &m_ActionSet);
-    m_ActiveActionSet = {};
-    m_ActiveActionSet.ulActionSet = m_ActionSet;
+    m_ActiveActionSet[0] = {};
+    m_ActiveActionSet[0].ulActionSet = m_ActionSet;
+    // Haptic outputs (rumble) only work while their action set is active.
+    m_ActiveActionSet[1] = {};
+    m_Input->GetActionSetHandle("/actions/base", &m_ActiveActionSet[1].ulActionSet);
 
     return 0;
 }
@@ -643,6 +648,35 @@ void VR::Update()
         // ProcessMenuInput may have left the overlay interactive (laser); not outside the menus.
         vr::VROverlay()->SetOverlayFlag(m_MainMenuHandle, vr::VROverlayFlags_MakeOverlaysInteractiveIfVisible, false);
         ProcessInput();
+    }
+    UpdateRumble();
+}
+
+// The game's gamepad rumble (StrataHooks::Rumble): portal gun effects in the gun hand, the others
+// (damage) in both. Pulses overlap: one per frame, a bit longer than a frame.
+void VR::UpdateRumble()
+{
+    constexpr float kPulseSeconds = 0.05f, kFrequency = 160.0f;
+    float amplitude;
+    bool gunOnly;
+    if (!StrataHooks::Rumble(amplitude, gunOnly))
+        return;
+    amplitude = (std::min)(amplitude, 1.0f);
+    // The haptic actions are bound to the physical hands, not swapped for LeftHanded.
+    const bool left = !gunOnly || m_LeftHanded;
+    const bool right = !gunOnly || !m_LeftHanded;
+    for (const vr::VRActionHandle_t action : { left ? m_ActionVibrationLeft : vr::k_ulInvalidActionHandle,
+                                               right ? m_ActionVibrationRight : vr::k_ulInvalidActionHandle })
+    {
+        if (action == vr::k_ulInvalidActionHandle)
+            continue;
+        const vr::EVRInputError error = m_Input->TriggerHapticVibrationAction(action, 0, kPulseSeconds, kFrequency, amplitude, vr::k_ulInvalidInputValueHandle);
+        static vr::EVRInputError lastError = vr::VRInputError_None;
+        if (error != lastError)
+        {
+            lastError = error;
+            std::cout << "[Rumble] TriggerHapticVibrationAction: error " << error << "\n";
+        }
     }
 }
 
@@ -1421,7 +1455,7 @@ void VR::GetPoses()
 void VR::UpdatePosesAndActions()
 {
     vr::VRCompositor()->WaitGetPoses(m_Poses, vr::k_unMaxTrackedDeviceCount, NULL, 0);
-    m_Input->UpdateActionState(&m_ActiveActionSet, sizeof(vr::VRActiveActionSet_t), 1);
+    m_Input->UpdateActionState(m_ActiveActionSet, sizeof(vr::VRActiveActionSet_t), 2);
 }
 
 void VR::GetViewParameters()

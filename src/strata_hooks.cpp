@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <intrin.h>
 #include <iostream>
 #include <iterator>
 #include <string>
@@ -1445,6 +1446,124 @@ namespace
     }
 }
 
+// Rumble: the game's gamepad rumble goes to the VR controllers. Path in client.dll: UM_Rumble ->
+// RumbleEffect -> StartEffect puts the effect into one of 3 channels per user; each frame
+// UpdateEffects mixes the channels and calls CInputSystem [37] SetRumble(left, right, user).
+// StartEffect and UpdateEffects both ask CInput [14] (controller mode) and do nothing or zero the
+// motors without a gamepad: [14] answers true for exactly these two calls. Changing the whole game
+// to controller mode would show the gamepad's buttons in the hints and change ~128 other places.
+namespace
+{
+    // rvas and bytes: Steam build 16912226 (client.dll PE timestamp 1736038611). Without a match
+    // there is no rumble and a line in the log, nothing else changes.
+    // RumbleEffect: sub rsp, 0x38; ... lea rcx, [rip + g_RumbleEffects]
+    constexpr uint32_t kRumbleEffect_Rva = 0x25ea50;
+    constexpr uint8_t kRumbleEffect_Start[] = { 0x48, 0x83, 0xEC, 0x38, 0x44, 0x88, 0x4C, 0x24, 0x20, 0x45, 0x0F, 0xB6, 0xC8,
+                                                0x44, 0x0F, 0xB6, 0xC2, 0x8B, 0xD1, 0x48, 0x8D, 0x0D };
+    // In StartEffect: call [rax+0x70] (CInput [14]); test al, al; je
+    constexpr uint32_t kRumbleStartCheck_ReturnRva = 0x25eb31;
+    constexpr uint8_t kRumbleStartCheck_Bytes[] = { 0xFF, 0x50, 0x70, 0x84, 0xC0, 0x0F, 0x84, 0xBC, 0x01, 0x00, 0x00 };
+    // In UpdateEffects: call [rax+0x70] (CInput [14]); test al, al; jne; xorps xmm8, xmm8; xorps xmm7, xmm7
+    constexpr uint32_t kRumbleUpdateCheck_ReturnRva = 0x25f266;
+    constexpr uint8_t kRumbleUpdateCheck_Bytes[] = { 0xFF, 0x50, 0x70, 0x84, 0xC0, 0x75, 0x07, 0x45, 0x0F, 0x57, 0xC0, 0x0F, 0x57, 0xFF };
+    constexpr int kInput_ControllerModeActive = 14;
+    constexpr int kInputSystem_SetRumble = 37;
+
+    // g_RumbleEffects: per user 0x3c bytes, 3 channels of 0x14: +4 effect index, +0xc active.
+    constexpr int kRumble_UserSize = 0x3c, kRumble_Channels = 3, kRumble_ChannelSize = 0x14;
+    constexpr int kRumble_ChannelEffect = 4, kRumble_ChannelActive = 0xc;
+    // Effects of the portal gun (fired, fizzled on a surface without portals): only the gun hand.
+    constexpr int kRumbleEffect_PortalGunFired = 25, kRumbleEffect_PortalGunFizzled = 27;
+
+    using tControllerModeActive = bool (*)(void *thisptr);
+    using tSetRumble = void (*)(void *thisptr, float left, float right, int user);
+    tControllerModeActive oControllerModeActive = nullptr;
+    tSetRumble oSetRumble = nullptr;
+    const uint8_t *g_RumbleStartCheckReturn = nullptr;
+    const uint8_t *g_RumbleUpdateCheckReturn = nullptr;
+    const uint8_t *g_RumbleEffects = nullptr;
+
+    std::atomic<float> g_RumbleAmplitude{0};
+    std::atomic<bool> g_RumbleGunOnly{false};
+    std::atomic<ULONGLONG> g_RumbleSetAt{0};
+
+    bool hkControllerModeActive(void *thisptr)
+    {
+        const void *caller = _ReturnAddress();
+        if (caller == g_RumbleStartCheckReturn || caller == g_RumbleUpdateCheckReturn)
+            return true;
+        return oControllerModeActive(thisptr);
+    }
+
+    // True if all active channels of the user hold portal gun effects.
+    bool RumbleGunOnly(int user)
+    {
+        if (user < 0 || user > 1)
+            return false;
+        bool gun = false;
+        for (int i = 0; i < kRumble_Channels; ++i)
+        {
+            const uint8_t *channel = g_RumbleEffects + user * kRumble_UserSize + i * kRumble_ChannelSize;
+            if (!channel[kRumble_ChannelActive])
+                continue;
+            const int effect = *reinterpret_cast<const int *>(channel + kRumble_ChannelEffect);
+            if (effect != kRumbleEffect_PortalGunFired && effect != kRumbleEffect_PortalGunFizzled)
+                return false;
+            gun = true;
+        }
+        return gun;
+    }
+
+    void hkSetRumble(void *thisptr, float left, float right, int user)
+    {
+        if (user == 0)
+        {
+            const float amplitude = (std::max)(left, right);
+            static bool logged = false;
+            if (!logged && amplitude > 0)
+            {
+                logged = true;
+                std::cout << "[Rumble] first rumble from the game\n";
+            }
+            g_RumbleAmplitude = amplitude;
+            g_RumbleGunOnly = amplitude > 0 && RumbleGunOnly(user);
+            g_RumbleSetAt = GetTickCount64();
+        }
+        oSetRumble(thisptr, left, right, user);
+    }
+
+    void InstallRumbleHooks()
+    {
+        auto client = reinterpret_cast<uint8_t *>(GetModuleHandleA("client.dll"));
+        const uint8_t *rumbleEffect = client + kRumbleEffect_Rva;
+        const uint8_t *startCheck = client + kRumbleStartCheck_ReturnRva - 3;
+        const uint8_t *updateCheck = client + kRumbleUpdateCheck_ReturnRva - 3;
+        void **input = StrataHooks::FindCheckedVTable("client.dll", "CInput", 72);
+        void **inputSystem = StrataHooks::FindCheckedVTable("inputsystem.dll", "CInputSystem", 92);
+        if (!input || !inputSystem || memcmp(rumbleEffect, kRumbleEffect_Start, sizeof(kRumbleEffect_Start)) != 0
+            || memcmp(startCheck, kRumbleStartCheck_Bytes, sizeof(kRumbleStartCheck_Bytes)) != 0
+            || memcmp(updateCheck, kRumbleUpdateCheck_Bytes, sizeof(kRumbleUpdateCheck_Bytes)) != 0)
+        {
+            std::cout << "[Hooks] rumble not found (other game version?): no rumble in the VR controllers\n";
+            return;
+        }
+        const uint8_t *lea = rumbleEffect + sizeof(kRumbleEffect_Start);
+        g_RumbleEffects = lea + 4 + *reinterpret_cast<const int32_t *>(lea);
+        g_RumbleStartCheckReturn = client + kRumbleStartCheck_ReturnRva;
+        g_RumbleUpdateCheckReturn = client + kRumbleUpdateCheck_ReturnRva;
+        InstallHook("Rumble SetRumble", inputSystem[kInputSystem_SetRumble], &hkSetRumble, oSetRumble, "inputsystem.dll");
+        InstallHook("Rumble CInput ControllerModeActive", input[kInput_ControllerModeActive], &hkControllerModeActive, oControllerModeActive);
+    }
+}
+
+bool StrataHooks::Rumble(float &amplitude, bool &gunOnly)
+{
+    constexpr ULONGLONG kStaleMs = 100; // SetRumble comes every frame while there is a player
+    amplitude = g_RumbleAmplitude;
+    gunOnly = g_RumbleGunOnly;
+    return GetTickCount64() - g_RumbleSetAt < kStaleMs && amplitude > 0;
+}
+
 void **StrataHooks::FindVTable(const char *module, const char *className, uint32_t offset)
 {
     auto base = reinterpret_cast<uint8_t *>(GetModuleHandleA(module));
@@ -1812,6 +1931,8 @@ bool StrataHooks::Init(Game *game)
             CreatePingPointer = reinterpret_cast<tCreatePingPointer>(ping);
     }
     std::cout << "[Hooks] aim laser " << (CreatePingPointer ? "available" : "not found") << "\n";
+
+    InstallRumbleHooks();
 
     return ok;
 }

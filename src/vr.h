@@ -122,7 +122,7 @@ public:
 
 	// action set
 	vr::VRActionSetHandle_t m_ActionSet;
-	vr::VRActiveActionSet_t m_ActiveActionSet;
+	vr::VRActiveActionSet_t m_ActiveActionSet[2] = {}; // main, base (rumble)
 
 	// actions
 	vr::VRActionHandle_t m_ActionJump;
@@ -157,6 +157,9 @@ public:
 	vr::VRInputValueHandle_t m_InputHandRight = vr::k_ulInvalidInputValueHandle;
 	vr::VRActionHandle_t m_ActionPointerLeft;  // pose at /user/hand/left/pose/tip (menu laser)
 	vr::VRActionHandle_t m_ActionPointerRight;
+	// rumble: /actions/base/out/vibration_left/right, bound to the physical hands
+	vr::VRActionHandle_t m_ActionVibrationLeft = vr::k_ulInvalidActionHandle;
+	vr::VRActionHandle_t m_ActionVibrationRight = vr::k_ulInvalidActionHandle;
 	// Tip pose relative to the controller pose, per hand (0 = right, 1 = left); learned while the
 	// pointer action is active, because the action goes inactive once the overlay takes input.
 	vr::HmdMatrix34_t m_PointerOffset[2] = {};
@@ -246,6 +249,7 @@ public:
 	void GetViewParameters();
 	void ProcessMenuInput();
 	void ProcessInput();
+	void UpdateRumble();
 	vr::HmdMatrix34_t GetControllerTipMatrix(vr::ETrackedControllerRole controllerRole);
 	int GetPointerPose(vr::ETrackedControllerRole controllerRole, vr::HmdMatrix34_t &pose);
 	bool CheckOverlayIntersectionForController(vr::VROverlayHandle_t overlayHandle, vr::ETrackedControllerRole controllerRole);

@@ -31,4 +31,8 @@ namespace StrataHooks
     // The height of the part of the back buffer Panorama lays out for: in the aspect ratio of the
     // video mode, or all of it if the hooks aren't in place. Changes with the video settings.
     int PanoramaHeight(int width, int height);
+
+    // The game's gamepad rumble of the last frame: the stronger motor (0..1), and whether it comes
+    // only from the portal gun. False if there is none.
+    bool Rumble(float &amplitude, bool &gunOnly);
 }
