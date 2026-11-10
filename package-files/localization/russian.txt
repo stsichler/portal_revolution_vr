@@ -30,6 +30,9 @@ VignetteAfterPortal=Виньетка после портала
 VignetteClearAngle=Свободный угол виньетки
 GroupHud=HUD и субтитры
 HudDistance=Расстояние (см)
+GroupVibration=Вибрация
+ForceFeedback=Вибрация контроллеров
+PortalGunVibration=Вибрация портальной пушки
 MoreOptions=Другие настройки: config.txt в папке VR игры
 # In the headset after a game update
 GameUpdated=Игра обновилась после выхода этой версии VR-мода. Что-то может не работать. Поищите обновление мода.

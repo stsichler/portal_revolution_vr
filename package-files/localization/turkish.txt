@@ -30,6 +30,9 @@ VignetteAfterPortal=Portaldan sonra vinyet
 VignetteClearAngle=Vinyetin açık açısı
 GroupHud=HUD ve altyazılar
 HudDistance=Uzaklık (cm)
+GroupVibration=Titreşim
+ForceFeedback=Kumanda titreşimi
+PortalGunVibration=Portal silahı titreşimi
 MoreOptions=Diğer seçenekler: oyunun VR klasöründeki config.txt
 # In the headset after a game update
 GameUpdated=Oyun, VR modunun bu sürümünden sonra güncellendi. Bazı şeyler çalışmayabilir. Lütfen modun bir güncellemesini arayın.

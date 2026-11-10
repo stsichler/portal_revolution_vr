@@ -30,6 +30,9 @@ VignetteAfterPortal=穿过传送门后的暗角
 VignetteClearAngle=暗角的清晰视角
 GroupHud=HUD 和字幕
 HudDistance=距离（厘米）
+GroupVibration=振动
+ForceFeedback=控制器振动
+PortalGunVibration=传送门枪振动
 MoreOptions=更多选项：游戏 VR 文件夹中的 config.txt
 # In the headset after a game update
 GameUpdated=游戏在此版本的 VR 模组之后更新过。部分功能可能无法正常工作。请查看模组是否有更新。

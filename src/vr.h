@@ -194,6 +194,8 @@ public:
 	float m_VignetteAfterPortal = 1.0f; // 0 = off, 1 = black
 	float m_VignetteClearAngle = 20.0f; // degrees from the center of the view that stay clear
 	float m_HudDistance = 0.8f; // meters from the eyes to the HUD overlay
+	bool m_ForceFeedback = true; // the controllers vibrate with the game's rumble
+	float m_ForceFeedbackPortalGun = 0.5f; // scale of the portal gun hand's vibration, 0..1
 	float m_HudPlacedDistance = 0; // the distance the HUD overlay is placed at
 
 	float m_SmoothTurnRate = 0; // degrees per second the stick turns right now, 0 with snap turning
@@ -249,7 +251,7 @@ public:
 	void GetViewParameters();
 	void ProcessMenuInput();
 	void ProcessInput();
-	void UpdateRumble();
+	void UpdateRumble(bool menuVisible);
 	vr::HmdMatrix34_t GetControllerTipMatrix(vr::ETrackedControllerRole controllerRole);
 	int GetPointerPose(vr::ETrackedControllerRole controllerRole, vr::HmdMatrix34_t &pose);
 	bool CheckOverlayIntersectionForController(vr::VROverlayHandle_t overlayHandle, vr::ETrackedControllerRole controllerRole);

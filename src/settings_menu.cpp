@@ -111,6 +111,7 @@ class PrvrSettings {
             PrvrCameraUprightTime: tilt,
             PrvrVignetteAfterPortal: afterPortal,
             PrvrVignetteClearAngle: vignette,
+            PrvrForceFeedbackPortalGun: int("prvr_force_feedback") !== 0,
         };
         for (const id in enable) {
             const option = this.panel.FindChildTraverse(id);
@@ -274,6 +275,23 @@ class PrvrSettings {
                 <ChaosSettingsSlider text="[[HudDistance]]" class="settings__page-group-item"
                                      convar="prvr_hud_distance" id="PrvrHudDistance"
                                      min="30" max="500" increment="0.0212766" snaptoincrement="true"
+                                     selectionpos="auto" tabindex="auto"/>
+
+            </Panel>
+
+            <Label text="[[GroupVibration]]" class="settings__page-group-title"/>
+            <Panel class="settings__page-group">
+
+                <ChaosSettingsEnumDropDown text="[[ForceFeedback]]" class="settings__page-group-item" convar="prvr_force_feedback"
+                                           id="PrvrForceFeedback" selectionpos="auto" tabindex="auto">
+                    <Label acceptsfocus="true" text="#Settings_General_Enabled" value="1" id="PrvrForceFeedback1"/>
+                    <Label acceptsfocus="true" text="#Settings_General_Disabled" value="0" id="PrvrForceFeedback0"/>
+                </ChaosSettingsEnumDropDown>
+
+                <ChaosSettingsSlider text="[[PortalGunVibration]]" class="settings__page-group-item settings__page-group-item-odd"
+                                     convar="prvr_force_feedback_portal_gun" id="PrvrForceFeedbackPortalGun"
+                                     min="0" max="1" increment="0.05" snaptoincrement="true"
+                                     percentage="true" value100percent="1.0"
                                      selectionpos="auto" tabindex="auto"/>
 
             </Panel>

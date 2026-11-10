@@ -1559,9 +1559,10 @@ namespace
 bool StrataHooks::Rumble(float &amplitude, bool &gunOnly)
 {
     constexpr ULONGLONG kStaleMs = 100; // SetRumble comes every frame while there is a player
-    amplitude = g_RumbleAmplitude;
-    gunOnly = g_RumbleGunOnly;
-    return GetTickCount64() - g_RumbleSetAt < kStaleMs && amplitude > 0;
+    const bool player = GetTickCount64() - g_RumbleSetAt < kStaleMs;
+    amplitude = player ? (float)g_RumbleAmplitude : 0.0f;
+    gunOnly = player && g_RumbleGunOnly;
+    return player;
 }
 
 void **StrataHooks::FindVTable(const char *module, const char *className, uint32_t offset)

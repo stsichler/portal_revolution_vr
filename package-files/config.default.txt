@@ -23,3 +23,5 @@ VignetteTurning=0.8 # The same when turning with the stick (only with SnapTurnin
 VignetteAfterPortal=1 # The same while the camera turns back upright after portalling (see above). 0 = off, 1 = black
 VignetteClearAngle=20.0 # Degrees from the center of the view that stay clear
 HudDistance=0.8 # Meters from the eyes to the HUD (subtitles, hints); it always spans 60 degrees
+ForceFeedback=true # true: the controllers vibrate with the game's rumble (portal gun, damage)
+ForceFeedbackPortalGun=0.5 # Vibration of the portal gun hand (shots, holding an object). 0 = off, 1 = as strong as the game's

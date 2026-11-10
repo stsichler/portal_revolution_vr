@@ -30,6 +30,9 @@ VignetteAfterPortal=Vinheta após um portal
 VignetteClearAngle=Ângulo livre da vinheta
 GroupHud=HUD e legendas
 HudDistance=Distância (cm)
+GroupVibration=Vibração
+ForceFeedback=Vibração dos controles
+PortalGunVibration=Vibração da arma de portais
 MoreOptions=Mais opções: config.txt na pasta VR do jogo
 # In the headset after a game update
 GameUpdated=O jogo foi atualizado depois desta versão do mod de RV. Algumas coisas podem não funcionar. Procure uma atualização do mod.

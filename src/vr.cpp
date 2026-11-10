@@ -649,26 +649,33 @@ void VR::Update()
         vr::VROverlay()->SetOverlayFlag(m_MainMenuHandle, vr::VROverlayFlags_MakeOverlaysInteractiveIfVisible, false);
         ProcessInput();
     }
-    UpdateRumble();
+    UpdateRumble(menuVisible);
 }
 
-// The game's gamepad rumble (StrataHooks::Rumble): portal gun effects in the gun hand, the others
-// (damage) in both. Pulses overlap: one per frame, a bit longer than a frame.
-void VR::UpdateRumble()
+// The game's gamepad rumble (StrataHooks::Rumble): portal gun effects in the gun hand, scaled by
+// ForceFeedbackPortalGun, the others (damage) in both hands as they are. Our own: a light hum in
+// the gun hand while it holds an object. Pulses overlap: one per frame, a bit longer than a frame.
+void VR::UpdateRumble(bool menuVisible)
 {
     constexpr float kPulseSeconds = 0.05f, kFrequency = 160.0f;
-    float amplitude;
+    constexpr float kCarryAmplitude = 0.1f; // at ForceFeedbackPortalGun 1; about the motors' minimum at 50 %
+    float game;
     bool gunOnly;
-    if (!StrataHooks::Rumble(amplitude, gunOnly))
+    if (!m_ForceFeedback || !StrataHooks::Rumble(game, gunOnly))
         return;
-    amplitude = (std::min)(amplitude, 1.0f);
+    game = (std::min)(game, 1.0f);
+    const float gunScale = std::clamp(m_ForceFeedbackPortalGun, 0.0f, 1.0f);
+    float gunHand = gunOnly ? game * gunScale : game;
+    const float otherHand = gunOnly ? 0.0f : game;
+    if (m_ViewmodelCarrying && !menuVisible)
+        gunHand = (std::max)(gunHand, kCarryAmplitude * gunScale);
+
     // The haptic actions are bound to the physical hands, not swapped for LeftHanded.
-    const bool left = !gunOnly || m_LeftHanded;
-    const bool right = !gunOnly || !m_LeftHanded;
-    for (const vr::VRActionHandle_t action : { left ? m_ActionVibrationLeft : vr::k_ulInvalidActionHandle,
-                                               right ? m_ActionVibrationRight : vr::k_ulInvalidActionHandle })
+    const float left = m_LeftHanded ? gunHand : otherHand;
+    const float right = m_LeftHanded ? otherHand : gunHand;
+    for (const auto &[action, amplitude] : { std::pair{m_ActionVibrationLeft, left}, std::pair{m_ActionVibrationRight, right} })
     {
-        if (action == vr::k_ulInvalidActionHandle)
+        if (amplitude <= 0)
             continue;
         const vr::EVRInputError error = m_Input->TriggerHapticVibrationAction(action, 0, kPulseSeconds, kFrequency, amplitude, vr::k_ulInvalidInputValueHandle);
         static vr::EVRInputError lastError = vr::VRInputError_None;
@@ -2392,6 +2399,8 @@ void VR::ParseConfigFile()
     parseOrDefault("VignetteAfterPortal", m_VignetteAfterPortal, 1.0f);
     parseOrDefault("VignetteClearAngle", m_VignetteClearAngle, 20.0f);
     parseOrDefault("HudDistance", m_HudDistance, 0.8f);
+    parseOrDefault("ForceFeedback", m_ForceFeedback, true);
+    parseOrDefault("ForceFeedbackPortalGun", m_ForceFeedbackPortalGun, 0.5f);
 }
 
 void VR::WaitForConfigUpdate()

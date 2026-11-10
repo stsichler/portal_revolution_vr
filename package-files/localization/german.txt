@@ -30,6 +30,9 @@ VignetteAfterPortal=Vignette nach einem Portal
 VignetteClearAngle=Freier Winkel der Vignette
 GroupHud=HUD und Untertitel
 HudDistance=Abstand (cm)
+GroupVibration=Vibration
+ForceFeedback=Vibration der Controller
+PortalGunVibration=Vibration der Portalkanone
 MoreOptions=Weitere Optionen: config.txt im Ordner VR des Spiels
 # In the headset after a game update
 GameUpdated=Das Spiel wurde nach dieser Version der VR-Mod aktualisiert. Manches funktioniert vielleicht nicht. Bitte nach einem Update der Mod schauen.

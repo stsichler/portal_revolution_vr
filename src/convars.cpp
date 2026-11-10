@@ -82,6 +82,8 @@ namespace
         {"VignetteAfterPortal", "prvr_vignette_after_portal", "The same while the camera turns upright after a portal. 0: off, 1: black", &VR::m_VignetteAfterPortal},
         {"VignetteClearAngle", "prvr_vignette_clear_angle", "Degrees from the center of the view that stay clear", &VR::m_VignetteClearAngle},
         {"HudDistance", "prvr_hud_distance", "Centimeters from the eyes to the HUD and the subtitles; they always span 60 degrees", &VR::m_HudDistance, 100},
+        {"ForceFeedback", "prvr_force_feedback", "1: the controllers vibrate with the game's rumble", &VR::m_ForceFeedback},
+        {"ForceFeedbackPortalGun", "prvr_force_feedback_portal_gun", "Vibration of the portal gun hand (shots, holding an object). 0: off, 1: full", &VR::m_ForceFeedbackPortalGun},
     };
 
     bool g_Tried = false;
