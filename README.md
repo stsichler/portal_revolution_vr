@@ -75,6 +75,8 @@ Please [open an issue](https://github.com/stsichler/portal_revolution_vr/issues)
 After building, `d3d11.dll` is copied to `Portal Revolution/bin/win64` (default Steam path), so the game must not be running. Then `tools/package-release.ps1` makes the ZIP and, with [Inno Setup 6](https://jrsoftware.org/isinfo.php), the setup.
 
 ## Acknowledgements
+Thanks to [Second Face Software](https://store.steampowered.com/app/601360/Portal_Revolution/) for Portal: Revolution and to the [Strata Source](https://stratasource.org) team for its engine. This mod is unofficial and not endorsed by either of them. If you are one of them and object to something here, please open an issue.
+
 Based on the [L4D2 VR Mod](https://github.com/sd805/l4d2vr) from sd805 and the [Portal 2 VR Mod](https://github.com/Gistix/portal2vr) from Gistix, with Portal Reloaded adaptions from [Scriptor25](https://github.com/Scriptor25). The port to Portal: Revolution was done almost entirely by [Claude Code](https://claude.com/claude-code) from Anthropic. Earlier history: [portal_reloaded_vr](https://github.com/stsichler/portal_reloaded_vr).
 
 Uses code from [VirtualFortress2](https://github.com/PinkMilkProductions/VirtualFortress2), [gmcl_openvr](https://github.com/Planimeter/gmcl_openvr/) and [source-sdk-2013](https://github.com/ValveSoftware/source-sdk-2013/).
