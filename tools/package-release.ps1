@@ -7,7 +7,7 @@ The ZIP root is the game folder, so players extract it there:
 
   bin\win64\d3d11.dll                     build output
   VR\                                     package-files\ without the .cmd, thirdparty\openvr\bin\win64\openvr_api.dll
-  VR\licenses\                            COPYING and the licenses of MinHook, OpenVR, Source SDK
+  VR\licenses\                            COPYING, the licenses of MinHook, OpenVR, Source SDK, the SDK's third-party notices
   Uninstall_Portal_Revolution_VR_Mod.cmd  package-files\
 
 The setup (tools\installer.iss) installs the same files, without the .cmd. It needs Inno Setup 6.
@@ -54,11 +54,12 @@ Copy-Item -Recurse (Join-Path $root 'package-files\*') $vr -Exclude $uninstall
 Copy-Item (Join-Path $root 'thirdparty\openvr\bin\win64\openvr_api.dll') $vr
 Copy-Item (Join-Path $root "package-files\$uninstall") $stage
 
-# The GPL and the BSD licenses require these with a binary, the GPL also a way to the source.
+# The GPL, the BSD licenses and the Source SDK license require these with a binary, the GPL also a way to the source.
 Copy-Item (Join-Path $root 'COPYING') (Join-Path $licenses 'COPYING.txt')
 Copy-Item (Join-Path $root 'thirdparty\minhook\LICENSE.txt') (Join-Path $licenses 'MinHook-LICENSE.txt')
 Copy-Item (Join-Path $root 'thirdparty\openvr\LICENSE') (Join-Path $licenses 'OpenVR-LICENSE.txt')
 Copy-Item (Join-Path $root 'src\sdk\LICENSE.txt') (Join-Path $licenses 'Source-SDK-LICENSE.txt')
+Copy-Item (Join-Path $root 'src\sdk\thirdpartylegalnotices.txt') (Join-Path $licenses 'Source-SDK-thirdpartylegalnotices.txt')
 Set-Content -Encoding ascii (Join-Path $licenses 'README.txt') @"
 Portal Revolution VR $Version. Free of charge, licensed under the GNU GPL v3 (COPYING.txt).
 Source code and exceptions to the license: https://github.com/stsichler/portal_revolution_vr

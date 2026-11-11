@@ -77,3 +77,16 @@
 	path = src/trampoline.h
 	commit = 1e9ad1eb42db11bfcb65461f687c656612d1b555
 	blob = f7efb36081e52aaed2040930e105bfbf1996c82a
+[source "ValveSoftware/source-sdk-2013"]
+	url = https://github.com/ValveSoftware/source-sdk-2013.git
+	branch = master
+[file "src/sdk/LICENSE.txt"]
+	source = ValveSoftware/source-sdk-2013
+	path = LICENSE
+	commit = a62efecf624923d3bacc67b8ee4b7f8a9855abfd
+	blob = 6e729f1f55af106870bf42a95d8962ffa65abab1
+[file "src/sdk/thirdpartylegalnotices.txt"]
+	source = ValveSoftware/source-sdk-2013
+	path = thirdpartylegalnotices.txt
+	commit = 0759e2e8e179d5352d81d0d4aaded72c1704b7a9
+	blob = f417b4859d07689761ef2cb13456a0de948a8e13

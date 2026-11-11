@@ -81,7 +81,7 @@ Uses code from [VirtualFortress2](https://github.com/PinkMilkProductions/Virtual
 
 ## License
 The mod's code is licensed under the [GNU GPL v3](COPYING), like [portal2vr](https://github.com/Gistix/portal2vr) it is based on. Exceptions:
-* `src/sdk/`: Valve's [Source 1 SDK License](src/sdk/LICENSE.txt). It allows distribution only for free, so this mod must stay free of charge.
+* `src/sdk/`: Valve's [Source 1 SDK License](src/sdk/LICENSE.txt) with its [third-party notices](src/sdk/thirdpartylegalnotices.txt). It allows distribution only for free, so this mod must stay free of charge.
 * The Portal: Revolution logo (`imgs/logo.png`, `package-files/portal_revolution_vr_capsule.png`) isn't covered by the GPL and belongs to the game's makers.
 * l4d2vr, VirtualFortress2 and gmcl_openvr state no license; their authors keep their rights. If you are one of them and object to something here, please open an issue.
 
