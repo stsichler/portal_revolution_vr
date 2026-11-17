@@ -1630,9 +1630,12 @@ vr::VRInputValueHandle_t VR::RestrictToHand(vr::VRActionHandle_t action) const
     return left ? m_InputHandLeft : m_InputHandRight;
 }
 
-// GetPoses has swapped the hands if LeftHanded: "right" is the hand with the gun.
-float VR::WalkHandYaw() const
+// Where the walk stick's "forward" points: the head or the walk stick's hand. GetPoses has
+// swapped the hands if LeftHanded: "right" is the hand with the gun.
+float VR::WalkYaw() const
 {
+    if (m_HeadOrientedWalking)
+        return m_HmdAngAbs.y;
     return m_WalkWithRightStick != m_LeftHanded ? m_RightControllerAngAbs.y : m_LeftControllerAngAbs.y;
 }
 
@@ -2518,6 +2521,7 @@ void VR::ParseConfigFile()
     parseOrDefault("TurnSpeed", m_TurnSpeed, 0.15f);
     parseOrDefault("LeftHanded", m_LeftHanded, false);
     parseOrDefault("WalkWithRightStick", m_WalkWithRightStick, false);
+    parseOrDefault("HeadOrientedWalking", m_HeadOrientedWalking, false);
     parseOrDefault("VRScale", m_VRScale, 43.2f);
     parseOrDefault("IPDScale", m_IpdScale, 1.0f);
     parseOrDefault("6DOF", m_6DOF, true);

@@ -57,6 +57,7 @@ You can change them in SteamVR's controller bindings.
 Change these on the VR tab of the game's settings or in `Portal Revolution/VR/config.txt`.
 * `LeftHanded=true`: the portal gun and the buttons change hands.
 * `WalkWithRightStick=true`: the right stick walks, the left one turns.
+* `HeadOrientedWalking=true`: the stick walks where you look, not where the hand points.
 * `SeatedMode=true`: for playing seated, also in a wheelchair. Roomscale keeps working.
 
 ## If you feel sick

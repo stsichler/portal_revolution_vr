@@ -70,6 +70,7 @@ namespace
         {"TurnSpeed", "prvr_turn_speed", "Smooth turning: degrees per second with the stick fully over", &VR::m_TurnSpeed, 1000},
         {"LeftHanded", "prvr_left_handed", "1: the portal gun and the buttons change hands", &VR::m_LeftHanded},
         {"WalkWithRightStick", "prvr_walk_with_right_stick", "1: the right stick walks, the left one turns", &VR::m_WalkWithRightStick},
+        {"HeadOrientedWalking", "prvr_head_oriented_walking", "1: the stick walks where your head looks, 0: where the hand points", &VR::m_HeadOrientedWalking},
         {"6DOF", "prvr_6dof", "0: only the head's rotation counts, not its position", &VR::m_6DOF},
         {"SeatedMode", "prvr_seated_mode", "0: your real eye height. 1: the eye height of the game's player", &VR::m_SeatedMode},
         {"SeatedHeightOffset", "prvr_seated_height_offset", "Seated mode only: moves the eyes up (+) or down (-), source units", &VR::m_SeatedHeightOffset},

@@ -191,7 +191,14 @@ class PrvrSettings {
                     <Label acceptsfocus="true" text="[[RightStick]]" value="1" id="PrvrWalkWithRightStick1"/>
                 </ChaosSettingsEnumDropDown>
 
-                <ChaosSettingsEnumDropDown text="[[AimingAid]]" class="settings__page-group-item" convar="prvr_aim_mode"
+                <ChaosSettingsEnumDropDown text="[[WalkDirection]]" class="settings__page-group-item"
+                                           convar="prvr_head_oriented_walking"
+                                           id="PrvrHeadOrientedWalking" selectionpos="auto" tabindex="auto">
+                    <Label acceptsfocus="true" text="[[Controller]]" value="0" id="PrvrHeadOrientedWalking0"/>
+                    <Label acceptsfocus="true" text="[[Head]]" value="1" id="PrvrHeadOrientedWalking1"/>
+                </ChaosSettingsEnumDropDown>
+
+                <ChaosSettingsEnumDropDown text="[[AimingAid]]" class="settings__page-group-item settings__page-group-item-odd" convar="prvr_aim_mode"
                                            id="PrvrAimMode" selectionpos="auto" tabindex="auto">
                     <Label acceptsfocus="true" text="[[None]]" value="0" id="PrvrAimMode0"/>
                     <Label acceptsfocus="true" text="[[AimDot]]" value="1" id="PrvrAimMode1"/>

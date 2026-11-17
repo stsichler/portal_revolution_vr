@@ -180,6 +180,7 @@ public:
 	float m_SnapTurnAngle = 30.0;
 	bool m_LeftHanded = false;
 	bool m_WalkWithRightStick = false;
+	bool m_HeadOrientedWalking = false; // the stick walks where the head looks, not the hand
 	float m_VRScale = 43.2f;
 	float m_IpdScale = 1.0;
 	bool m_6DOF = true;
@@ -273,7 +274,7 @@ public:
 	bool CheckDigitalActionChanged(vr::VRActionHandle_t& actionHandle, bool& state);
 	bool GetAnalogActionData(vr::VRActionHandle_t &actionHandle, vr::InputAnalogActionData_t &analogDataOut);
 	vr::VRInputValueHandle_t RestrictToHand(vr::VRActionHandle_t action) const;
-	float WalkHandYaw() const;
+	float WalkYaw() const;
 	void UpdateTrackingSpace();
 	void ResetPosition();
 	void MoveRoom(const Vector &step);

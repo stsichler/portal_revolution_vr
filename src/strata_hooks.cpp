@@ -571,8 +571,8 @@ namespace
     }
 
     // The player aims with the right controller (view angles of the command: shooting, use). The
-    // left stick walks where the left controller points, the keyboard relative to the head. The
-    // engine's view angles stay with the head (set in hkRenderView).
+    // walk stick walks where its controller points (or the head, HeadOrientedWalking), the keyboard
+    // relative to the head. The engine's view angles stay with the head (set in hkRenderView).
     bool hkCreateMove(void *thisptr, float flInputSampleTime, CUserCmd *cmd)
     {
         const bool result = oCreateMove(thisptr, flInputSampleTime, cmd);
@@ -590,7 +590,7 @@ namespace
         TurnMove(cmd->forwardmove, cmd->sidemove, vr->m_HmdAngAbs.y, aim.y, forward, side);
         vr::InputAnalogActionData_t walk;
         if (vr->GetAnalogActionData(vr->m_ActionWalk, walk) && walk.bActive)
-            TurnMove(walk.y * MAX_LINEAR_SPEED, walk.x * MAX_LINEAR_SPEED, vr->WalkHandYaw(), aim.y, forward, side);
+            TurnMove(walk.y * MAX_LINEAR_SPEED, walk.x * MAX_LINEAR_SPEED, vr->WalkYaw(), aim.y, forward, side);
         RoomscaleMove(aim.y, forward, side);
         cmd->forwardmove = forward;
         cmd->sidemove = side;
