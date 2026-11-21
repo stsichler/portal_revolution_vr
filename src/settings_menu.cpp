@@ -150,6 +150,45 @@ class PrvrSettings {
 
         <Panel class="settings__page-body" childfocusonhover="true">
 
+            <Label text="[[GroupGunWalk]]" class="settings__page-group-title"/>
+            <Panel class="settings__page-group">
+
+                <ChaosSettingsEnumDropDown text="[[GunHand]] / [[WalkWith]]" class="settings__page-group-item" convar="prvr_hands"
+                                           id="PrvrHands" selectionpos="auto" tabindex="auto">
+                    <Label acceptsfocus="true" text="[[Right]] / [[LeftStick]]" value="0" id="PrvrHands0"/>
+                    <Label acceptsfocus="true" text="[[Left]] / [[LeftStick]]" value="1" id="PrvrHands1"/>
+                    <Label acceptsfocus="true" text="[[Right]] / [[RightStick]]" value="2" id="PrvrHands2"/>
+                    <Label acceptsfocus="true" text="[[Left]] / [[RightStick]]" value="3" id="PrvrHands3"/>
+                </ChaosSettingsEnumDropDown>
+
+                <ChaosSettingsEnumDropDown text="[[WalkDirection]]" class="settings__page-group-item settings__page-group-item-odd"
+                                           convar="prvr_head_oriented_walking"
+                                           id="PrvrHeadOrientedWalking" selectionpos="auto" tabindex="auto">
+                    <Label acceptsfocus="true" text="[[Controller]]" value="0" id="PrvrHeadOrientedWalking0"/>
+                    <Label acceptsfocus="true" text="[[Head]]" value="1" id="PrvrHeadOrientedWalking1"/>
+                </ChaosSettingsEnumDropDown>
+
+                <ChaosSettingsEnumDropDown text="[[AimingAid]]" class="settings__page-group-item" convar="prvr_aim_mode"
+                                           id="PrvrAimMode" selectionpos="auto" tabindex="auto">
+                    <Label acceptsfocus="true" text="[[None]]" value="0" id="PrvrAimMode0"/>
+                    <Label acceptsfocus="true" text="[[AimDot]]" value="1" id="PrvrAimMode1"/>
+                    <Label acceptsfocus="true" text="[[Laser]]" value="2" id="PrvrAimMode2"/>
+                </ChaosSettingsEnumDropDown>
+
+                <ChaosSettingsEnumDropDown text="[[ForceFeedback]]" class="settings__page-group-item settings__page-group-item-odd" convar="prvr_force_feedback"
+                                           id="PrvrForceFeedback" selectionpos="auto" tabindex="auto">
+                    <Label acceptsfocus="true" text="#Settings_General_Enabled" value="1" id="PrvrForceFeedback1"/>
+                    <Label acceptsfocus="true" text="#Settings_General_Disabled" value="0" id="PrvrForceFeedback0"/>
+                </ChaosSettingsEnumDropDown>
+
+                <ChaosSettingsSlider text="[[PortalGunVibration]]" class="settings__page-group-item"
+                                     convar="prvr_force_feedback_portal_gun" id="PrvrForceFeedbackPortalGun"
+                                     min="0" max="1" increment="0.05" snaptoincrement="true"
+                                     percentage="true" value100percent="1.0"
+                                     selectionpos="auto" tabindex="auto"/>
+
+            </Panel>
+
             <Label text="[[GroupTurning]]" class="settings__page-group-title"/>
             <Panel class="settings__page-group">
 
@@ -175,34 +214,7 @@ class PrvrSettings {
 
             </Panel>
 
-            <Label text="[[GroupHands]]" class="settings__page-group-title"/>
-            <Panel class="settings__page-group">
-
-                <ChaosSettingsEnumDropDown text="[[GunHand]] / [[WalkWith]]" class="settings__page-group-item" convar="prvr_hands"
-                                           id="PrvrHands" selectionpos="auto" tabindex="auto">
-                    <Label acceptsfocus="true" text="[[Right]] / [[LeftStick]]" value="0" id="PrvrHands0"/>
-                    <Label acceptsfocus="true" text="[[Left]] / [[LeftStick]]" value="1" id="PrvrHands1"/>
-                    <Label acceptsfocus="true" text="[[Right]] / [[RightStick]]" value="2" id="PrvrHands2"/>
-                    <Label acceptsfocus="true" text="[[Left]] / [[RightStick]]" value="3" id="PrvrHands3"/>
-                </ChaosSettingsEnumDropDown>
-
-                <ChaosSettingsEnumDropDown text="[[WalkDirection]]" class="settings__page-group-item settings__page-group-item-odd"
-                                           convar="prvr_head_oriented_walking"
-                                           id="PrvrHeadOrientedWalking" selectionpos="auto" tabindex="auto">
-                    <Label acceptsfocus="true" text="[[Controller]]" value="0" id="PrvrHeadOrientedWalking0"/>
-                    <Label acceptsfocus="true" text="[[Head]]" value="1" id="PrvrHeadOrientedWalking1"/>
-                </ChaosSettingsEnumDropDown>
-
-                <ChaosSettingsEnumDropDown text="[[AimingAid]]" class="settings__page-group-item" convar="prvr_aim_mode"
-                                           id="PrvrAimMode" selectionpos="auto" tabindex="auto">
-                    <Label acceptsfocus="true" text="[[None]]" value="0" id="PrvrAimMode0"/>
-                    <Label acceptsfocus="true" text="[[AimDot]]" value="1" id="PrvrAimMode1"/>
-                    <Label acceptsfocus="true" text="[[Laser]]" value="2" id="PrvrAimMode2"/>
-                </ChaosSettingsEnumDropDown>
-
-            </Panel>
-
-            <Label text="[[GroupBody]]" class="settings__page-group-title"/>
+            <Label text="[[GroupPlayArea]]" class="settings__page-group-title"/>
             <Panel class="settings__page-group">
 
                 <ChaosSettingsEnumDropDown text="[[HeadTracking]]" class="settings__page-group-item" convar="prvr_6dof"
@@ -277,23 +289,6 @@ class PrvrSettings {
                 <ChaosSettingsSlider text="[[HudDistance]]" class="settings__page-group-item"
                                      convar="prvr_hud_distance" id="PrvrHudDistance"
                                      min="30" max="500" increment="0.0212766" snaptoincrement="true"
-                                     selectionpos="auto" tabindex="auto"/>
-
-            </Panel>
-
-            <Label text="[[GroupVibration]]" class="settings__page-group-title"/>
-            <Panel class="settings__page-group">
-
-                <ChaosSettingsEnumDropDown text="[[ForceFeedback]]" class="settings__page-group-item" convar="prvr_force_feedback"
-                                           id="PrvrForceFeedback" selectionpos="auto" tabindex="auto">
-                    <Label acceptsfocus="true" text="#Settings_General_Enabled" value="1" id="PrvrForceFeedback1"/>
-                    <Label acceptsfocus="true" text="#Settings_General_Disabled" value="0" id="PrvrForceFeedback0"/>
-                </ChaosSettingsEnumDropDown>
-
-                <ChaosSettingsSlider text="[[PortalGunVibration]]" class="settings__page-group-item settings__page-group-item-odd"
-                                     convar="prvr_force_feedback_portal_gun" id="PrvrForceFeedbackPortalGun"
-                                     min="0" max="1" increment="0.05" snaptoincrement="true"
-                                     percentage="true" value100percent="1.0"
                                      selectionpos="auto" tabindex="auto"/>
 
             </Panel>
