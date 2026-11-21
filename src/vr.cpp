@@ -527,6 +527,19 @@ namespace
         {&VR::m_MenuSelect, "MenuSelect"}, {&VR::m_MenuBack, "MenuBack"},
         {&VR::m_MenuUp, "MenuUp"}, {&VR::m_MenuDown, "MenuDown"}, {&VR::m_MenuLeft, "MenuLeft"}, {&VR::m_MenuRight, "MenuRight"},
     };
+    // Removed in d2ce664, without effect in Portal: Revolution; for a port to another game. What
+    // ProcessInput sent, and the old default on Touch with the gun in the right hand:
+    //   ThirdAttack  "ent_fire @att3 trigger" on press (third portal, Portal Reloaded)  left trigger
+    //   Reload       +reload / -reload                                                left trigger
+    //   QuickPing    +quick_ping / -quick_ping (Portal 2 co-op)                       X
+    //   RemoteView   +remote_view / -remote_view (Portal 2 co-op)                     right stick click
+    //   PrevItem     invprev on press                                                 right stick up
+    //   NextItem     invnext on press                                                 right stick down
+    //   Flashlight   impulse 100 on press                                             not bound
+    //   Spray        impulse 201 on press                                             not bound
+    // Never read: Scoreboard (X), ShowHUD (not bound), ActivateVR (A). The hints (kHintCommands)
+    // had quick_ping, remote_view, reload, invprev, invnext, impulse 100 and impulse 201.
+    // Old manifest and bindings: git show d2ce664^:package-files/SteamVRActionManifest/<file>
 }
 
 int VR::SetActionManifest(const char *fileName)
