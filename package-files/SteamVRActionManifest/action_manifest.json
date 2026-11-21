@@ -12,194 +12,158 @@
 			"controller_type": "vive_cosmos_controller",
 			"binding_url": "bindings_vive_cosmos_controller.json"
 		}
-	], 
-	
+	],
+
 	"actions": [
-		{
-			"name": "/actions/base/in/pose_lefthand",
-			"type": "pose"
-		},
-		{
-			"name": "/actions/base/in/pose_righthand",
-			"type": "pose"
-		},
-		{
-			"name": "/actions/base/out/vibration_left",
-			"type": "vibration"
-		},
-		{
-			"name": "/actions/base/out/vibration_right",
-			"type": "vibration"
-		},
-		{
-			"name" : "/actions/base/in/skeleton_lefthand",
-			"skeleton" : "/skeleton/hand/left",
-			"type" : "skeleton"
-		},
-		{
-			"name" : "/actions/base/in/skeleton_righthand",
-			"skeleton" : "/skeleton/hand/right",
-			"type" : "skeleton"
-		},
-		{
-			"name": "/actions/main/in/PointerLeft",
-			"type": "pose"
-		},
-		{
-			"name": "/actions/main/in/PointerRight",
-			"type": "pose"
-		},
-		{
-			"name": "/actions/main/in/PrimaryAttack",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/SecondaryAttack",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/ThirdAttack",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/Jump",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/Walk",
-			"type": "vector2"
-		},
-		{
-			"name": "/actions/main/in/Turn",
-			"type": "vector2"
-		},
-		{
-			"name": "/actions/main/in/Reload",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/Use",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/QuickPing",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/RemoteView",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/NextItem",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/PrevItem",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/ResetPosition",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/Crouch",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/Flashlight",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/ActivateVR",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/MenuSelect",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/MenuBack",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/MenuUp",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/MenuDown",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/MenuLeft",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/MenuRight",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/Spray",
-			"type": "boolean",
-			"requirement": "optional"
-		},
-		{
-			"name": "/actions/main/in/Scoreboard",
-			"type": "boolean"
-		},
-		{
-			"name": "/actions/main/in/ShowHUD",
-			"type": "boolean",
-			"requirement": "optional"
-		},
-		{
-			"name": "/actions/main/in/Pause",
-			"type": "boolean"
-		}
+		{ "name": "/actions/base/in/pose_lefthand", "type": "pose" },
+		{ "name": "/actions/base/in/pose_righthand", "type": "pose" },
+		{ "name": "/actions/base/out/vibration_left", "type": "vibration" },
+		{ "name": "/actions/base/out/vibration_right", "type": "vibration" },
+		{ "name": "/actions/base/in/skeleton_lefthand", "skeleton": "/skeleton/hand/left", "type": "skeleton" },
+		{ "name": "/actions/base/in/skeleton_righthand", "skeleton": "/skeleton/hand/right", "type": "skeleton" },
+		{ "name": "/actions/base/in/PointerLeft", "type": "pose" },
+		{ "name": "/actions/base/in/PointerRight", "type": "pose" },
+
+		{ "name": "/actions/gunright_walkleft/in/PrimaryAttack", "type": "boolean" },
+		{ "name": "/actions/gunright_walkleft/in/SecondaryAttack", "type": "boolean" },
+		{ "name": "/actions/gunright_walkleft/in/Jump", "type": "boolean" },
+		{ "name": "/actions/gunright_walkleft/in/Crouch", "type": "boolean" },
+		{ "name": "/actions/gunright_walkleft/in/Use", "type": "boolean" },
+		{ "name": "/actions/gunright_walkleft/in/Pause", "type": "boolean" },
+		{ "name": "/actions/gunright_walkleft/in/Walk", "type": "vector2" },
+		{ "name": "/actions/gunright_walkleft/in/Turn", "type": "vector2" },
+		{ "name": "/actions/gunright_walkleft/in/ResetPosition", "type": "boolean" },
+		{ "name": "/actions/gunright_walkleft/in/MenuSelect", "type": "boolean" },
+		{ "name": "/actions/gunright_walkleft/in/MenuBack", "type": "boolean" },
+		{ "name": "/actions/gunright_walkleft/in/MenuUp", "type": "boolean" },
+		{ "name": "/actions/gunright_walkleft/in/MenuDown", "type": "boolean" },
+		{ "name": "/actions/gunright_walkleft/in/MenuLeft", "type": "boolean" },
+		{ "name": "/actions/gunright_walkleft/in/MenuRight", "type": "boolean" },
+
+		{ "name": "/actions/gunleft_walkleft/in/PrimaryAttack", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkleft/in/SecondaryAttack", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkleft/in/Jump", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkleft/in/Crouch", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkleft/in/Use", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkleft/in/Pause", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkleft/in/Walk", "type": "vector2" },
+		{ "name": "/actions/gunleft_walkleft/in/Turn", "type": "vector2" },
+		{ "name": "/actions/gunleft_walkleft/in/ResetPosition", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkleft/in/MenuSelect", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkleft/in/MenuBack", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkleft/in/MenuUp", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkleft/in/MenuDown", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkleft/in/MenuLeft", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkleft/in/MenuRight", "type": "boolean" },
+
+		{ "name": "/actions/gunright_walkright/in/PrimaryAttack", "type": "boolean" },
+		{ "name": "/actions/gunright_walkright/in/SecondaryAttack", "type": "boolean" },
+		{ "name": "/actions/gunright_walkright/in/Jump", "type": "boolean" },
+		{ "name": "/actions/gunright_walkright/in/Crouch", "type": "boolean" },
+		{ "name": "/actions/gunright_walkright/in/Use", "type": "boolean" },
+		{ "name": "/actions/gunright_walkright/in/Pause", "type": "boolean" },
+		{ "name": "/actions/gunright_walkright/in/Walk", "type": "vector2" },
+		{ "name": "/actions/gunright_walkright/in/Turn", "type": "vector2" },
+		{ "name": "/actions/gunright_walkright/in/ResetPosition", "type": "boolean" },
+		{ "name": "/actions/gunright_walkright/in/MenuSelect", "type": "boolean" },
+		{ "name": "/actions/gunright_walkright/in/MenuBack", "type": "boolean" },
+		{ "name": "/actions/gunright_walkright/in/MenuUp", "type": "boolean" },
+		{ "name": "/actions/gunright_walkright/in/MenuDown", "type": "boolean" },
+		{ "name": "/actions/gunright_walkright/in/MenuLeft", "type": "boolean" },
+		{ "name": "/actions/gunright_walkright/in/MenuRight", "type": "boolean" },
+
+		{ "name": "/actions/gunleft_walkright/in/PrimaryAttack", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkright/in/SecondaryAttack", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkright/in/Jump", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkright/in/Crouch", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkright/in/Use", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkright/in/Pause", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkright/in/Walk", "type": "vector2" },
+		{ "name": "/actions/gunleft_walkright/in/Turn", "type": "vector2" },
+		{ "name": "/actions/gunleft_walkright/in/ResetPosition", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkright/in/MenuSelect", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkright/in/MenuBack", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkright/in/MenuUp", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkright/in/MenuDown", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkright/in/MenuLeft", "type": "boolean" },
+		{ "name": "/actions/gunleft_walkright/in/MenuRight", "type": "boolean" }
 	],
 
 	"action_sets": [
-		{
-			"name": "/actions/main",
-			"usage": "leftright"
-		},
-		{
-		  "name": "/actions/base",
-		  "usage": "hidden"
-		}
+		{ "name": "/actions/gunright_walkleft", "usage": "leftright" },
+		{ "name": "/actions/gunleft_walkleft", "usage": "leftright" },
+		{ "name": "/actions/gunright_walkright", "usage": "leftright" },
+		{ "name": "/actions/gunleft_walkright", "usage": "leftright" },
+		{ "name": "/actions/base", "usage": "hidden" }
 	],
 
-	"localization" : [
+	"localization": [
 		{
 			"language_tag": "en_us",
-			"/actions/main" : "Main",
-			"/actions/main/in/PrimaryAttack" : "Primary Attack",
-			"/actions/main/in/SecondaryAttack" : "Secondary Attack",
-			"/actions/main/in/ThirdAttack" : "Third Attack",
-			"/actions/main/in/Jump" : "Jump",
-			"/actions/main/in/Walk" : "Walk",
-			"/actions/main/in/Turn" : "Turn",
-			"/actions/main/in/Reload" : "Reload",
-			"/actions/main/in/Use" : "Use",
-			"/actions/main/in/QuickPing" : "Quick Ping",
-			"/actions/main/in/RemoteView" : "Remote View",
-			"/actions/main/in/NextItem" : "Next Item",
-			"/actions/main/in/PrevItem" : "Previous Item",
-			"/actions/main/in/ResetPosition" : "Reset Position",
-			"/actions/main/in/Crouch" : "Crouch",
-			"/actions/main/in/Flashlight" : "Flashlight",
-			"/actions/main/in/ActivateVR" : "Activate VR",
-			"/actions/main/in/MenuSelect" : "Menu Select",
-			"/actions/main/in/MenuBack" : "Menu Back",
-			"/actions/main/in/MenuUp" : "Menu Up",
-			"/actions/main/in/MenuDown" : "Menu Down",
-			"/actions/main/in/MenuLeft" : "Menu Left",
-			"/actions/main/in/MenuRight" : "Menu Right",
-			"/actions/main/in/Spray" : "Spray",
-			"/actions/main/in/Scoreboard" : "Show Scoreboard",
-			"/actions/main/in/ShowHUD" : "Show HUD",
-			"/actions/main/in/Pause" : "Pause",
-			"/actions/main/in/PointerLeft" : "Menu Laser Left",
-			"/actions/main/in/PointerRight" : "Menu Laser Right"
+			"/actions/gunright_walkleft": "Portal gun right, walk with the left stick",
+			"/actions/gunleft_walkleft": "Portal gun left, walk with the left stick",
+			"/actions/gunright_walkright": "Portal gun right, walk with the right stick",
+			"/actions/gunleft_walkright": "Portal gun left, walk with the right stick",
+			"/actions/gunright_walkleft/in/PrimaryAttack": "Primary Attack",
+			"/actions/gunright_walkleft/in/SecondaryAttack": "Secondary Attack",
+			"/actions/gunright_walkleft/in/Jump": "Jump",
+			"/actions/gunright_walkleft/in/Crouch": "Crouch",
+			"/actions/gunright_walkleft/in/Use": "Use",
+			"/actions/gunright_walkleft/in/Pause": "Pause",
+			"/actions/gunright_walkleft/in/Walk": "Walk",
+			"/actions/gunright_walkleft/in/Turn": "Turn",
+			"/actions/gunright_walkleft/in/ResetPosition": "Reset Position",
+			"/actions/gunright_walkleft/in/MenuSelect": "Menu Select",
+			"/actions/gunright_walkleft/in/MenuBack": "Menu Back",
+			"/actions/gunright_walkleft/in/MenuUp": "Menu Up",
+			"/actions/gunright_walkleft/in/MenuDown": "Menu Down",
+			"/actions/gunright_walkleft/in/MenuLeft": "Menu Left",
+			"/actions/gunright_walkleft/in/MenuRight": "Menu Right",
+			"/actions/gunleft_walkleft/in/PrimaryAttack": "Primary Attack",
+			"/actions/gunleft_walkleft/in/SecondaryAttack": "Secondary Attack",
+			"/actions/gunleft_walkleft/in/Jump": "Jump",
+			"/actions/gunleft_walkleft/in/Crouch": "Crouch",
+			"/actions/gunleft_walkleft/in/Use": "Use",
+			"/actions/gunleft_walkleft/in/Pause": "Pause",
+			"/actions/gunleft_walkleft/in/Walk": "Walk",
+			"/actions/gunleft_walkleft/in/Turn": "Turn",
+			"/actions/gunleft_walkleft/in/ResetPosition": "Reset Position",
+			"/actions/gunleft_walkleft/in/MenuSelect": "Menu Select",
+			"/actions/gunleft_walkleft/in/MenuBack": "Menu Back",
+			"/actions/gunleft_walkleft/in/MenuUp": "Menu Up",
+			"/actions/gunleft_walkleft/in/MenuDown": "Menu Down",
+			"/actions/gunleft_walkleft/in/MenuLeft": "Menu Left",
+			"/actions/gunleft_walkleft/in/MenuRight": "Menu Right",
+			"/actions/gunright_walkright/in/PrimaryAttack": "Primary Attack",
+			"/actions/gunright_walkright/in/SecondaryAttack": "Secondary Attack",
+			"/actions/gunright_walkright/in/Jump": "Jump",
+			"/actions/gunright_walkright/in/Crouch": "Crouch",
+			"/actions/gunright_walkright/in/Use": "Use",
+			"/actions/gunright_walkright/in/Pause": "Pause",
+			"/actions/gunright_walkright/in/Walk": "Walk",
+			"/actions/gunright_walkright/in/Turn": "Turn",
+			"/actions/gunright_walkright/in/ResetPosition": "Reset Position",
+			"/actions/gunright_walkright/in/MenuSelect": "Menu Select",
+			"/actions/gunright_walkright/in/MenuBack": "Menu Back",
+			"/actions/gunright_walkright/in/MenuUp": "Menu Up",
+			"/actions/gunright_walkright/in/MenuDown": "Menu Down",
+			"/actions/gunright_walkright/in/MenuLeft": "Menu Left",
+			"/actions/gunright_walkright/in/MenuRight": "Menu Right",
+			"/actions/gunleft_walkright/in/PrimaryAttack": "Primary Attack",
+			"/actions/gunleft_walkright/in/SecondaryAttack": "Secondary Attack",
+			"/actions/gunleft_walkright/in/Jump": "Jump",
+			"/actions/gunleft_walkright/in/Crouch": "Crouch",
+			"/actions/gunleft_walkright/in/Use": "Use",
+			"/actions/gunleft_walkright/in/Pause": "Pause",
+			"/actions/gunleft_walkright/in/Walk": "Walk",
+			"/actions/gunleft_walkright/in/Turn": "Turn",
+			"/actions/gunleft_walkright/in/ResetPosition": "Reset Position",
+			"/actions/gunleft_walkright/in/MenuSelect": "Menu Select",
+			"/actions/gunleft_walkright/in/MenuBack": "Menu Back",
+			"/actions/gunleft_walkright/in/MenuUp": "Menu Up",
+			"/actions/gunleft_walkright/in/MenuDown": "Menu Down",
+			"/actions/gunleft_walkright/in/MenuLeft": "Menu Left",
+			"/actions/gunleft_walkright/in/MenuRight": "Menu Right"
 		}
 	]
 }

@@ -51,7 +51,7 @@ Windows Defender can flag `d3d11.dll` as a potential threat. This is a false ala
 | Y | Pause menu | Back |
 | Left grip | Crouch | |
 
-You can change them in SteamVR's controller bindings.
+You can change them in SteamVR's controller bindings: in the action set named like your choice on the VR tab (portal gun hand, walk stick).
 
 ## Playing left-handed or seated
 Change these on the VR tab of the game's settings or in `Portal Revolution/VR/config.txt`.

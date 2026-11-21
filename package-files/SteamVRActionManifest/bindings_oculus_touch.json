@@ -22,6 +22,14 @@
             {
                "output" : "/actions/base/in/pose_righthand",
                "path" : "/user/hand/right/pose/raw"
+            },
+            {
+               "output" : "/actions/base/in/PointerLeft",
+               "path" : "/user/hand/left/pose/tip"
+            },
+            {
+               "output" : "/actions/base/in/PointerRight",
+               "path" : "/user/hand/right/pose/tip"
             }
          ],
          "skeleton" : [
@@ -36,70 +44,12 @@
          ],
          "sources" : []
       },
-      "/actions/main" : {
-         "poses" : [
-            {
-               "output" : "/actions/main/in/PointerLeft",
-               "path" : "/user/hand/left/pose/tip"
-            },
-            {
-               "output" : "/actions/main/in/PointerRight",
-               "path" : "/user/hand/right/pose/tip"
-            }
-         ],
+      "/actions/gunright_walkleft" : {
          "sources" : [
             {
                "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/ResetPosition"
-                  },
-                  "position" : {
-                     "output" : "/actions/main/in/Walk"
-                  }
-               },
-               "mode" : "joystick",
-               "parameters" : {
-                  "deadzone_pct" : "10"
-               },
-               "path" : "/user/hand/left/input/joystick"
-            },
-            {
-               "inputs" : {
-                  "click" : {
-                     "output" : "/actions/main/in/RemoteView"
-                  },
-                  "position" : {
-                     "output" : "/actions/main/in/Turn"
-                  }
-               },
-               "mode" : "joystick",
-               "parameters" : {
-                  "deadzone_pct" : "10"
-               },
-               "path" : "/user/hand/right/input/joystick"
-            },
-            {
-               "inputs" : {
-                  "click" : {
-                     "output" : "/actions/main/in/Reload"
-                  }
-               },
-               "mode" : "button",
-               "path" : "/user/hand/left/input/trigger"
-            },
-            {
-               "inputs" : {
-                  "click" : {
-                     "output" : "/actions/main/in/ThirdAttack"
-                  }
-               },
-               "mode" : "button",
-               "path" : "/user/hand/left/input/trigger"
-            },
-            {
-               "inputs" : {
-                  "click" : {
-                     "output" : "/actions/main/in/PrimaryAttack"
+                     "output" : "/actions/gunright_walkleft/in/PrimaryAttack"
                   }
                },
                "mode" : "button",
@@ -107,40 +57,17 @@
             },
             {
                "inputs" : {
-                  "east" : {
-                     "output" : "/actions/main/in/boolean_turnright"
-                  },
-                  "north" : {
-                     "output" : "/actions/main/in/PrevItem"
-                  },
-                  "south" : {
-                     "output" : "/actions/main/in/NextItem"
-                  },
-                  "west" : {
-                     "output" : "/actions/main/in/boolean_turnleft"
-                  }
-               },
-               "mode" : "dpad",
-               "parameters" : {
-                  "deadzone_pct" : "70",
-                  "overlap_pct" : "0",
-                  "sub_mode" : "touch"
-               },
-               "path" : "/user/hand/right/input/joystick"
-            },
-            {
-               "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/Use"
+                     "output" : "/actions/gunright_walkleft/in/Use"
                   }
                },
                "mode" : "button",
                "path" : "/user/hand/right/input/b"
             },
-			{
+            {
                "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/ActivateVR"
+                     "output" : "/actions/gunright_walkleft/in/Jump"
                   }
                },
                "mode" : "button",
@@ -149,75 +76,25 @@
             {
                "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/Jump"
+                     "output" : "/actions/gunright_walkleft/in/MenuSelect"
                   }
                },
                "mode" : "button",
                "path" : "/user/hand/right/input/a"
             },
-			{
+            {
                "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/MenuSelect"
-                  }
-               },
-               "mode" : "button",
-               "path" : "/user/hand/right/input/a"
-            },
-			{
-               "inputs" : {
-                  "click" : {
-                     "output" : "/actions/main/in/MenuBack"
+                     "output" : "/actions/gunright_walkleft/in/MenuBack"
                   }
                },
                "mode" : "button",
                "path" : "/user/hand/right/input/b"
             },
-			{
-               "inputs" : {
-                  "east" : {
-                     "output" : "/actions/main/in/MenuRight"
-                  },
-                  "north" : {
-                     "output" : "/actions/main/in/MenuUp"
-                  },
-                  "south" : {
-                     "output" : "/actions/main/in/MenuDown"
-                  },
-                  "west" : {
-                     "output" : "/actions/main/in/MenuLeft"
-                  }
-               },
-               "mode" : "dpad",
-               "parameters" : {
-                  "deadzone_pct" : "70",
-                  "overlap_pct" : "0",
-                  "sub_mode" : "touch"
-               },
-               "path" : "/user/hand/left/input/joystick"
-            },
-			{
+            {
                "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/Scoreboard"
-                  }
-               },
-               "mode" : "button",
-               "path" : "/user/hand/left/input/x"
-            },
-			{
-               "inputs" : {
-                  "click" : {
-                     "output" : "/actions/main/in/QuickPing"
-                  }
-               },
-               "mode" : "button",
-               "path" : "/user/hand/left/input/x"
-            },
-			{
-               "inputs" : {
-                  "click" : {
-                     "output" : "/actions/main/in/Pause"
+                     "output" : "/actions/gunright_walkleft/in/Pause"
                   }
                },
                "mode" : "button",
@@ -226,7 +103,7 @@
             {
                "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/Crouch"
+                     "output" : "/actions/gunright_walkleft/in/Crouch"
                   }
                },
                "mode" : "button",
@@ -235,7 +112,7 @@
             {
                "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/SecondaryAttack"
+                     "output" : "/actions/gunright_walkleft/in/SecondaryAttack"
                   }
                },
                "mode" : "button",
@@ -244,25 +121,10 @@
             {
                "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/ResetPosition"
+                     "output" : "/actions/gunright_walkleft/in/ResetPosition"
                   },
                   "position" : {
-                     "output" : "/actions/main/in/Walk"
-                  }
-               },
-               "mode" : "joystick",
-               "parameters" : {
-                  "deadzone_pct" : "10"
-               },
-               "path" : "/user/hand/right/input/joystick"
-            },
-            {
-               "inputs" : {
-                  "click" : {
-                     "output" : "/actions/main/in/RemoteView"
-                  },
-                  "position" : {
-                     "output" : "/actions/main/in/Turn"
+                     "output" : "/actions/gunright_walkleft/in/Walk"
                   }
                },
                "mode" : "joystick",
@@ -273,26 +135,47 @@
             },
             {
                "inputs" : {
-                  "click" : {
-                     "output" : "/actions/main/in/Reload"
+                  "position" : {
+                     "output" : "/actions/gunright_walkleft/in/Turn"
                   }
                },
-               "mode" : "button",
-               "path" : "/user/hand/right/input/trigger"
+               "mode" : "joystick",
+               "parameters" : {
+                  "deadzone_pct" : "10"
+               },
+               "path" : "/user/hand/right/input/joystick"
             },
             {
                "inputs" : {
-                  "click" : {
-                     "output" : "/actions/main/in/ThirdAttack"
+                  "east" : {
+                     "output" : "/actions/gunright_walkleft/in/MenuRight"
+                  },
+                  "north" : {
+                     "output" : "/actions/gunright_walkleft/in/MenuUp"
+                  },
+                  "south" : {
+                     "output" : "/actions/gunright_walkleft/in/MenuDown"
+                  },
+                  "west" : {
+                     "output" : "/actions/gunright_walkleft/in/MenuLeft"
                   }
                },
-               "mode" : "button",
-               "path" : "/user/hand/right/input/trigger"
-            },
+               "mode" : "dpad",
+               "parameters" : {
+                  "deadzone_pct" : "70",
+                  "overlap_pct" : "0",
+                  "sub_mode" : "touch"
+               },
+               "path" : "/user/hand/left/input/joystick"
+            }
+         ]
+      },
+      "/actions/gunleft_walkleft" : {
+         "sources" : [
             {
                "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/PrimaryAttack"
+                     "output" : "/actions/gunleft_walkleft/in/PrimaryAttack"
                   }
                },
                "mode" : "button",
@@ -300,31 +183,8 @@
             },
             {
                "inputs" : {
-                  "east" : {
-                     "output" : "/actions/main/in/boolean_turnright"
-                  },
-                  "north" : {
-                     "output" : "/actions/main/in/PrevItem"
-                  },
-                  "south" : {
-                     "output" : "/actions/main/in/NextItem"
-                  },
-                  "west" : {
-                     "output" : "/actions/main/in/boolean_turnleft"
-                  }
-               },
-               "mode" : "dpad",
-               "parameters" : {
-                  "deadzone_pct" : "70",
-                  "overlap_pct" : "0",
-                  "sub_mode" : "touch"
-               },
-               "path" : "/user/hand/left/input/joystick"
-            },
-            {
-               "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/Use"
+                     "output" : "/actions/gunleft_walkleft/in/Use"
                   }
                },
                "mode" : "button",
@@ -333,7 +193,7 @@
             {
                "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/ActivateVR"
+                     "output" : "/actions/gunleft_walkleft/in/Jump"
                   }
                },
                "mode" : "button",
@@ -342,7 +202,7 @@
             {
                "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/Jump"
+                     "output" : "/actions/gunleft_walkleft/in/MenuSelect"
                   }
                },
                "mode" : "button",
@@ -351,16 +211,7 @@
             {
                "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/MenuSelect"
-                  }
-               },
-               "mode" : "button",
-               "path" : "/user/hand/left/input/x"
-            },
-            {
-               "inputs" : {
-                  "click" : {
-                     "output" : "/actions/main/in/MenuBack"
+                     "output" : "/actions/gunleft_walkleft/in/MenuBack"
                   }
                },
                "mode" : "button",
@@ -368,49 +219,8 @@
             },
             {
                "inputs" : {
-                  "east" : {
-                     "output" : "/actions/main/in/MenuRight"
-                  },
-                  "north" : {
-                     "output" : "/actions/main/in/MenuUp"
-                  },
-                  "south" : {
-                     "output" : "/actions/main/in/MenuDown"
-                  },
-                  "west" : {
-                     "output" : "/actions/main/in/MenuLeft"
-                  }
-               },
-               "mode" : "dpad",
-               "parameters" : {
-                  "deadzone_pct" : "70",
-                  "overlap_pct" : "0",
-                  "sub_mode" : "touch"
-               },
-               "path" : "/user/hand/right/input/joystick"
-            },
-            {
-               "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/Scoreboard"
-                  }
-               },
-               "mode" : "button",
-               "path" : "/user/hand/right/input/a"
-            },
-            {
-               "inputs" : {
-                  "click" : {
-                     "output" : "/actions/main/in/QuickPing"
-                  }
-               },
-               "mode" : "button",
-               "path" : "/user/hand/right/input/a"
-            },
-            {
-               "inputs" : {
-                  "click" : {
-                     "output" : "/actions/main/in/Pause"
+                     "output" : "/actions/gunleft_walkleft/in/Pause"
                   }
                },
                "mode" : "button",
@@ -419,7 +229,7 @@
             {
                "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/Crouch"
+                     "output" : "/actions/gunleft_walkleft/in/Crouch"
                   }
                },
                "mode" : "button",
@@ -428,11 +238,313 @@
             {
                "inputs" : {
                   "click" : {
-                     "output" : "/actions/main/in/SecondaryAttack"
+                     "output" : "/actions/gunleft_walkleft/in/SecondaryAttack"
                   }
                },
                "mode" : "button",
                "path" : "/user/hand/left/input/grip"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunleft_walkleft/in/ResetPosition"
+                  },
+                  "position" : {
+                     "output" : "/actions/gunleft_walkleft/in/Walk"
+                  }
+               },
+               "mode" : "joystick",
+               "parameters" : {
+                  "deadzone_pct" : "10"
+               },
+               "path" : "/user/hand/left/input/joystick"
+            },
+            {
+               "inputs" : {
+                  "position" : {
+                     "output" : "/actions/gunleft_walkleft/in/Turn"
+                  }
+               },
+               "mode" : "joystick",
+               "parameters" : {
+                  "deadzone_pct" : "10"
+               },
+               "path" : "/user/hand/right/input/joystick"
+            },
+            {
+               "inputs" : {
+                  "east" : {
+                     "output" : "/actions/gunleft_walkleft/in/MenuRight"
+                  },
+                  "north" : {
+                     "output" : "/actions/gunleft_walkleft/in/MenuUp"
+                  },
+                  "south" : {
+                     "output" : "/actions/gunleft_walkleft/in/MenuDown"
+                  },
+                  "west" : {
+                     "output" : "/actions/gunleft_walkleft/in/MenuLeft"
+                  }
+               },
+               "mode" : "dpad",
+               "parameters" : {
+                  "deadzone_pct" : "70",
+                  "overlap_pct" : "0",
+                  "sub_mode" : "touch"
+               },
+               "path" : "/user/hand/left/input/joystick"
+            }
+         ]
+      },
+      "/actions/gunright_walkright" : {
+         "sources" : [
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunright_walkright/in/PrimaryAttack"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/right/input/trigger"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunright_walkright/in/Use"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/right/input/b"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunright_walkright/in/Jump"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/right/input/a"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunright_walkright/in/MenuSelect"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/right/input/a"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunright_walkright/in/MenuBack"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/right/input/b"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunright_walkright/in/Pause"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/left/input/y"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunright_walkright/in/Crouch"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/left/input/grip"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunright_walkright/in/SecondaryAttack"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/right/input/grip"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunright_walkright/in/ResetPosition"
+                  },
+                  "position" : {
+                     "output" : "/actions/gunright_walkright/in/Walk"
+                  }
+               },
+               "mode" : "joystick",
+               "parameters" : {
+                  "deadzone_pct" : "10"
+               },
+               "path" : "/user/hand/right/input/joystick"
+            },
+            {
+               "inputs" : {
+                  "position" : {
+                     "output" : "/actions/gunright_walkright/in/Turn"
+                  }
+               },
+               "mode" : "joystick",
+               "parameters" : {
+                  "deadzone_pct" : "10"
+               },
+               "path" : "/user/hand/left/input/joystick"
+            },
+            {
+               "inputs" : {
+                  "east" : {
+                     "output" : "/actions/gunright_walkright/in/MenuRight"
+                  },
+                  "north" : {
+                     "output" : "/actions/gunright_walkright/in/MenuUp"
+                  },
+                  "south" : {
+                     "output" : "/actions/gunright_walkright/in/MenuDown"
+                  },
+                  "west" : {
+                     "output" : "/actions/gunright_walkright/in/MenuLeft"
+                  }
+               },
+               "mode" : "dpad",
+               "parameters" : {
+                  "deadzone_pct" : "70",
+                  "overlap_pct" : "0",
+                  "sub_mode" : "touch"
+               },
+               "path" : "/user/hand/right/input/joystick"
+            }
+         ]
+      },
+      "/actions/gunleft_walkright" : {
+         "sources" : [
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunleft_walkright/in/PrimaryAttack"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/left/input/trigger"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunleft_walkright/in/Use"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/left/input/y"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunleft_walkright/in/Jump"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/left/input/x"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunleft_walkright/in/MenuSelect"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/left/input/x"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunleft_walkright/in/MenuBack"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/left/input/y"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunleft_walkright/in/Pause"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/right/input/b"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunleft_walkright/in/Crouch"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/right/input/grip"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunleft_walkright/in/SecondaryAttack"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/left/input/grip"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/gunleft_walkright/in/ResetPosition"
+                  },
+                  "position" : {
+                     "output" : "/actions/gunleft_walkright/in/Walk"
+                  }
+               },
+               "mode" : "joystick",
+               "parameters" : {
+                  "deadzone_pct" : "10"
+               },
+               "path" : "/user/hand/right/input/joystick"
+            },
+            {
+               "inputs" : {
+                  "position" : {
+                     "output" : "/actions/gunleft_walkright/in/Turn"
+                  }
+               },
+               "mode" : "joystick",
+               "parameters" : {
+                  "deadzone_pct" : "10"
+               },
+               "path" : "/user/hand/left/input/joystick"
+            },
+            {
+               "inputs" : {
+                  "east" : {
+                     "output" : "/actions/gunleft_walkright/in/MenuRight"
+                  },
+                  "north" : {
+                     "output" : "/actions/gunleft_walkright/in/MenuUp"
+                  },
+                  "south" : {
+                     "output" : "/actions/gunleft_walkright/in/MenuDown"
+                  },
+                  "west" : {
+                     "output" : "/actions/gunleft_walkright/in/MenuLeft"
+                  }
+               },
+               "mode" : "dpad",
+               "parameters" : {
+                  "deadzone_pct" : "70",
+                  "overlap_pct" : "0",
+                  "sub_mode" : "touch"
+               },
+               "path" : "/user/hand/right/input/joystick"
             }
          ]
       }
@@ -444,4 +556,3 @@
    "options" : {},
    "simulated_actions" : []
 }
-

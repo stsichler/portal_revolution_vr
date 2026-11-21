@@ -2,7 +2,6 @@
 #include "openvr.h"
 #include "vector.h"
 #include <chrono>
-#include <unordered_map>
 
 #define MAX_STR_LEN 256
 
@@ -120,39 +119,34 @@ public:
 
 	bool m_PressedTurn = false;
 
-	// action set
-	vr::VRActionSetHandle_t m_ActionSet;
-	vr::VRActiveActionSet_t m_ActiveActionSet[2] = {}; // main, base (rumble)
+	// One action set per combination of LeftHanded and WalkWithRightStick, each with all actions;
+	// that one and base are active. Every binding in it counts, on either hand.
+	static constexpr int kSetCount = 4; // index: LeftHanded + 2 * WalkWithRightStick
+	vr::VRActionSetHandle_t m_ActionSets[kSetCount] = {};
+	vr::VRActiveActionSet_t m_ActiveActionSet[2] = {}; // m_ActionSets[m_ActiveSet], base (laser, rumble)
+	int m_ActiveSet = -1;
 
-	// actions
-	vr::VRActionHandle_t m_ActionJump;
-	vr::VRActionHandle_t m_ActionPrimaryAttack;
-	vr::VRActionHandle_t m_ActionSecondaryAttack;
-	vr::VRActionHandle_t m_ActionReload;
-	vr::VRActionHandle_t m_ActionWalk;
-	vr::VRActionHandle_t m_ActionTurn;
-	vr::VRActionHandle_t m_ActionUse;
-	vr::VRActionHandle_t m_ActionNextItem;
-	vr::VRActionHandle_t m_ActionPrevItem;
-	vr::VRActionHandle_t m_ActionResetPosition;
-	vr::VRActionHandle_t m_ActionCrouch;
-	vr::VRActionHandle_t m_ActionFlashlight;
-	vr::VRActionHandle_t m_ActionActivateVR;
-	vr::VRActionHandle_t m_ActionQuickPing;
-	vr::VRActionHandle_t m_ActionRemoteView;
-	vr::VRActionHandle_t m_MenuSelect;
-	vr::VRActionHandle_t m_MenuBack;
-	vr::VRActionHandle_t m_MenuUp;
-	vr::VRActionHandle_t m_MenuDown;
-	vr::VRActionHandle_t m_MenuLeft;
-	vr::VRActionHandle_t m_MenuRight;
-	vr::VRActionHandle_t m_Spray;
-	vr::VRActionHandle_t m_Scoreboard;
-	vr::VRActionHandle_t m_ShowHUD;
-	vr::VRActionHandle_t m_Pause;
-	vr::VRActionHandle_t m_ThirdAttack;
-	enum class ActionHand { Gun, OtherThanGun, WalkStick, TurnStick };
-	std::unordered_map<vr::VRActionHandle_t, ActionHand> m_ActionHands;
+	// An action, once in each set.
+	struct Action
+	{
+		vr::VRActionHandle_t handle[kSetCount] = { vr::k_ulInvalidActionHandle, vr::k_ulInvalidActionHandle,
+		                                           vr::k_ulInvalidActionHandle, vr::k_ulInvalidActionHandle };
+	};
+	Action m_ActionPrimaryAttack;
+	Action m_ActionSecondaryAttack;
+	Action m_ActionJump;
+	Action m_ActionCrouch;
+	Action m_ActionUse;
+	Action m_Pause;
+	Action m_ActionWalk;
+	Action m_ActionTurn;
+	Action m_ActionResetPosition;
+	Action m_MenuSelect;
+	Action m_MenuBack;
+	Action m_MenuUp;
+	Action m_MenuDown;
+	Action m_MenuLeft;
+	Action m_MenuRight;
 	vr::VRInputValueHandle_t m_InputHandLeft = vr::k_ulInvalidInputValueHandle;
 	vr::VRInputValueHandle_t m_InputHandRight = vr::k_ulInvalidInputValueHandle;
 	vr::VRActionHandle_t m_ActionPointerLeft;  // pose at /user/hand/left/pose/tip (menu laser)
@@ -256,7 +250,12 @@ public:
 	// The VR button for a hint of the game instructor, named by SteamVR, for a command of a lesson
 	// ("+use"); nullptr if the mod doesn't send that command. The text stays valid.
 	const char *HintButtonName(const char *binding);
-	void LogHintButtons();
+	// The first button of the action in the active set that SteamVR names; nullptr if none.
+	const char *ActionButtonName(const Action &action);
+	void LogHintButtons(bool menuVisible);
+	int m_HintButtonsLogged = -1; // set whose buttons are in the log
+	int m_HintButtonsSet = -1;    // set LogHintButtons waits for since m_HintButtonsSince
+	std::chrono::steady_clock::time_point m_HintButtonsSince;
 	vr::HmdMatrix34_t GetControllerTipMatrix(vr::ETrackedControllerRole controllerRole);
 	int GetPointerPose(vr::ETrackedControllerRole controllerRole, vr::HmdMatrix34_t &pose);
 	bool CheckOverlayIntersectionForController(vr::VROverlayHandle_t overlayHandle, vr::ETrackedControllerRole controllerRole);
@@ -271,9 +270,10 @@ public:
 	Vector GetViewOrigin(Vector setupOrigin);
 	Vector GetViewOriginLeft(Vector setupOrigin);
 	Vector GetViewOriginRight(Vector setupOrigin);
-	bool CheckDigitalActionChanged(vr::VRActionHandle_t& actionHandle, bool& state);
-	bool GetAnalogActionData(vr::VRActionHandle_t &actionHandle, vr::InputAnalogActionData_t &analogDataOut);
-	vr::VRInputValueHandle_t RestrictToHand(vr::VRActionHandle_t action) const;
+	bool CheckDigitalActionChanged(const Action &action, bool &state);
+	bool GetAnalogActionData(const Action &action, vr::InputAnalogActionData_t &analogDataOut);
+	vr::VRActionHandle_t ActiveHandle(const Action &action) const; // in the active set
+	void UpdateActiveActionSet();
 	float WalkYaw() const;
 	void UpdateTrackingSpace();
 	void ResetPosition();

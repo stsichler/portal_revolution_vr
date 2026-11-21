@@ -515,6 +515,20 @@ void VR::initD3D11Callbacks()
         };
 }
 
+namespace
+{
+    // The action sets of action_manifest.json without base, by LeftHanded + 2 * WalkWithRightStick.
+    const char *const kActionSets[VR::kSetCount] = { "gunright_walkleft", "gunleft_walkleft", "gunright_walkright", "gunleft_walkright" };
+    // The actions in each of them.
+    const std::pair<VR::Action VR::*, const char *> kActions[] = {
+        {&VR::m_ActionPrimaryAttack, "PrimaryAttack"}, {&VR::m_ActionSecondaryAttack, "SecondaryAttack"},
+        {&VR::m_ActionJump, "Jump"}, {&VR::m_ActionCrouch, "Crouch"}, {&VR::m_ActionUse, "Use"}, {&VR::m_Pause, "Pause"},
+        {&VR::m_ActionWalk, "Walk"}, {&VR::m_ActionTurn, "Turn"}, {&VR::m_ActionResetPosition, "ResetPosition"},
+        {&VR::m_MenuSelect, "MenuSelect"}, {&VR::m_MenuBack, "MenuBack"},
+        {&VR::m_MenuUp, "MenuUp"}, {&VR::m_MenuDown, "MenuDown"}, {&VR::m_MenuLeft, "MenuLeft"}, {&VR::m_MenuRight, "MenuRight"},
+    };
+}
+
 int VR::SetActionManifest(const char *fileName)
 {
     char currentDir[MAX_STR_LEN];
@@ -527,55 +541,24 @@ int VR::SetActionManifest(const char *fileName)
         Game::errorMsg("SetActionManifestPath failed");
     }
 
-    m_Input->GetActionHandle("/actions/main/in/ActivateVR", &m_ActionActivateVR);
-    m_Input->GetActionHandle("/actions/main/in/Jump", &m_ActionJump);
-    m_Input->GetActionHandle("/actions/main/in/PrimaryAttack", &m_ActionPrimaryAttack);
-    m_Input->GetActionHandle("/actions/main/in/Reload", &m_ActionReload);
-    m_Input->GetActionHandle("/actions/main/in/Use", &m_ActionUse);
-    m_Input->GetActionHandle("/actions/main/in/Walk", &m_ActionWalk);
-    m_Input->GetActionHandle("/actions/main/in/Turn", &m_ActionTurn);
-    m_Input->GetActionHandle("/actions/main/in/SecondaryAttack", &m_ActionSecondaryAttack);
-    m_Input->GetActionHandle("/actions/main/in/NextItem", &m_ActionNextItem);
-    m_Input->GetActionHandle("/actions/main/in/PrevItem", &m_ActionPrevItem);
-    m_Input->GetActionHandle("/actions/main/in/ResetPosition", &m_ActionResetPosition);
-    m_Input->GetActionHandle("/actions/main/in/Crouch", &m_ActionCrouch);
-    m_Input->GetActionHandle("/actions/main/in/Flashlight", &m_ActionFlashlight);
-    m_Input->GetActionHandle("/actions/main/in/QuickPing", &m_ActionQuickPing);
-    m_Input->GetActionHandle("/actions/main/in/RemoteView", &m_ActionRemoteView);
-    m_Input->GetActionHandle("/actions/main/in/MenuSelect", &m_MenuSelect);
-    m_Input->GetActionHandle("/actions/main/in/MenuBack", &m_MenuBack);
-    m_Input->GetActionHandle("/actions/main/in/MenuUp", &m_MenuUp);
-    m_Input->GetActionHandle("/actions/main/in/MenuDown", &m_MenuDown);
-    m_Input->GetActionHandle("/actions/main/in/MenuLeft", &m_MenuLeft);
-    m_Input->GetActionHandle("/actions/main/in/MenuRight", &m_MenuRight);
-    m_Input->GetActionHandle("/actions/main/in/Spray", &m_Spray);
-    m_Input->GetActionHandle("/actions/main/in/Scoreboard", &m_Scoreboard);
-    m_Input->GetActionHandle("/actions/main/in/ShowHUD", &m_ShowHUD);
-    m_Input->GetActionHandle("/actions/main/in/Pause", &m_Pause);
-    m_Input->GetActionHandle("/actions/main/in/ThirdAttack", &m_ThirdAttack);
-    m_Input->GetActionHandle("/actions/main/in/PointerLeft", &m_ActionPointerLeft);
-    m_Input->GetActionHandle("/actions/main/in/PointerRight", &m_ActionPointerRight);
+    for (int set = 0; set < kSetCount; ++set)
+    {
+        const std::string path = std::string("/actions/") + kActionSets[set];
+        m_Input->GetActionSetHandle(path.c_str(), &m_ActionSets[set]);
+        for (const auto &[member, name] : kActions)
+            m_Input->GetActionHandle((path + "/in/" + name).c_str(), &(this->*member).handle[set]);
+    }
+    m_Input->GetActionHandle("/actions/base/in/PointerLeft", &m_ActionPointerLeft);
+    m_Input->GetActionHandle("/actions/base/in/PointerRight", &m_ActionPointerRight);
     m_Input->GetActionHandle("/actions/base/out/vibration_left", &m_ActionVibrationLeft);
     m_Input->GetActionHandle("/actions/base/out/vibration_right", &m_ActionVibrationRight);
-
-    // The bindings have every action on both hands; RestrictToHand picks the one that counts.
     m_Input->GetInputSourceHandle("/user/hand/left", &m_InputHandLeft);
     m_Input->GetInputSourceHandle("/user/hand/right", &m_InputHandRight);
-    for (const vr::VRActionHandle_t action : { m_ActionPrimaryAttack, m_ActionSecondaryAttack, m_ActionUse, m_ActionJump, m_ActionActivateVR, m_MenuSelect, m_MenuBack })
-        m_ActionHands[action] = ActionHand::Gun;
-    for (const vr::VRActionHandle_t action : { m_ActionReload, m_ThirdAttack, m_ActionCrouch, m_Scoreboard, m_ActionQuickPing, m_Pause })
-        m_ActionHands[action] = ActionHand::OtherThanGun;
-    for (const vr::VRActionHandle_t action : { m_ActionWalk, m_ActionResetPosition, m_MenuUp, m_MenuDown, m_MenuLeft, m_MenuRight })
-        m_ActionHands[action] = ActionHand::WalkStick;
-    for (const vr::VRActionHandle_t action : { m_ActionTurn, m_ActionRemoteView, m_ActionPrevItem, m_ActionNextItem })
-        m_ActionHands[action] = ActionHand::TurnStick;
 
-    m_Input->GetActionSetHandle("/actions/main", &m_ActionSet);
-    m_ActiveActionSet[0] = {};
-    m_ActiveActionSet[0].ulActionSet = m_ActionSet;
     // Haptic outputs (rumble) only work while their action set is active.
     m_ActiveActionSet[1] = {};
     m_Input->GetActionSetHandle("/actions/base", &m_ActiveActionSet[1].ulActionSet);
+    UpdateActiveActionSet();
 
     return 0;
 }
@@ -637,8 +620,9 @@ void VR::Update()
     {
         ResetPosition();
         m_InitialPosReset = true;
-        LogHintButtons();
     }
+    if (m_InitialPosReset)
+        LogHintButtons(menuVisible);
 
     UpdateNotice(menuVisible);
 
@@ -692,16 +676,13 @@ void VR::UpdateRumble(bool menuVisible)
 namespace
 {
     // The commands ProcessInput sends (and walking/turning, which move without one).
-    const std::pair<const char *, vr::VRActionHandle_t VR::*> kHintCommands[] = {
+    const std::pair<const char *, VR::Action VR::*> kHintCommands[] = {
         {"attack", &VR::m_ActionPrimaryAttack}, {"attack2", &VR::m_ActionSecondaryAttack},
         {"jump", &VR::m_ActionJump}, {"duck", &VR::m_ActionCrouch}, {"toggle_duck", &VR::m_ActionCrouch},
-        {"use", &VR::m_ActionUse}, {"quick_ping", &VR::m_ActionQuickPing}, {"remote_view", &VR::m_ActionRemoteView},
-        {"reload", &VR::m_ActionReload}, {"invprev", &VR::m_ActionPrevItem}, {"invnext", &VR::m_ActionNextItem},
-        {"impulse 100", &VR::m_ActionFlashlight}, {"impulse 201", &VR::m_Spray}, {"gameui_activate", &VR::m_Pause},
+        {"use", &VR::m_ActionUse}, {"gameui_activate", &VR::m_Pause},
         {"forward", &VR::m_ActionWalk}, {"back", &VR::m_ActionWalk}, {"moveleft", &VR::m_ActionWalk},
         {"moveright", &VR::m_ActionWalk}, {"left", &VR::m_ActionTurn}, {"right", &VR::m_ActionTurn},
     };
-    bool g_HintLogQuiet = false; // LogHintButtons logs them all in one line
 }
 
 const char *VR::HintButtonName(const char *binding)
@@ -717,7 +698,6 @@ const char *VR::HintButtonName(const char *binding)
         std::chrono::steady_clock::time_point at;
     };
     static std::unordered_map<std::string, Entry> cache;
-    static std::unordered_set<std::string> names; // the game keeps the pointers: never freed
     const auto now = std::chrono::steady_clock::now();
     const auto cached = cache.find(command);
     if (cached != cache.end() && now - cached->second.at < kRefresh)
@@ -727,75 +707,7 @@ const char *VR::HintButtonName(const char *binding)
     const char *name = nullptr;
     if (known != std::end(kHintCommands))
     {
-        // Short names for the game's key icons (2 characters fit a square one), with R/L in front
-        // if the other hand has the same input bound to the action too.
-        struct Origin
-        {
-            bool left;
-            std::string label;
-        };
-        const auto describe = [&](vr::VRInputValueHandle_t origin, Origin &out)
-        {
-            vr::InputOriginInfo_t info = {};
-            if (m_Input->GetOriginTrackedDeviceInfo(origin, &info, sizeof(info)) != vr::VRInputError_None)
-                return false;
-            out.left = info.devicePath == m_InputHandLeft;
-            std::string part = info.rchRenderModelComponentName;
-            std::transform(part.begin(), part.end(), part.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-            // The component of the controller's model, e.g. "trigger", "thumbstick".
-            static const std::pair<const char *, const char *> kParts[] = {
-                {"trigger", "Trigger"}, {"grip", "Grip"}, {"stick", "Stick"}, {"pad", "Pad"}, {"menu", "Menu"}, {"system", "Menu"},
-            };
-            for (const auto &[contains, label] : kParts)
-            {
-                if (part.find(contains) != std::string::npos)
-                {
-                    out.label = label;
-                    return true;
-                }
-            }
-            // A button with a letter: SteamVR's name has it as a word of its own ("B-Taste", "B Button").
-            // Otherwise SteamVR's name (SteamVR gives no model component for the Touch controllers).
-            char text[64] = {};
-            if (m_Input->GetOriginLocalizedName(origin, text, sizeof(text), vr::VRInputString_InputSource) != vr::VRInputError_None || !text[0])
-                return false;
-            const size_t length = strlen(text);
-            for (size_t i = 0; i < length; ++i)
-            {
-                const bool startsWord = i == 0 || !isalnum((unsigned char)text[i - 1]);
-                const bool endsWord = i + 1 == length || !isalnum((unsigned char)text[i + 1]);
-                if (startsWord && endsWord && strchr("ABXY", text[i]))
-                {
-                    out.label = std::string(1, text[i]);
-                    return true;
-                }
-            }
-            out.label = text; // can be long
-            return true;
-        };
-
-        const vr::VRActionHandle_t action = this->*known->second;
-        const vr::VRInputValueHandle_t hand = RestrictToHand(action);
-        const bool wantLeft = hand == m_InputHandLeft;
-        vr::VRInputValueHandle_t origins[16] = {};
-        std::vector<Origin> found;
-        if (m_Input->GetActionOrigins(m_ActionSet, action, origins, (uint32_t)std::size(origins)) == vr::VRInputError_None)
-        {
-            for (const vr::VRInputValueHandle_t origin : origins)
-            {
-                Origin described;
-                if (origin == vr::k_ulInvalidInputValueHandle)
-                    break;
-                if (describe(origin, described))
-                    found.push_back(described);
-            }
-        }
-        const auto mine = std::find_if(found.begin(), found.end(), [&](const Origin &o) { return hand == vr::k_ulInvalidInputValueHandle || o.left == wantLeft; });
-        if (mine != found.end())
-        {
-            const bool both = std::any_of(found.begin(), found.end(), [&](const Origin &o) { return o.left != mine->left && o.label == mine->label; });
-            name = names.insert(both ? std::string(mine->left ? "L " : "R ") + mine->label : mine->label).first->c_str();
-        }
+        name = ActionButtonName(this->*known->second);
         // No origins while SteamVR's overlay or the menu has the input: keep the last name.
         if (!name && cached != cache.end())
             name = cached->second.name;
@@ -803,24 +715,104 @@ const char *VR::HintButtonName(const char *binding)
 
     const bool changed = cached == cache.end() || cached->second.name != name;
     cache[command] = { name, now };
-    if (changed && !g_HintLogQuiet)
+    if (changed)
         std::cout << "[Hints] " << binding << ": " << (name ? name : known != std::end(kHintCommands) ? "no VR button bound" : "no VR action, keyboard key") << "\n";
     return name;
 }
 
-// One line in the log with the button of every command, for reports (most hints are rare).
-void VR::LogHintButtons()
+const char *VR::ActionButtonName(const Action &action)
 {
-    g_HintLogQuiet = true;
+    static std::unordered_set<std::string> names; // the game keeps the pointers: never freed
+
+    // Short names for the game's key icons (2 characters fit a square one), with R/L in front.
+    // Not for letters on controllers whose four buttons have different ones (B is right).
+    const auto describe = [&](vr::VRInputValueHandle_t origin, std::string &out)
+    {
+        vr::InputOriginInfo_t info = {};
+        if (m_Input->GetOriginTrackedDeviceInfo(origin, &info, sizeof(info)) != vr::VRInputError_None)
+            return false;
+        const std::string hand = info.devicePath == m_InputHandLeft ? "L " : "R ";
+        std::string part = info.rchRenderModelComponentName;
+        std::transform(part.begin(), part.end(), part.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+        // The component of the controller's model, e.g. "trigger", "thumbstick".
+        static const std::pair<const char *, const char *> kParts[] = {
+            {"trigger", "Trigger"}, {"grip", "Grip"}, {"stick", "Stick"}, {"pad", "Pad"}, {"menu", "Menu"}, {"system", "Menu"},
+        };
+        for (const auto &[contains, label] : kParts)
+        {
+            if (part.find(contains) != std::string::npos)
+            {
+                out = hand + label;
+                return true;
+            }
+        }
+        // A button with a letter: SteamVR's name has it as a word of its own ("B-Taste", "B Button").
+        // Otherwise SteamVR's name (SteamVR gives no model component for the Touch controllers).
+        char text[64] = {};
+        if (m_Input->GetOriginLocalizedName(origin, text, sizeof(text), vr::VRInputString_InputSource) != vr::VRInputError_None || !text[0])
+            return false;
+        const size_t length = strlen(text);
+        for (size_t i = 0; i < length; ++i)
+        {
+            const bool startsWord = i == 0 || !isalnum((unsigned char)text[i - 1]);
+            const bool endsWord = i + 1 == length || !isalnum((unsigned char)text[i + 1]);
+            if (startsWord && endsWord && strchr("ABXY", text[i]))
+            {
+                char type[64] = {};
+                m_System->GetStringTrackedDeviceProperty(info.trackedDeviceIndex, vr::Prop_ControllerType_String, type, sizeof(type));
+                const bool ownLetters = !strcmp(type, "oculus_touch") || !strcmp(type, "vive_cosmos_controller");
+                out = (ownLetters ? "" : hand) + text[i];
+                return true;
+            }
+        }
+        out = hand + text; // can be long
+        return true;
+    };
+
+    // The first origin of the action that has a name.
+    vr::VRInputValueHandle_t origins[16] = {};
+    if (m_Input->GetActionOrigins(m_ActionSets[(std::max)(m_ActiveSet, 0)], ActiveHandle(action), origins, (uint32_t)std::size(origins)) != vr::VRInputError_None)
+        return nullptr;
+    std::string label;
+    for (const vr::VRInputValueHandle_t origin : origins)
+    {
+        if (origin == vr::k_ulInvalidInputValueHandle)
+            break;
+        if (describe(origin, label))
+            return names.insert(label).first->c_str();
+    }
+    return nullptr;
+}
+
+// One line in the log with the button of every command of the active set, for reports (most hints
+// are rare). Once SteamVR names a button, at the latest after kWait: it names none for a while
+// after the start or a set change. Not in the menu (no origins while it has the input).
+void VR::LogHintButtons(bool menuVisible)
+{
+    constexpr auto kWait = std::chrono::seconds(10); // then also without names (nothing bound?)
+    if (menuVisible)
+        m_HintButtonsSet = -1; // wait anew afterwards
+    if (m_HintButtonsLogged == m_ActiveSet || m_ActiveSet < 0 || menuVisible)
+        return;
+    const auto now = std::chrono::steady_clock::now();
+    if (m_HintButtonsSet != m_ActiveSet)
+    {
+        m_HintButtonsSet = m_ActiveSet;
+        m_HintButtonsSince = now;
+    }
+    bool any = false;
     std::string line = "[Hints] VR buttons:";
     for (const auto &[command, action] : kHintCommands)
     {
-        const char *name = HintButtonName(command);
+        const char *name = ActionButtonName(this->*action);
+        any = any || name;
         line += std::string(" ") + command + "=" + (name ? name : "-") + ",";
     }
+    if (!any && now - m_HintButtonsSince < kWait)
+        return;
     line.back() = '\n';
-    g_HintLogQuiet = false;
     std::cout << line;
+    m_HintButtonsLogged = m_ActiveSet;
 }
 
 // What the compositor gets: CopyBackBufferToEye fills them, the game doesn't know them.
@@ -1599,7 +1591,26 @@ void VR::GetPoses()
 void VR::UpdatePosesAndActions()
 {
     vr::VRCompositor()->WaitGetPoses(m_Poses, vr::k_unMaxTrackedDeviceCount, NULL, 0);
-    m_Input->UpdateActionState(m_ActiveActionSet, sizeof(vr::VRActiveActionSet_t), 2);
+    UpdateActiveActionSet();
+    m_Input->UpdateActionState(m_ActiveActionSet, sizeof(vr::VRActiveActionSet_t), (uint32_t)std::size(m_ActiveActionSet));
+}
+
+// LeftHanded and WalkWithRightStick can change while the game runs (menu, config.txt).
+void VR::UpdateActiveActionSet()
+{
+    const int active = m_LeftHanded + 2 * m_WalkWithRightStick;
+    if (active == m_ActiveSet)
+        return;
+    m_ActiveActionSet[0] = {};
+    m_ActiveActionSet[0].ulActionSet = m_ActionSets[active];
+    // A button held in the old set never reports its release.
+    if (m_ActiveSet >= 0)
+    {
+        for (const char *command : { "-attack", "-attack2", "-jump", "-duck", "-use" })
+            m_Game->ClientCmd_Unrestricted(command);
+    }
+    m_ActiveSet = active;
+    std::cout << "[VR] action set: " << kActionSets[active] << "\n";
 }
 
 void VR::GetViewParameters()
@@ -1615,21 +1626,9 @@ void VR::GetViewParameters()
     m_EyeToHeadTransformPosRight.z = eyeToHeadRight.m[2][3];
 }
 
-vr::VRInputValueHandle_t VR::RestrictToHand(vr::VRActionHandle_t action) const
+vr::VRActionHandle_t VR::ActiveHandle(const Action &action) const
 {
-    const auto hand = m_ActionHands.find(action);
-    if (hand == m_ActionHands.end())
-        return vr::k_ulInvalidInputValueHandle;
-
-    bool left = false;
-    switch (hand->second)
-    {
-    case ActionHand::Gun: left = m_LeftHanded; break;
-    case ActionHand::OtherThanGun: left = !m_LeftHanded; break;
-    case ActionHand::WalkStick: left = !m_WalkWithRightStick; break;
-    case ActionHand::TurnStick: left = m_WalkWithRightStick; break;
-    }
-    return left ? m_InputHandLeft : m_InputHandRight;
+    return m_ActiveSet >= 0 ? action.handle[m_ActiveSet] : vr::k_ulInvalidActionHandle;
 }
 
 // Where the walk stick's "forward" points: the head or the walk stick's hand. GetPoses has
@@ -1641,10 +1640,10 @@ float VR::WalkYaw() const
     return m_WalkWithRightStick != m_LeftHanded ? m_RightControllerAngAbs.y : m_LeftControllerAngAbs.y;
 }
 
-bool VR::CheckDigitalActionChanged(vr::VRActionHandle_t &actionHandle, bool &state)
+bool VR::CheckDigitalActionChanged(const Action &action, bool &state)
 {
     vr::InputDigitalActionData_t digitalActionData;
-    vr::EVRInputError result = m_Input->GetDigitalActionData(actionHandle, &digitalActionData, sizeof(digitalActionData), RestrictToHand(actionHandle));
+    vr::EVRInputError result = m_Input->GetDigitalActionData(ActiveHandle(action), &digitalActionData, sizeof(digitalActionData), vr::k_ulInvalidInputValueHandle);
 
     if (result == vr::VRInputError_None)
     {
@@ -1656,9 +1655,9 @@ bool VR::CheckDigitalActionChanged(vr::VRActionHandle_t &actionHandle, bool &sta
     return false;
 }
 
-bool VR::GetAnalogActionData(vr::VRActionHandle_t &actionHandle, vr::InputAnalogActionData_t &analogDataOut)
+bool VR::GetAnalogActionData(const Action &action, vr::InputAnalogActionData_t &analogDataOut)
 {
-    vr::EVRInputError result = m_Input->GetAnalogActionData(actionHandle, &analogDataOut, sizeof(analogDataOut), RestrictToHand(actionHandle));
+    vr::EVRInputError result = m_Input->GetAnalogActionData(ActiveHandle(action), &analogDataOut, sizeof(analogDataOut), vr::k_ulInvalidInputValueHandle);
 
     if (result == vr::VRInputError_None)
         return true;
@@ -1929,11 +1928,6 @@ void VR::ProcessInput()
         m_Game->ClientCmd_Unrestricted(state ? "+attack2" : "-attack2");
     }
 
-    if (CheckDigitalActionChanged(m_ThirdAttack, state) && state)
-    {
-        m_Game->ClientCmd_Unrestricted("ent_fire @att3 trigger");
-    }
-
     if (CheckDigitalActionChanged(m_ActionJump, state))
     {
         m_Game->ClientCmd_Unrestricted(state ? "+jump" : "-jump");
@@ -1949,43 +1943,9 @@ void VR::ProcessInput()
         m_Game->ClientCmd_Unrestricted(state ? "+use" : "-use");
     }
 
-    if (CheckDigitalActionChanged(m_ActionQuickPing, state))
-    {
-        m_Game->ClientCmd_Unrestricted(state ? "+quick_ping" : "-quick_ping");
-    }
-
-    if (CheckDigitalActionChanged(m_ActionRemoteView, state))
-    {
-        m_Game->ClientCmd_Unrestricted(state ? "+remote_view" : "-remote_view");
-    }
-
-    if (CheckDigitalActionChanged(m_ActionReload, state))
-    {
-        m_Game->ClientCmd_Unrestricted(state ? "+reload" : "-reload");
-    }
-
-    if (CheckDigitalActionChanged(m_ActionPrevItem, state) && state)
-    {
-        m_Game->ClientCmd_Unrestricted("invprev");
-    }
-    else if (CheckDigitalActionChanged(m_ActionNextItem, state) && state)
-    {
-        m_Game->ClientCmd_Unrestricted("invnext");
-    }
-
     if (CheckDigitalActionChanged(m_ActionResetPosition, state) && state)
     {
         ResetPosition();
-    }
-
-    if (CheckDigitalActionChanged(m_ActionFlashlight, state) && state)
-    {
-        m_Game->ClientCmd_Unrestricted("impulse 100");
-    }
-
-    if (CheckDigitalActionChanged(m_Spray, state) && state)
-    {
-        m_Game->ClientCmd_Unrestricted("impulse 201");
     }
 
     if (CheckDigitalActionChanged(m_Pause, state) && state)

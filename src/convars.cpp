@@ -46,12 +46,20 @@ namespace
     typedef void(__fastcall *tInternalSetValue)(void *convar, const char *value);
     typedef void(__fastcall *tRegisterConCommand)(void *cvar, void *command, bool fromCommandLine);
 
+    // Two bools of config.txt as one variable: low + 2 * high (the menu has one list for both).
+    struct BoolPair
+    {
+        bool VR::*low; // config.txt: Setting::key
+        bool VR::*high;
+        const char *highKey; // in config.txt
+    };
+
     struct Setting
     {
         const char *key; // in config.txt
         const char *name;
         const char *help;
-        std::variant<bool VR::*, int VR::*, float VR::*> member;
+        std::variant<bool VR::*, int VR::*, float VR::*, BoolPair> member;
         double scale = 1; // variable = member * scale: the menu's sliders only take whole numbers
         uint8_t *convar = nullptr;
         std::string defaultValue; // the value at the start; Create keeps the pointer
@@ -68,8 +76,8 @@ namespace
         {"SnapTurning", "prvr_snap_turning", "1: the view jumps by prvr_snap_turn_angle. 0: it turns smoothly", &VR::m_SnapTurning},
         {"SnapTurnAngle", "prvr_snap_turn_angle", "Degrees", &VR::m_SnapTurnAngle},
         {"TurnSpeed", "prvr_turn_speed", "Smooth turning: degrees per second with the stick fully over", &VR::m_TurnSpeed, 1000},
-        {"LeftHanded", "prvr_left_handed", "1: the portal gun and the buttons change hands", &VR::m_LeftHanded},
-        {"WalkWithRightStick", "prvr_walk_with_right_stick", "1: the right stick walks, the left one turns", &VR::m_WalkWithRightStick},
+        {"LeftHanded", "prvr_hands", "Portal gun and walk stick. 0: gun right, walk left; 1: gun left, walk left; 2: gun right, walk right; 3: gun left, walk right",
+         BoolPair{&VR::m_LeftHanded, &VR::m_WalkWithRightStick, "WalkWithRightStick"}},
         {"HeadOrientedWalking", "prvr_head_oriented_walking", "1: the stick walks where your head looks, 0: where the hand points", &VR::m_HeadOrientedWalking},
         {"6DOF", "prvr_6dof", "0: only the head's rotation counts, not its position", &VR::m_6DOF},
         {"SeatedMode", "prvr_seated_mode", "0: your real eye height. 1: the eye height of the game's player", &VR::m_SeatedMode},
@@ -92,18 +100,32 @@ namespace
 
     double MemberValue(const VR &vr, const Setting &setting)
     {
-        return std::visit([&vr](auto member) { return static_cast<double>(vr.*member); }, setting.member);
+        return std::visit([&vr](auto member)
+            {
+                if constexpr (std::is_same_v<decltype(member), BoolPair>)
+                    return static_cast<double>(vr.*member.low + 2 * vr.*member.high);
+                else
+                    return static_cast<double>(vr.*member);
+            }, setting.member);
     }
 
     void SetMember(VR &vr, const Setting &setting, double value)
     {
         std::visit([&vr, value](auto member)
             {
-                using T = std::remove_reference_t<decltype(vr.*member)>;
-                if constexpr (std::is_same_v<T, bool>)
-                    vr.*member = value != 0;
+                if constexpr (std::is_same_v<decltype(member), BoolPair>)
+                {
+                    vr.*member.low = (static_cast<int>(value) & 1) != 0;
+                    vr.*member.high = (static_cast<int>(value) & 2) != 0;
+                }
                 else
-                    vr.*member = static_cast<T>(value);
+                {
+                    using T = std::remove_reference_t<decltype(vr.*member)>;
+                    if constexpr (std::is_same_v<T, bool>)
+                        vr.*member = value != 0;
+                    else
+                        vr.*member = static_cast<T>(value);
+                }
             }, setting.member);
     }
 
@@ -127,7 +149,7 @@ namespace
         if (std::holds_alternative<bool VR::*>(setting.member))
             return forConfig ? (value != 0 ? "true" : "false") : (value != 0 ? "1" : "0");
         std::ostringstream text;
-        if (std::holds_alternative<int VR::*>(setting.member))
+        if (!std::holds_alternative<float VR::*>(setting.member))
             text << static_cast<int>(value);
         else
             text << static_cast<float>(value);
@@ -256,9 +278,19 @@ void ConVars::Sync(VR &vr)
         if (setting.unwritten && now - setting.changedAt >= kWriteDelay)
         {
             setting.unwritten = false;
-            const std::string value = Text(setting, setting.lastMember, true);
-            WriteConfig(setting.key, value);
-            std::cout << "[ConVars] " << setting.name << " -> config.txt " << setting.key << "=" << value << "\n";
+            if (const BoolPair *pair = std::get_if<BoolPair>(&setting.member))
+            {
+                const char *low = vr.*pair->low ? "true" : "false", *high = vr.*pair->high ? "true" : "false";
+                WriteConfig(setting.key, low);
+                WriteConfig(pair->highKey, high);
+                std::cout << "[ConVars] " << setting.name << " -> config.txt " << setting.key << "=" << low << ", " << pair->highKey << "=" << high << "\n";
+            }
+            else
+            {
+                const std::string value = Text(setting, setting.lastMember, true);
+                WriteConfig(setting.key, value);
+                std::cout << "[ConVars] " << setting.name << " -> config.txt " << setting.key << "=" << value << "\n";
+            }
         }
     }
 }

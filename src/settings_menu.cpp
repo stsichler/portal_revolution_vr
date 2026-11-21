@@ -178,27 +178,22 @@ class PrvrSettings {
             <Label text="[[GroupHands]]" class="settings__page-group-title"/>
             <Panel class="settings__page-group">
 
-                <ChaosSettingsEnumDropDown text="[[GunHand]]" class="settings__page-group-item" convar="prvr_left_handed"
-                                           id="PrvrLeftHanded" selectionpos="auto" tabindex="auto">
-                    <Label acceptsfocus="true" text="[[Right]]" value="0" id="PrvrLeftHanded0"/>
-                    <Label acceptsfocus="true" text="[[Left]]" value="1" id="PrvrLeftHanded1"/>
+                <ChaosSettingsEnumDropDown text="[[GunHand]] / [[WalkWith]]" class="settings__page-group-item" convar="prvr_hands"
+                                           id="PrvrHands" selectionpos="auto" tabindex="auto">
+                    <Label acceptsfocus="true" text="[[Right]] / [[LeftStick]]" value="0" id="PrvrHands0"/>
+                    <Label acceptsfocus="true" text="[[Left]] / [[LeftStick]]" value="1" id="PrvrHands1"/>
+                    <Label acceptsfocus="true" text="[[Right]] / [[RightStick]]" value="2" id="PrvrHands2"/>
+                    <Label acceptsfocus="true" text="[[Left]] / [[RightStick]]" value="3" id="PrvrHands3"/>
                 </ChaosSettingsEnumDropDown>
 
-                <ChaosSettingsEnumDropDown text="[[WalkWith]]" class="settings__page-group-item settings__page-group-item-odd"
-                                           convar="prvr_walk_with_right_stick"
-                                           id="PrvrWalkWithRightStick" selectionpos="auto" tabindex="auto">
-                    <Label acceptsfocus="true" text="[[LeftStick]]" value="0" id="PrvrWalkWithRightStick0"/>
-                    <Label acceptsfocus="true" text="[[RightStick]]" value="1" id="PrvrWalkWithRightStick1"/>
-                </ChaosSettingsEnumDropDown>
-
-                <ChaosSettingsEnumDropDown text="[[WalkDirection]]" class="settings__page-group-item"
+                <ChaosSettingsEnumDropDown text="[[WalkDirection]]" class="settings__page-group-item settings__page-group-item-odd"
                                            convar="prvr_head_oriented_walking"
                                            id="PrvrHeadOrientedWalking" selectionpos="auto" tabindex="auto">
                     <Label acceptsfocus="true" text="[[Controller]]" value="0" id="PrvrHeadOrientedWalking0"/>
                     <Label acceptsfocus="true" text="[[Head]]" value="1" id="PrvrHeadOrientedWalking1"/>
                 </ChaosSettingsEnumDropDown>
 
-                <ChaosSettingsEnumDropDown text="[[AimingAid]]" class="settings__page-group-item settings__page-group-item-odd" convar="prvr_aim_mode"
+                <ChaosSettingsEnumDropDown text="[[AimingAid]]" class="settings__page-group-item" convar="prvr_aim_mode"
                                            id="PrvrAimMode" selectionpos="auto" tabindex="auto">
                     <Label acceptsfocus="true" text="[[None]]" value="0" id="PrvrAimMode0"/>
                     <Label acceptsfocus="true" text="[[AimDot]]" value="1" id="PrvrAimMode1"/>
