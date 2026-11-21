@@ -15,6 +15,7 @@
 #include <vector>
 #include "MinHook.h"
 #include "game.h"
+#include "log.h"
 #include "sdk.h"
 #include "vr.h"
 
@@ -554,7 +555,7 @@ namespace
         const bool walking = std::sqrt(forward * forward + side * side) >= kRoomscale_StickDeadZone;
         const bool follow = RoomscaleEnabled() && state.hasPosition && !walking && PlayerOnGround()
             && distance >= (state.following ? kRoomscale_StopDistance : kRoomscale_StartDistance);
-        if (follow != state.following)
+        if (follow != state.following && VerboseLog())
             std::cout << "[VR] roomscale: " << (follow ? "following" : "stopped") << ", head " << distance << " away\n";
         state.following = follow;
         state.walking = walking;
@@ -685,8 +686,9 @@ namespace
 
         Vector offset = vr->m_HmdPosRelative;
         offset.z = 0;
-        std::cout << "[VR] portal passage: yaw " << yaw << " after " << g_PortalPassage.frames << " frames, head "
-            << VectorLength(offset) << " away\n";
+        if (VerboseLog())
+            std::cout << "[VR] portal passage: yaw " << yaw << " after " << g_PortalPassage.frames << " frames, head "
+                      << VectorLength(offset) << " away\n";
     }
 
     void hkApplyPortalTeleportation(void *thisptr, const float (*matrix)[4], float time, bool undo, bool forcedDuck)
@@ -702,7 +704,8 @@ namespace
             // Taken back before the view has followed: nothing to turn.
             if (undo)
             {
-                std::cout << "[VR] portal passage taken back after " << g_PortalPassage.frames << " frames\n";
+                if (VerboseLog())
+                    std::cout << "[VR] portal passage taken back after " << g_PortalPassage.frames << " frames\n";
                 g_PortalPassage.waiting = false;
                 return;
             }
@@ -946,7 +949,7 @@ namespace
         const Vector ray = offset * ((distance + kRoomscale_WallMargin) / distance);
         const float fraction = g_PropPortalVTable && FindPortalBetween(eyes, eyes + ray) ? 1.0f : TraceShot(player, eyes, ray).fraction;
         const bool atWall = fraction > 0 && fraction < 1;
-        if (atWall != g_Roomscale.atWall)
+        if (atWall != g_Roomscale.atWall && VerboseLog())
             std::cout << "[VR] roomscale: head " << (atWall ? "at a wall" : "free") << "\n";
         g_Roomscale.atWall = atWall;
         if (!atWall)
@@ -970,7 +973,7 @@ namespace
         offset.z = 0;
         const float distance = VectorLength(offset);
         const bool pull = (state.walking || !PlayerOnGround()) && !g_PortalPassage.waiting;
-        if (pull != state.pullingBack)
+        if (pull != state.pullingBack && VerboseLog())
             std::cout << "[VR] roomscale: pull back " << (pull ? "started" : "ended") << ", head " << distance << " away\n";
         state.pullingBack = pull;
         const float movedDistance = VectorLength(moved);
@@ -1012,7 +1015,7 @@ namespace
         // and the view has to go along.
         const bool roomMoves = sinceCommand <= kRoomscale_CoastSeconds && VectorLength(step) <= kRoomscale_MaxStep
             && DotProduct(step, state.direction) > 0 && PlayerOnGround();
-        if (state.passedPortal)
+        if (state.passedPortal && VerboseLog())
             std::cout << "[VR] roomscale: step at the portal " << VectorLength(step) << ", room " << (roomMoves ? "moves along" : "stays") << "\n";
         state.passedPortal = false;
         if (roomMoves)
@@ -1045,7 +1048,7 @@ namespace
         g_ShotFromEyes = blocked;
 
         static bool wasBlocked = false;
-        if (blocked != wasBlocked)
+        if (blocked != wasBlocked && VerboseLog())
             std::cout << "[VR] shot starts at the " << (blocked ? "eyes" : "muzzle") << "\n";
         wasBlocked = blocked;
     }
@@ -1101,8 +1104,9 @@ namespace
 
             CreatePingPointer(player, aim);
             effect = *reinterpret_cast<void **>(player + g_PingEffectOffset);
-            std::cout << "[VR] laser: " << (effect ? "created" : "not created") << ", muzzle " << g_Muzzle.x << "," << g_Muzzle.y << "," << g_Muzzle.z
-                      << " aim " << aim.x << "," << aim.y << "," << aim.z << "\n";
+            if (VerboseLog())
+                std::cout << "[VR] laser: " << (effect ? "created" : "not created") << ", muzzle " << g_Muzzle.x << "," << g_Muzzle.y << "," << g_Muzzle.z
+                          << " aim " << aim.x << "," << aim.y << "," << aim.z << "\n";
             if (!effect)
                 return;
             SetDrawOnlyForSplitScreenUser(effect, kSplitScreen_AllUsers);
@@ -1122,7 +1126,7 @@ namespace
             VR *vr = g_StrataGame->m_VR;
             const uint8_t *gun = g_MuzzleValid ? ActivePortalgun(static_cast<uint8_t *>(g_ViewModelOwner)) : nullptr;
             const bool carrying = gun && gun[g_Portalgun_OpenProngs];
-            if (carrying != vr->m_ViewmodelCarrying)
+            if (carrying != vr->m_ViewmodelCarrying && VerboseLog())
                 std::cout << "[VR] gun carrying: " << carrying << "\n";
             vr->m_ViewmodelCarrying = carrying;
 

@@ -6,6 +6,7 @@
 #include <initializer_list>
 #include <string>
 #include "game.h"
+#include "log.h"
 #include "strata_hooks.h"
 #include "module_placement.h"
 #include "settings_menu.h"
@@ -172,7 +173,7 @@ static bool AddLaunchOptions()
 
 // Everything written to std::cout goes to prvr_debug.log, in every build: players attach it to a
 // report. It starts over with each game start and is flushed after every write, so it survives a
-// crash. Log events, not frames, to keep it small.
+// crash. Log events, not frames, to keep it small; frequent ones only with VerboseLog (log.h).
 static void SetupLog()
 {
     static std::ofstream logFile("prvr_debug.log", std::ios::trunc);
@@ -192,6 +193,16 @@ static void SetupLog()
     std::cout.rdbuf(&teeBuf);
     std::cout << std::unitbuf;
     AddVectoredExceptionHandler(1, CrashLogger);
+}
+
+bool VerboseLog()
+{
+#ifdef PRVR_DIAGNOSTICS
+    return true;
+#else
+    static const bool verbose = wcsstr(GetCommandLineW(), L"-prvr_verbose") != nullptr;
+    return verbose;
+#endif
 }
 
 DWORD WINAPI InitPRVR(HMODULE hModule)
@@ -216,7 +227,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
                 g_LaunchOptionsLog = "[LaunchOptions] tier0 CommandLine() not found, nothing added\n";
             }
             SetupLog();
-            std::cout << "[Mod] Portal Revolution VR " PRVR_VERSION "\n" << g_LaunchOptionsLog;
+            std::cout << "[Mod] Portal Revolution VR " PRVR_VERSION ", verbose log " << (VerboseLog() ? "on" : "off (launch option -prvr_verbose)")
+                      << "\n" << g_LaunchOptionsLog;
             // Synchronously: the D3D11 callbacks must be set before shaderapidx11 creates the device.
             g_Game = new Game();
             CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)InitPRVR, hModule, 0, NULL);

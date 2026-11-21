@@ -167,6 +167,7 @@
     <ClInclude Include="convars.h" />
     <ClInclude Include="d3d11_hooks.h" />
     <ClInclude Include="game.h" />
+    <ClInclude Include="log.h" />
     <ClInclude Include="module_placement.h" />
     <ClInclude Include="sdk\sdk.h" />
     <ClInclude Include="sdk\usercmd.h" />

@@ -67,7 +67,7 @@ Change these on the VR tab of the game's settings or in `Portal Revolution/VR/co
 3. Leave `SnapTurning=true`: the view jumps when you turn. With `false` it turns smoothly, and `VignetteTurning` darkens the edges meanwhile.
 
 ## Problems
-Please [open an issue](https://github.com/stsichler/portal_revolution_vr/issues) right after the game ended and attach `prvr_debug.log` from the game folder. It starts over with each game start. It can contain your Windows user name, so check it first.
+Please [open an issue](https://github.com/stsichler/portal_revolution_vr/issues) right after the game ended and attach `prvr_debug.log` from the game folder. It starts over with each game start. It can contain your Windows user name, so check it first. For more details in it, add `-prvr_verbose` to the game's launch options.
 
 ## Build instructions
 1. Clone the repository

@@ -5,6 +5,7 @@
 #include "game.h"
 #include "strata_hooks.h"
 #include "convars.h"
+#include "log.h"
 #include <dxgi1_3.h>
 #include <iostream>
 #include <fstream>
@@ -1166,8 +1167,9 @@ void VR::HideVignette()
 
     m_Overlay->HideOverlay(m_VignetteHandle);
     m_VignetteAlpha = 0;
-    std::cout << "[VR] vignette for " << std::chrono::duration<float>(std::chrono::steady_clock::now() - m_VignetteShownAt).count()
-              << " s, up to " << m_VignettePeak << "\n";
+    if (VerboseLog())
+        std::cout << "[VR] vignette for " << std::chrono::duration<float>(std::chrono::steady_clock::now() - m_VignetteShownAt).count()
+                  << " s, up to " << m_VignettePeak << "\n";
 }
 
 // Fixed to the head, in front of it (PlaceHudOverlay).
@@ -1686,7 +1688,8 @@ void VR::ProcessMenuInput()
     static int lastHovering = -1;
     if ((int)isHoveringOverlay != lastHovering)
     {
-        std::cout << "[VR] controller pointing at the menu overlay: " << isHoveringOverlay << "\n";
+        if (VerboseLog())
+            std::cout << "[VR] controller pointing at the menu overlay: " << isHoveringOverlay << "\n";
         lastHovering = isHoveringOverlay;
     }
 
@@ -1726,14 +1729,17 @@ void VR::ProcessMenuInput()
             case vr::VREvent_MouseButtonDown:
             {
                 toWindow(vrEvent.data.mouse, x, y);
-                POINT cursor = {};
-                GetCursorPos(&cursor);
-                if (window)
-                    ScreenToClient(window, &cursor);
-                std::cout << "[VR] menu click at overlay " << vrEvent.data.mouse.x << "," << vrEvent.data.mouse.y
-                          << " -> message " << x << "," << y << " (cursor " << cursor.x << "," << cursor.y
-                          << ", game window " << (window ? "found" : "NOT found")
-                          << (window && GetForegroundWindow() == window ? ", foreground" : ", NOT foreground") << ")\n";
+                if (VerboseLog())
+                {
+                    POINT cursor = {};
+                    GetCursorPos(&cursor);
+                    if (window)
+                        ScreenToClient(window, &cursor);
+                    std::cout << "[VR] menu click at overlay " << vrEvent.data.mouse.x << "," << vrEvent.data.mouse.y
+                              << " -> message " << x << "," << y << " (cursor " << cursor.x << "," << cursor.y
+                              << ", game window " << (window ? "found" : "NOT found")
+                              << (window && GetForegroundWindow() == window ? ", foreground" : ", NOT foreground") << ")\n";
+                }
                 if (window)
                 {
                     PostMessage(window, WM_MOUSEMOVE, laserMark, MAKELPARAM(x, y));

@@ -52,6 +52,9 @@
     <ClInclude Include="module_placement.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="log.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="convars.h">
       <Filter>Header Files</Filter>
     </ClInclude>
