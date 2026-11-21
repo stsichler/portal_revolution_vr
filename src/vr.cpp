@@ -2051,9 +2051,23 @@ int VR::GetPointerPose(vr::ETrackedControllerRole controllerRole, vr::HmdMatrix3
 
     if (havePointer && controllerPose)
     {
-        if (!m_HavePointerOffset[left])
-            std::cout << "[VR] laser " << (left ? "left" : "right") << ": tip offset learned from the pointer action\n";
         m_PointerOffset[left] = RelativePose(controllerPose->mDeviceToAbsoluteTracking, pointer.pose.mDeviceToAbsoluteTracking);
+        if (!m_HavePointerOffset[left])
+        {
+            // For the gun, placed at the tip: the controller's origin seen from the tip (x right,
+            // y up, -z along the laser, cm) and the laser in the controller's axes. Mirror images
+            // on the two hands of a symmetric controller pair.
+            const vr::HmdMatrix34_t &o = m_PointerOffset[left];
+            float origin[3], laser[3];
+            for (int i = 0; i < 3; ++i)
+            {
+                origin[i] = -100.0f * (o.m[0][i] * o.m[0][3] + o.m[1][i] * o.m[1][3] + o.m[2][i] * o.m[2][3]);
+                laser[i] = -o.m[i][2];
+            }
+            m_TipSideOffset[left] = origin[0] / 100.0f;
+            std::cout << "[VR] laser " << (left ? "left" : "right") << ": tip offset learned from the pointer action, controller origin at "
+                      << origin[0] << "," << origin[1] << "," << origin[2] << " cm from the tip, laser " << laser[0] << "," << laser[1] << "," << laser[2] << "\n";
+        }
         m_HavePointerOffset[left] = true;
     }
 
@@ -2124,6 +2138,11 @@ Vector VR::GetRecommendedViewmodelAbsPos(Vector eyePosition)
     viewmodelPos -= m_ViewmodelForward * m_ViewmodelPosOffset.x;
     viewmodelPos -= m_ViewmodelRight * m_ViewmodelPosOffset.y;
     viewmodelPos -= m_ViewmodelUp * m_ViewmodelPosOffset.z;
+    // The offsets fit the right hand. The left controller is its mirror image, also where the tip
+    // sits (Touch: 1.7 cm inward of the controller's origin), the unmirrored gun not: without this
+    // it sat 3.3 cm too far right in the left hand.
+    if (m_LeftHanded)
+        viewmodelPos += m_RightControllerRight * (2.0f * m_TipSideOffset[1] * m_VRScale);
 
     return viewmodelPos;
 }

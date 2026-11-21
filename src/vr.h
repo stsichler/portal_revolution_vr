@@ -158,6 +158,7 @@ public:
 	// pointer action is active, because the action goes inactive once the overlay takes input.
 	vr::HmdMatrix34_t m_PointerOffset[2] = {};
 	bool m_HavePointerOffset[2] = { false, false };
+	float m_TipSideOffset[2] = {}; // controller origin to the right of the tip, m (right, left)
 	bool m_AimFromTip[2] = { false, false }; // hand pose is the tip pose (0 = right, 1 = left)
 
 	TrackedDevicePoseData m_HmdPose;
