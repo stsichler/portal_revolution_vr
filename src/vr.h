@@ -176,11 +176,11 @@ public:
 	bool m_LeftHanded = false;
 	bool m_WalkWithRightStick = false;
 	bool m_HeadOrientedWalking = false; // the stick walks where the head looks, not the hand
-	float m_VRScale = 43.2f;
+	float m_VRScale = 46.1f;
 	float m_IpdScale = 1.0;
 	bool m_6DOF = true;
 	bool m_SeatedMode = false;
-	float m_SeatedHeightOffset = 4.0;
+	float m_SeatedHeightOffset = 8.0f;
 	bool m_Roomscale = true;
 	int m_AimMode = 1;
 	bool m_ApplyPitchAndRollPortalRotationOffset = true; // If `true`, the camera pitch/roll follows the exit portal's orientation when portalling

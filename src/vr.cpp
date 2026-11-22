@@ -20,6 +20,7 @@
 #include <vector>
 #include "d3d11_hooks.h"
 #include "settings_menu.h"
+#include <cstdlib>
 #include <cstring>
 #include <iterator>
 #include <unordered_set>
@@ -2409,7 +2410,8 @@ catch (const std::logic_error& e)
 }
 
 // Updates keep the player's VR\config.txt: the mod ships VR\config.default.txt, makes config.txt
-// from it if it's missing, and adds the keys that are new in it, with their comments.
+// from it if it's missing, and adds the keys that are new in it, with their comments. Values
+// still at a former default get the current default line, see below.
 static void CompleteConfigFile()
 {
     const auto read = [](const char *path, std::string &text)
@@ -2442,25 +2444,85 @@ static void CompleteConfigFile()
         return;
     }
 
-    std::unordered_set<std::string> keys;
-    std::istringstream lines(text);
-    for (std::string line; std::getline(lines, line);)
-        keys.insert(keyOf(line));
+    // The value as ParseConfigFile reads it.
+    const auto valueOf = [](const std::string &line)
+    {
+        const size_t equals = line.find('=');
+        std::string value = line.substr(equals + 1, line.find('#', equals) - equals - 1);
+        value.erase(value.find_last_not_of(" \t\r") + 1);
+        return value;
+    };
+    const auto isNumber = [](const std::string &value, float number)
+    {
+        char *end = nullptr;
+        const float parsed = std::strtof(value.c_str(), &end);
+        return !value.empty() && *end == '\0' && parsed == number;
+    };
+
+    std::unordered_map<std::string, std::string> defaultLines;
+    std::vector<std::string> defaultKeys;
+    {
+        std::istringstream lines(defaults);
+        for (std::string line; std::getline(lines, line);)
+        {
+            if (!line.empty() && line.back() == '\r')
+                line.pop_back();
+            const std::string key = keyOf(line);
+            if (!key.empty() && defaultLines.emplace(key, line).second)
+                defaultKeys.push_back(key);
+        }
+    }
 
     const char *newline = text.find("\r\n") != std::string::npos ? "\r\n" : "\n";
-    std::string added;
-    std::istringstream defaultLines(defaults);
-    for (std::string line; std::getline(defaultLines, line);)
+    std::vector<std::string> lines;
+    std::unordered_map<std::string, std::string> values;
     {
-        if (!line.empty() && line.back() == '\r')
-            line.pop_back();
+        std::istringstream stream(text);
+        for (std::string line; std::getline(stream, line);)
+        {
+            if (!line.empty() && line.back() == '\r')
+                line.pop_back();
+            if (const std::string key = keyOf(line); !key.empty())
+                values.emplace(key, valueOf(line));
+            lines.push_back(line);
+        }
+    }
+
+    // Until v1.6 VRScale was 43.2 and SeatedHeightOffset 4. The offset goes with the scale: it
+    // changes only if the scale does. The VR tab writes all its values, so 4 counts as untouched.
+    const auto scale = values.find("VRScale");
+    const bool formerScale = scale == values.end() || isNumber(scale->second, 43.2f);
+    const auto isFormer = [&](const std::string &key, const std::string &value)
+    {
+        return formerScale && (key == "VRScale" || (key == "SeatedHeightOffset" && isNumber(value, 4.0f)));
+    };
+
+    std::string updated;
+    bool changed = false;
+    for (std::string &line : lines)
+    {
         const std::string key = keyOf(line);
-        if (key.empty() || keys.count(key))
+        const auto current = defaultLines.find(key);
+        if (!key.empty() && current != defaultLines.end() && current->second != line && isFormer(key, valueOf(line)))
+        {
+            line = current->second;
+            changed = true;
+            std::cout << "Config entry '" << key << "' was at the former default, now " << valueOf(line) << "\n";
+        }
+        updated += line + newline;
+    }
+    if (changed)
+        text = updated;
+
+    std::string added;
+    for (const std::string &key : defaultKeys)
+    {
+        if (values.count(key))
             continue;
-        added += line + newline;
+        added += defaultLines[key] + newline;
         std::cout << "Config entry '" << key << "' added to config.txt\n";
     }
-    if (added.empty())
+    if (added.empty() && !changed)
         return;
     if (!text.empty() && text.back() != '\n')
         text += newline;
@@ -2520,11 +2582,11 @@ void VR::ParseConfigFile()
     parseOrDefault("LeftHanded", m_LeftHanded, false);
     parseOrDefault("WalkWithRightStick", m_WalkWithRightStick, false);
     parseOrDefault("HeadOrientedWalking", m_HeadOrientedWalking, false);
-    parseOrDefault("VRScale", m_VRScale, 43.2f);
+    parseOrDefault("VRScale", m_VRScale, 46.1f);
     parseOrDefault("IPDScale", m_IpdScale, 1.0f);
     parseOrDefault("6DOF", m_6DOF, true);
     parseOrDefault("SeatedMode", m_SeatedMode, false);
-    parseOrDefault("SeatedHeightOffset", m_SeatedHeightOffset, 4.0f);
+    parseOrDefault("SeatedHeightOffset", m_SeatedHeightOffset, 8.0f);
     parseOrDefault("Roomscale", m_Roomscale, true);
     parseOrDefault("AimMode", m_AimMode, 1);
     parseXYZOrDefault("ViewmodelPosCustomOffset", m_ViewmodelPosCustomOffset, 8.0f, 7.5f, -12.0f);
