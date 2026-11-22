@@ -180,7 +180,9 @@ public:
 	float m_IpdScale = 1.0;
 	bool m_6DOF = true;
 	bool m_SeatedMode = false;
-	float m_SeatedHeightOffset = 8.0f;
+	// Seated, the eyes are where they'd be standing at this body height (cm), kEyeBelowCrown lower.
+	float m_SeatedBodyHeight = 167.0f;
+	static constexpr float kEyeBelowCrown = 11.0f; // cm, about the same for all adults
 	bool m_Roomscale = true;
 	int m_AimMode = 1;
 	bool m_ApplyPitchAndRollPortalRotationOffset = true; // If `true`, the camera pitch/roll follows the exit portal's orientation when portalling

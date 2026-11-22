@@ -59,6 +59,7 @@ Change these on the VR tab of the game's settings or in `Portal Revolution/VR/co
 * `WalkWithRightStick=true`: the right stick walks, the left one turns.
 * `HeadOrientedWalking=true`: the stick walks where you look, not where the hand points.
 * `SeatedMode=true`: for playing seated, also in a wheelchair. Roomscale keeps working.
+* `SeatedBodyHeight=167`: seated, you see as if you stood at this body height (cm).
 
 ## If you feel sick
 Change these on the VR tab of the game's settings or in `Portal Revolution/VR/config.txt`, one after the other. They apply at once, no restart needed.

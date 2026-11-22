@@ -107,7 +107,7 @@ class PrvrSettings {
             PrvrTurnSpeed: !snap,
             PrvrVignetteTurning: !snap,
             PrvrRoomscale: int("prvr_6dof") !== 0,
-            PrvrSeatedHeightOffset: int("prvr_seated_mode") !== 0,
+            PrvrSeatedBodyHeight: int("prvr_seated_mode") !== 0,
             PrvrCameraUprightTime: tilt,
             PrvrVignetteAfterPortal: afterPortal,
             PrvrVignetteClearAngle: vignette,
@@ -236,9 +236,9 @@ class PrvrSettings {
                     <Label acceptsfocus="true" text="#Settings_General_Disabled" value="0" id="PrvrSeatedMode0"/>
                 </ChaosSettingsEnumDropDown>
 
-                <ChaosSettingsSlider text="[[SeatedOffset]]" class="settings__page-group-item settings__page-group-item-odd"
-                                     convar="prvr_seated_height_offset" id="PrvrSeatedHeightOffset"
-                                     min="-20" max="20" increment="0.025" snaptoincrement="true"
+                <ChaosSettingsSlider text="[[SeatedBodyHeight]]" class="settings__page-group-item settings__page-group-item-odd"
+                                     convar="prvr_seated_body_height" id="PrvrSeatedBodyHeight"
+                                     min="140" max="210" increment="0.0142857" snaptoincrement="true"
                                      selectionpos="auto" tabindex="auto"/>
 
             </Panel>

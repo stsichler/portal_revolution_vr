@@ -20,6 +20,7 @@
 #include <vector>
 #include "d3d11_hooks.h"
 #include "settings_menu.h"
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <iterator>
@@ -2223,12 +2224,12 @@ void VR::UpdateHeadPose()
     UpdateHMDAngles();
 
     m_HmdPosRelative = hmdPosCorrected * m_VRScale;
+    // 64 is the game's eye height above the player's feet. Standing, the HMD's height above the
+    // floor counts; seated, its height above the reset position plus the eyes of the body height.
     if (!m_SeatedMode)
-        // 64 is the eye view height from the player's base position
-        // we subtract this here so that we place the HMD height at the actual player height if 6DOF is enabled
         m_HmdPosRelative.z -= 64;
     else
-        m_HmdPosRelative.z += m_SeatedHeightOffset;
+        m_HmdPosRelative.z += (m_SeatedBodyHeight - kEyeBelowCrown) / 100 * m_VRScale - 64;
 
     GetViewParameters();
     m_Ipd = m_EyeToHeadTransformPosRight.x * 2;
@@ -2488,13 +2489,27 @@ static void CompleteConfigFile()
         }
     }
 
-    // Until v1.6 VRScale was 43.2 and SeatedHeightOffset 4. The offset goes with the scale: it
-    // changes only if the scale does. The VR tab writes all its values, so 4 counts as untouched.
+    // Until v1.6 VRScale was 43.2; a VRScale still there (or missing) gets the current default.
     const auto scale = values.find("VRScale");
     const bool formerScale = scale == values.end() || isNumber(scale->second, 43.2f);
-    const auto isFormer = [&](const std::string &key, const std::string &value)
+
+    // Until v1.6.1 SeatedHeightOffset moved the eyes by source units from the game's eye height
+    // (64). SeatedBodyHeight takes its place with the eye height the player had, in meters at the
+    // VRScale of then. The defaults (43.2 with 4, 46.1 with 8) give the current default line; the
+    // VR tab writes all its values, so 4 counts as untouched. Without the key in
+    // config.default.txt (older package files) the offset stays.
+    const auto bodyHeightDefault = defaultLines.find("SeatedBodyHeight");
+    const auto bodyHeightLine = [&](const std::string &offsetText)
     {
-        return formerScale && (key == "VRScale" || (key == "SeatedHeightOffset" && isNumber(value, 4.0f)));
+        const std::string &line = bodyHeightDefault->second;
+        char *end = nullptr;
+        const float offset = std::strtof(offsetText.c_str(), &end);
+        const float oldScale = formerScale ? 43.2f : std::strtof(scale->second.c_str(), nullptr);
+        if (offsetText.empty() || *end != '\0' || !(oldScale > 0) || (formerScale && offset == 4.0f))
+            return line;
+        const long height = std::lround((64 + offset) / oldScale * 100 + VR::kEyeBelowCrown);
+        const size_t comment = line.find(" #");
+        return "SeatedBodyHeight=" + std::to_string(height) + (comment == std::string::npos ? "" : line.substr(comment));
     };
 
     std::string updated;
@@ -2502,12 +2517,24 @@ static void CompleteConfigFile()
     for (std::string &line : lines)
     {
         const std::string key = keyOf(line);
+        if (key == "SeatedHeightOffset" && bodyHeightDefault != defaultLines.end())
+        {
+            changed = true;
+            if (values.count("SeatedBodyHeight"))
+            {
+                std::cout << "Config entry 'SeatedHeightOffset' removed, SeatedBodyHeight replaces it\n";
+                continue;
+            }
+            line = bodyHeightLine(valueOf(line));
+            values.emplace("SeatedBodyHeight", valueOf(line));
+            std::cout << "Config entry 'SeatedHeightOffset' became SeatedBodyHeight=" << valueOf(line) << "\n";
+        }
         const auto current = defaultLines.find(key);
-        if (!key.empty() && current != defaultLines.end() && current->second != line && isFormer(key, valueOf(line)))
+        if (key == "VRScale" && formerScale && current != defaultLines.end() && current->second != line)
         {
             line = current->second;
             changed = true;
-            std::cout << "Config entry '" << key << "' was at the former default, now " << valueOf(line) << "\n";
+            std::cout << "Config entry 'VRScale' was at the former default, now " << valueOf(line) << "\n";
         }
         updated += line + newline;
     }
@@ -2586,7 +2613,7 @@ void VR::ParseConfigFile()
     parseOrDefault("IPDScale", m_IpdScale, 1.0f);
     parseOrDefault("6DOF", m_6DOF, true);
     parseOrDefault("SeatedMode", m_SeatedMode, false);
-    parseOrDefault("SeatedHeightOffset", m_SeatedHeightOffset, 8.0f);
+    parseOrDefault("SeatedBodyHeight", m_SeatedBodyHeight, 167.0f);
     parseOrDefault("Roomscale", m_Roomscale, true);
     parseOrDefault("AimMode", m_AimMode, 1);
     parseXYZOrDefault("ViewmodelPosCustomOffset", m_ViewmodelPosCustomOffset, 8.0f, 7.5f, -12.0f);
