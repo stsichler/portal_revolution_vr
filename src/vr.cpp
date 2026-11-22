@@ -20,6 +20,7 @@
 #include <vector>
 #include "d3d11_hooks.h"
 #include "settings_menu.h"
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -2412,9 +2413,44 @@ catch (const std::logic_error& e)
 
 // Updates keep the player's VR\config.txt: the mod ships VR\config.default.txt, makes config.txt
 // from it if it's missing, and adds the keys that are new in it, with their comments. Values
-// still at a former default get the current default line, see below.
+// still at a former default get the current default line, once: the first line names the mod
+// version that wrote the file, and a migration only runs for files older than it.
 static void CompleteConfigFile()
 {
+    using Version = std::array<int, 3>;
+    // The newest version with a migration below; dev builds write it, so it runs only once there too.
+    constexpr Version kNewestMigration = { 1, 7, 2 };
+    const std::string kVersionPrefix = "# prvr ", kVersionSuffix = " (do not edit this line!)";
+    // "v1.7.2" or "1.7"; false for others, like the dev and commit names of builds outside releases.
+    const auto parseVersion = [](std::string text, Version &version)
+    {
+        if (!text.empty() && text[0] == 'v')
+            text.erase(0, 1);
+        version = {};
+        size_t part = 0, start = 0;
+        while (part < version.size())
+        {
+            const size_t dot = text.find('.', start);
+            const std::string number = text.substr(start, dot == std::string::npos ? std::string::npos : dot - start);
+            if (number.empty() || number.size() > 6 || number.find_first_not_of("0123456789") != std::string::npos)
+                return false;
+            version[part++] = std::stoi(number);
+            if (dot == std::string::npos)
+                return true;
+            start = dot + 1;
+        }
+        return false;
+    };
+    // The line for a file of fileVersion: never older than it, this build or the newest migration.
+    const auto versionLine = [&](const Version &fileVersion)
+    {
+        Version version = (std::max)(fileVersion, kNewestMigration), own;
+        if (parseVersion(PRVR_VERSION, own))
+            version = (std::max)(version, own);
+        return kVersionPrefix + "v" + std::to_string(version[0]) + "." + std::to_string(version[1]) + "." +
+            std::to_string(version[2]) + kVersionSuffix;
+    };
+
     const auto read = [](const char *path, std::string &text)
     {
         std::ifstream file(path, std::ios::binary);
@@ -2439,9 +2475,9 @@ static void CompleteConfigFile()
     std::string text;
     if (!read("VR\\config.txt", text))
     {
-        std::error_code error;
-        std::filesystem::copy_file("VR\\config.default.txt", "VR\\config.txt", error);
-        std::cout << (error ? "Can't make VR\\config.txt: " + error.message() : "VR\\config.txt made from config.default.txt") << "\n";
+        std::ofstream file("VR\\config.txt", std::ios::binary);
+        file << versionLine({}) << (defaults.find("\r\n") != std::string::npos ? "\r\n" : "\n") << defaults;
+        std::cout << (file ? "VR\\config.txt made from config.default.txt" : "Can't make VR\\config.txt") << "\n";
         return;
     }
 
@@ -2477,22 +2513,38 @@ static void CompleteConfigFile()
     const char *newline = text.find("\r\n") != std::string::npos ? "\r\n" : "\n";
     std::vector<std::string> lines;
     std::unordered_map<std::string, std::string> values;
+    Version fileVersion = {}; // 0.0.0: before the version line, up to v1.7.1
+    std::vector<std::string> versionLines; // normally one, the first line
+    bool versionLineFirst = false;
     {
         std::istringstream stream(text);
         for (std::string line; std::getline(stream, line);)
         {
             if (!line.empty() && line.back() == '\r')
                 line.pop_back();
+            if (line.compare(0, kVersionPrefix.size(), kVersionPrefix) == 0)
+            {
+                if (versionLines.empty())
+                {
+                    const size_t start = kVersionPrefix.size();
+                    parseVersion(line.substr(start, line.find(' ', start) - start), fileVersion);
+                    versionLineFirst = lines.empty();
+                }
+                versionLines.push_back(line);
+                continue;
+            }
             if (const std::string key = keyOf(line); !key.empty())
                 values.emplace(key, valueOf(line));
             lines.push_back(line);
         }
     }
+    const std::string newVersionLine = versionLine(fileVersion);
 
-    // VRScale was 43.2 until v1.6 and 46.1 in v1.6.1 and v1.7; a VRScale still at one of them (or
-    // missing) gets the current default. oldScale: the one the player had, 43.2 if missing.
+    // v1.7.2: VRScale was 43.2 until v1.6 and 46.1 in v1.6.1 and v1.7; a VRScale still at one of
+    // them gets the current default. oldScale: the one the player had, 43.2 if missing.
     const auto scale = values.find("VRScale");
-    const bool formerScale = scale == values.end() || isNumber(scale->second, 43.2f) || isNumber(scale->second, 46.1f);
+    const bool formerScale = fileVersion < Version{ 1, 7, 2 } && scale != values.end() &&
+        (isNumber(scale->second, 43.2f) || isNumber(scale->second, 46.1f));
     const float oldScale = scale == values.end() ? 43.2f : std::strtof(scale->second.c_str(), nullptr);
 
     // Until v1.6.1 SeatedHeightOffset moved the eyes by source units from the game's eye height
@@ -2513,8 +2565,10 @@ static void CompleteConfigFile()
         return "SeatedBodyHeight=" + std::to_string(height) + (comment == std::string::npos ? "" : line.substr(comment));
     };
 
-    std::string updated;
-    bool changed = false;
+    std::string updated = newVersionLine + newline;
+    bool changed = !versionLineFirst || versionLines.size() != 1 || versionLines[0] != newVersionLine;
+    if (changed)
+        std::cout << "config.txt: version line " << newVersionLine << "\n";
     for (std::string &line : lines)
     {
         const std::string key = keyOf(line);
