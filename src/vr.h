@@ -176,7 +176,7 @@ public:
 	bool m_LeftHanded = false;
 	bool m_WalkWithRightStick = false;
 	bool m_HeadOrientedWalking = false; // the stick walks where the head looks, not the hand
-	float m_VRScale = 46.1f;
+	float m_VRScale = 44.7f;
 	float m_IpdScale = 1.0;
 	bool m_6DOF = true;
 	bool m_SeatedMode = false;

@@ -2489,9 +2489,11 @@ static void CompleteConfigFile()
         }
     }
 
-    // Until v1.6 VRScale was 43.2; a VRScale still there (or missing) gets the current default.
+    // VRScale was 43.2 until v1.6 and 46.1 in v1.6.1 and v1.7; a VRScale still at one of them (or
+    // missing) gets the current default. oldScale: the one the player had, 43.2 if missing.
     const auto scale = values.find("VRScale");
-    const bool formerScale = scale == values.end() || isNumber(scale->second, 43.2f);
+    const bool formerScale = scale == values.end() || isNumber(scale->second, 43.2f) || isNumber(scale->second, 46.1f);
+    const float oldScale = scale == values.end() ? 43.2f : std::strtof(scale->second.c_str(), nullptr);
 
     // Until v1.6.1 SeatedHeightOffset moved the eyes by source units from the game's eye height
     // (64). SeatedBodyHeight takes its place with the eye height the player had, in meters at the
@@ -2504,8 +2506,7 @@ static void CompleteConfigFile()
         const std::string &line = bodyHeightDefault->second;
         char *end = nullptr;
         const float offset = std::strtof(offsetText.c_str(), &end);
-        const float oldScale = formerScale ? 43.2f : std::strtof(scale->second.c_str(), nullptr);
-        if (offsetText.empty() || *end != '\0' || !(oldScale > 0) || (formerScale && offset == 4.0f))
+        if (offsetText.empty() || *end != '\0' || !(oldScale > 0) || (oldScale == 43.2f && offset == 4.0f))
             return line;
         const long height = std::lround((64 + offset) / oldScale * 100 + VR::kEyeBelowCrown);
         const size_t comment = line.find(" #");
@@ -2609,7 +2610,7 @@ void VR::ParseConfigFile()
     parseOrDefault("LeftHanded", m_LeftHanded, false);
     parseOrDefault("WalkWithRightStick", m_WalkWithRightStick, false);
     parseOrDefault("HeadOrientedWalking", m_HeadOrientedWalking, false);
-    parseOrDefault("VRScale", m_VRScale, 46.1f);
+    parseOrDefault("VRScale", m_VRScale, 44.7f);
     parseOrDefault("IPDScale", m_IpdScale, 1.0f);
     parseOrDefault("6DOF", m_6DOF, true);
     parseOrDefault("SeatedMode", m_SeatedMode, false);
