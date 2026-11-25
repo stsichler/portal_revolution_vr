@@ -189,6 +189,9 @@
     <ClCompile Include="settings_menu.cpp" />
     <ClCompile Include="strata_hooks.cpp" />
     <ClCompile Include="vr.cpp" />
+    <ClCompile Include="vr_config.cpp" />
+    <ClCompile Include="vr_input.cpp" />
+    <ClCompile Include="vr_overlays.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="d3d11.def" />

@@ -1,6 +1,7 @@
 #pragma once
 #include "openvr.h"
 #include "vector.h"
+#include <atomic>
 #include <chrono>
 
 #define MAX_STR_LEN 256
@@ -301,4 +302,13 @@ public:
 	void GetPoseData(vr::TrackedDevicePose_t &poseRaw, TrackedDevicePoseData &poseOut);
 	void ParseConfigFile();
 	void WaitForConfigUpdate();
+	// Completes VR\config.txt from VR\config.default.txt.
+	static void CompleteConfigFile();
+
+	static constexpr float kMenuOverlayHeight = 1.8f; // meters
+	// The menu's part of the back buffer and whether the menu shows, for the game window's mouse
+	// (vr_input.cpp).
+	static inline std::atomic<int> s_MenuPartWidth{0};
+	static inline std::atomic<int> s_MenuPartHeight{0};
+	static inline std::atomic<bool> s_MenuVisible{false};
 };
