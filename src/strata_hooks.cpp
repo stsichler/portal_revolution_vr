@@ -1342,14 +1342,15 @@ namespace
             Vector center;
             float radius;
             const char *part;
+            bool right; // the physical hand it belongs to, for the pulse
         };
         static std::vector<Ball> balls;
         balls.clear();
         Arms::Frame gunHand, otherHand;
         HandFrames(gunHand, otherHand);
         const bool leftHanded = vr->m_LeftHanded;
-        balls.push_back({ gunHand.origin + gunHand.forward * kHand_PressForward, kHand_PressRadius, leftHanded ? "left hand" : "right hand" });
-        balls.push_back({ otherHand.origin + otherHand.forward * kHand_PressForward, kHand_PressRadius, leftHanded ? "right hand" : "left hand" });
+        balls.push_back({ gunHand.origin + gunHand.forward * kHand_PressForward, kHand_PressRadius, leftHanded ? "left hand" : "right hand", !leftHanded });
+        balls.push_back({ otherHand.origin + otherHand.forward * kHand_PressForward, kHand_PressRadius, leftHanded ? "right hand" : "left hand", leftHanded });
         // The fingers and knuckles, as the arms have just been drawn (Chell's right hand is the
         // right controller's, also when left-handed).
         if (!g_EyeBones.empty() && std::chrono::steady_clock::now() - g_EyeBonesTime < kHand_BonesMaxAge)
@@ -1362,9 +1363,9 @@ namespace
                 for (size_t p = 0; p < points.size(); ++p)
                 {
                     if (p == 0)
-                        balls.push_back({ points[p], kHand_WristRadius, side == 0 ? "right wrist" : "left wrist" });
+                        balls.push_back({ points[p], kHand_WristRadius, side == 0 ? "right wrist" : "left wrist", side == 0 });
                     else
-                        balls.push_back({ points[p], kHand_FingerRadius, side == 0 ? "right fingers" : "left fingers" });
+                        balls.push_back({ points[p], kHand_FingerRadius, side == 0 ? "right fingers" : "left fingers", side == 0 });
                 }
             }
         }
@@ -1377,7 +1378,7 @@ namespace
             const float length = VectorLength(grip - g_Muzzle);
             const Vector front = length > kGun_PressRadius ? g_Muzzle + (grip - g_Muzzle) * (kGun_PressRadius / length) : grip;
             for (int i = 0; i <= kGun_Samples; ++i)
-                balls.push_back({ front + (grip - front) * (static_cast<float>(i) / kGun_Samples), kGun_PressRadius, "gun" });
+                balls.push_back({ front + (grip - front) * (static_cast<float>(i) / kGun_Samples), kGun_PressRadius, "gun", !leftHanded });
         }
 
         int modelIndices[std::size(kButtonModels)];
@@ -1389,6 +1390,7 @@ namespace
         int pressed = 0;
         bool brush = false;
         const char *part = nullptr;
+        bool rightHand = false;
         Vector target, pressedAt, size;
         const int highest = game->m_ClientEntityList->GetHighestEntityIndex();
         for (int i = 1; i <= highest; ++i)
@@ -1426,6 +1428,7 @@ namespace
                     pressed = i;
                     brush = !model;
                     part = balls[b].part;
+                    rightHand = balls[b].right;
                     target = center;
                     pressedAt = at;
                     if (brush)
@@ -1441,6 +1444,7 @@ namespace
         {
             state.pending = true;
             state.target = target;
+            vr->PulseButtonPress(rightHand);
             static bool logged = false;
             if (!logged || VerboseLog())
             {

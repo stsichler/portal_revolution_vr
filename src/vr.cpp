@@ -689,6 +689,21 @@ void VR::UpdateRumble(bool menuVisible)
     }
 }
 
+void VR::PulseButtonPress(bool rightHand)
+{
+    constexpr float kPulseSeconds = 0.04f, kFrequency = 160.0f, kAmplitude = 0.4f; // 0.06 and 0.6 felt too strong
+    if (!m_ForceFeedback || !m_Input)
+        return;
+    const vr::EVRInputError error = m_Input->TriggerHapticVibrationAction(rightHand ? m_ActionVibrationRight : m_ActionVibrationLeft, 0,
+                                                                         kPulseSeconds, kFrequency, kAmplitude, vr::k_ulInvalidInputValueHandle);
+    static vr::EVRInputError lastError = vr::VRInputError_None;
+    if (error != lastError)
+    {
+        lastError = error;
+        std::cout << "[Rumble] button press pulse: error " << error << "\n";
+    }
+}
+
 namespace
 {
     // The commands ProcessInput sends (and walking/turning, which move without one).

@@ -261,6 +261,8 @@ public:
 	void ProcessMenuInput();
 	void ProcessInput();
 	void UpdateRumble(bool menuVisible);
+	// A short pulse in the hand that pressed a button; the physical hand, not swapped for LeftHanded.
+	void PulseButtonPress(bool rightHand);
 	// The VR button for a hint of the game instructor, named by SteamVR, for a command of a lesson
 	// ("+use"); nullptr if the mod doesn't send that command. The text stays valid.
 	const char *HintButtonName(const char *binding);
