@@ -15,6 +15,7 @@ AimDot=照準ドット
 Laser=レーザー
 ForceFeedback=コントローラーの振動
 PortalGunVibration=ポータルガンの振動
+Arms=腕と手（ボタンを押す）
 GroupTurning=回転
 TurnStyle=回転方式
 Snap=スナップ

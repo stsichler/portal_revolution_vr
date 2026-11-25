@@ -74,14 +74,23 @@ public:
 	Vector m_SetupOrigin = { 0,0,0 };
 
 	QAngle m_LeftControllerAngAbs;
+	Vector m_LeftControllerPosRel = { 0, 0, 0 };
 	Vector m_RightControllerPosRel;
 	QAngle m_RightControllerAngAbs;
 
 	Vector m_ViewmodelPosOffset;
 	QAngle m_ViewmodelAngOffset;
 
-	Vector m_ViewmodelPosCustomOffset = { 8.0f, 7.5f, -12.0f }; // Custom (from config) viewmodel position offset applied on top of hardcoded ones
-    QAngle m_ViewmodelAngCustomOffset; // Custom (from config) viewmodel angle offset applied on top of hardcoded ones
+	// Chell's hand (the arms in strata_hooks.cpp) follows the controller: it holds the gun's grip
+	// as if the gun had the offset HandPosCustomOffset (config), by default so that the
+	// controller's grip is in the palm (Stefan). GunPosCustomOffset moves only the gun; its
+	// default is where the gun fits that hand (Stefan).
+	static inline const Vector kHandPosDefaultOffset = { 8.5f, 7.8f, -11.0f };
+	static inline const Vector kGunPosDefaultOffset = { 13.0f, 7.5f, -11.5f };
+	Vector m_GunPosCustomOffset = kGunPosDefaultOffset; // Custom (from config) viewmodel position offset applied on top of hardcoded ones
+	Vector m_HandPosCustomOffset = kHandPosDefaultOffset;
+	Vector m_HandGunForward, m_HandGunRight, m_HandGunUp, m_HandGunPosOffset; // the gun as the hand holds it: idle, HandPosCustomOffset
+    QAngle m_GunAngCustomOffset; // Custom (from config) viewmodel angle offset applied on top of hardcoded ones
     bool m_ViewmodelCarrying = false; // The portal gun holds an object, set by the Strata hooks
     float m_ViewmodelCarryWeight = 0.0f; // 0 = pose of the idle animation, 1 = of the carrying one
     std::chrono::steady_clock::time_point m_ViewmodelCarryTime;
@@ -185,6 +194,7 @@ public:
 	static constexpr float kEyeBelowCrown = 11.0f; // cm, about the same for all adults
 	bool m_Roomscale = true;
 	int m_AimMode = 1;
+	bool m_Arms = true; // Chell's arms and hands are seen; they and the portal gun press buttons
 	bool m_ApplyPitchAndRollPortalRotationOffset = true; // If `true`, the camera pitch/roll follows the exit portal's orientation when portalling
 	float m_CameraUprightRecoveryTime = 0.25f; // If the above is `true`, the seconds until the camera is upright again after portalling, 0 = at once
 	float m_VignetteWalking = 0.0f; // 0 = off, 1 = black
@@ -263,7 +273,11 @@ public:
 	int GetPointerPose(vr::ETrackedControllerRole controllerRole, vr::HmdMatrix34_t &pose);
 	bool CheckOverlayIntersectionForController(vr::VROverlayHandle_t overlayHandle, vr::ETrackedControllerRole controllerRole);
 	Vector GetRightControllerAbsPos(Vector eyePosition = {0, 0, 0});
+	Vector GetLeftControllerAbsPos(Vector eyePosition);
 	Vector GetRecommendedViewmodelAbsPos(Vector eyePosition);
+	// Where the gun would be in the hand: idle, with the default offsets.
+	Vector GetHandGunAbsPos(Vector eyePosition);
+	static void TurnByOffset(const QAngle &offset, Vector &forward, Vector &right, Vector &up);
 	QAngle GetRecommendedViewmodelAbsAngle();
 	void UpdateHMDAngles();
 	void UpdateHeadTracking();

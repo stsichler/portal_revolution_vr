@@ -2148,6 +2148,14 @@ Vector VR::GetRightControllerAbsPos(Vector eyePosition)
     return position;
 }
 
+Vector VR::GetLeftControllerAbsPos(Vector eyePosition)
+{
+    Vector position = eyePosition + m_LeftControllerPosRel;
+    if (m_6DOF)
+        position += m_HmdPosRelative;
+    return position;
+}
+
 Vector VR::GetRecommendedViewmodelAbsPos(Vector eyePosition)
 {
     Vector viewmodelPos = GetRightControllerAbsPos(eyePosition);
@@ -2255,6 +2263,10 @@ void VR::UpdateHandTracking()
 
     m_RightControllerPosRel = hmdToController * m_VRScale;
 
+    Vector hmdToLeftController = m_LeftControllerPose.TrackedDevicePos - hmdPosLocal;
+    VectorPivotXY(hmdToLeftController, { 0, 0, 0 }, m_RotationOffset.y);
+    m_LeftControllerPosRel = hmdToLeftController * m_VRScale;
+
     rightControllerAngLocal.x += m_RotationOffset.x;
     rightControllerAngLocal.y += m_RotationOffset.y;
     rightControllerAngLocal.z += m_RotationOffset.z;
@@ -2300,26 +2312,45 @@ void VR::UpdateHandTracking()
     const float w = m_ViewmodelCarryWeight;
 
     // Apply both hardcoded and custom (from config) viewmodel offsets here:
-    m_ViewmodelPosOffset = viewmodelIdle.position + (viewmodelCarrying.position - viewmodelIdle.position) * w + m_ViewmodelPosCustomOffset;
-    m_ViewmodelAngOffset.x = viewmodelIdle.angle.x + (viewmodelCarrying.angle.x - viewmodelIdle.angle.x) * w + m_ViewmodelAngCustomOffset.x;
-    m_ViewmodelAngOffset.y = viewmodelIdle.angle.y + (viewmodelCarrying.angle.y - viewmodelIdle.angle.y) * w + m_ViewmodelAngCustomOffset.y;
-    m_ViewmodelAngOffset.z = viewmodelIdle.angle.z + (viewmodelCarrying.angle.z - viewmodelIdle.angle.z) * w + m_ViewmodelAngCustomOffset.z;
+    m_ViewmodelPosOffset = viewmodelIdle.position + (viewmodelCarrying.position - viewmodelIdle.position) * w + m_GunPosCustomOffset;
+    m_ViewmodelAngOffset.x = viewmodelIdle.angle.x + (viewmodelCarrying.angle.x - viewmodelIdle.angle.x) * w + m_GunAngCustomOffset.x;
+    m_ViewmodelAngOffset.y = viewmodelIdle.angle.y + (viewmodelCarrying.angle.y - viewmodelIdle.angle.y) * w + m_GunAngCustomOffset.y;
+    m_ViewmodelAngOffset.z = viewmodelIdle.angle.z + (viewmodelCarrying.angle.z - viewmodelIdle.angle.z) * w + m_GunAngCustomOffset.z;
 
     m_ViewmodelForward = m_RightControllerForward;
     m_ViewmodelUp = m_RightControllerUp;
     m_ViewmodelRight = m_RightControllerRight;
 
-    // Viewmodel yaw offset
-    m_ViewmodelForward = VectorRotate(m_ViewmodelForward, m_ViewmodelUp, m_ViewmodelAngOffset.y);
-    m_ViewmodelRight = VectorRotate(m_ViewmodelRight, m_ViewmodelUp, m_ViewmodelAngOffset.y);
+    TurnByOffset(m_ViewmodelAngOffset, m_ViewmodelForward, m_ViewmodelRight, m_ViewmodelUp);
 
-    // Viewmodel pitch offset
-    m_ViewmodelForward = VectorRotate(m_ViewmodelForward, m_ViewmodelRight, m_ViewmodelAngOffset.x);
-    m_ViewmodelUp = VectorRotate(m_ViewmodelUp, m_ViewmodelRight, m_ViewmodelAngOffset.x);
+    // The hand's gun: idle, with the default offsets.
+    m_HandGunForward = m_RightControllerForward;
+    m_HandGunUp = m_RightControllerUp;
+    m_HandGunRight = m_RightControllerRight;
+    TurnByOffset(viewmodelIdle.angle, m_HandGunForward, m_HandGunRight, m_HandGunUp);
+    m_HandGunPosOffset = viewmodelIdle.position + m_HandPosCustomOffset;
+}
 
-    // Viewmodel roll offset
-    m_ViewmodelRight = VectorRotate(m_ViewmodelRight, m_ViewmodelForward, m_ViewmodelAngOffset.z);
-    m_ViewmodelUp = VectorRotate(m_ViewmodelUp, m_ViewmodelForward, m_ViewmodelAngOffset.z);
+// Yaw, pitch, then roll.
+void VR::TurnByOffset(const QAngle &offset, Vector &forward, Vector &right, Vector &up)
+{
+    forward = VectorRotate(forward, up, offset.y);
+    right = VectorRotate(right, up, offset.y);
+    forward = VectorRotate(forward, right, offset.x);
+    up = VectorRotate(up, right, offset.x);
+    right = VectorRotate(right, forward, offset.z);
+    up = VectorRotate(up, forward, offset.z);
+}
+
+Vector VR::GetHandGunAbsPos(Vector eyePosition)
+{
+    Vector position = GetRightControllerAbsPos(eyePosition);
+    position -= m_HandGunForward * m_HandGunPosOffset.x;
+    position -= m_HandGunRight * m_HandGunPosOffset.y;
+    position -= m_HandGunUp * m_HandGunPosOffset.z;
+    if (m_LeftHanded) // as in GetRecommendedViewmodelAbsPos
+        position += m_RightControllerRight * (2.0f * m_TipSideOffset[1] * m_VRScale);
+    return position;
 }
 
 Vector VR::GetViewAngle()
@@ -2419,7 +2450,7 @@ static void CompleteConfigFile()
 {
     using Version = std::array<int, 3>;
     // The newest version with a migration below; dev builds write it, so it runs only once there too.
-    constexpr Version kNewestMigration = { 1, 7, 2 };
+    constexpr Version kNewestMigration = { 1, 8, 0 };
     const std::string kVersionPrefix = "# prvr ", kVersionSuffix = " (do not edit this line!)";
     // "v1.7.2" or "1.7"; false for others, like the dev and commit names of builds outside releases.
     const auto parseVersion = [](std::string text, Version &version)
@@ -2547,6 +2578,28 @@ static void CompleteConfigFile()
         (isNumber(scale->second, 43.2f) || isNumber(scale->second, 46.1f));
     const float oldScale = scale == values.end() ? 43.2f : std::strtof(scale->second.c_str(), nullptr);
 
+    // v1.8.0: the portal gun's position was (8, 7.5, -12) from v1.0 to v1.7.2, as
+    // ViewmodelPosCustomOffsetX/Y/Z; still there (under the old or new name, a missing one counts
+    // as untouched), all three get the current default. Changed by the player: all stay.
+    const std::string kGunPosKey = "GunPosCustomOffset";
+    bool formerGunPos = fileVersion < Version{ 1, 8, 0 };
+    bool anyGunPos = false;
+    {
+        const char axes[] = { 'X', 'Y', 'Z' };
+        const float former[] = { 8.0f, 7.5f, -12.0f };
+        for (int i = 0; i < 3; ++i)
+        {
+            auto value = values.find(kGunPosKey + axes[i]);
+            if (value == values.end())
+                value = values.find("ViewmodelPosCustomOffset" + std::string(1, axes[i]));
+            if (value == values.end())
+                continue;
+            anyGunPos = true;
+            formerGunPos = formerGunPos && isNumber(value->second, former[i]);
+        }
+    }
+    formerGunPos = formerGunPos && anyGunPos;
+
     // Until v1.6.1 SeatedHeightOffset moved the eyes by source units from the game's eye height
     // (64). SeatedBodyHeight takes its place with the eye height the player had, in meters at the
     // VRScale of then. The defaults (43.2 with 4, 46.1 with 8) give the current default line; the
@@ -2583,6 +2636,37 @@ static void CompleteConfigFile()
             line = bodyHeightLine(valueOf(line));
             values.emplace("SeatedBodyHeight", valueOf(line));
             std::cout << "Config entry 'SeatedHeightOffset' became SeatedBodyHeight=" << valueOf(line) << "\n";
+        }
+        // Until v1.7 the portal gun's offsets were ViewmodelPos/AngCustomOffsetX/Y/Z: the values
+        // stay, with the new names and comments.
+        const std::string kOldGunPrefix = "Viewmodel";
+        if (key.rfind(kOldGunPrefix, 0) == 0)
+        {
+            const std::string renamed = "Gun" + key.substr(kOldGunPrefix.size());
+            const auto current = defaultLines.find(renamed);
+            if (current != defaultLines.end())
+            {
+                changed = true;
+                if (values.count(renamed))
+                {
+                    std::cout << "Config entry '" << key << "' removed, " << renamed << " replaces it\n";
+                    continue;
+                }
+                const size_t comment = current->second.find(" #");
+                line = renamed + "=" + valueOf(line) + (comment == std::string::npos ? "" : current->second.substr(comment));
+                values.emplace(renamed, valueOf(line));
+                std::cout << "Config entry '" << key << "' became " << renamed << "\n";
+            }
+        }
+        if (const std::string name = keyOf(line); formerGunPos && name.rfind(kGunPosKey, 0) == 0)
+        {
+            const auto current = defaultLines.find(name);
+            if (current != defaultLines.end() && current->second != line)
+            {
+                line = current->second;
+                changed = true;
+                std::cout << "Config entry '" << name << "' was at the former default, now " << valueOf(line) << "\n";
+            }
         }
         const auto current = defaultLines.find(key);
         if (key == "VRScale" && formerScale && current != defaultLines.end() && current->second != line)
@@ -2671,8 +2755,10 @@ void VR::ParseConfigFile()
     parseOrDefault("SeatedBodyHeight", m_SeatedBodyHeight, 167.0f);
     parseOrDefault("Roomscale", m_Roomscale, true);
     parseOrDefault("AimMode", m_AimMode, 1);
-    parseXYZOrDefault("ViewmodelPosCustomOffset", m_ViewmodelPosCustomOffset, 8.0f, 7.5f, -12.0f);
-    parseXYZOrDefault("ViewmodelAngCustomOffset", m_ViewmodelAngCustomOffset, 0.0f, 0.0f, 0.0f);
+    parseOrDefault("Arms", m_Arms, true);
+    parseXYZOrDefault("GunPosCustomOffset", m_GunPosCustomOffset, kGunPosDefaultOffset.x, kGunPosDefaultOffset.y, kGunPosDefaultOffset.z);
+    parseXYZOrDefault("GunAngCustomOffset", m_GunAngCustomOffset, 0.0f, 0.0f, 0.0f);
+    parseXYZOrDefault("HandPosCustomOffset", m_HandPosCustomOffset, kHandPosDefaultOffset.x, kHandPosDefaultOffset.y, kHandPosDefaultOffset.z);
     parseOrDefault("ApplyPitchAndRollPortalRotationOffset", m_ApplyPitchAndRollPortalRotationOffset, true);
     parseOrDefault("CameraUprightRecoveryTime", m_CameraUprightRecoveryTime, 0.25f);
     parseOrDefault("VignetteWalking", m_VignetteWalking, 0.0f);

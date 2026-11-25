@@ -187,6 +187,12 @@ class PrvrSettings {
                                      percentage="true" value100percent="1.0"
                                      selectionpos="auto" tabindex="auto"/>
 
+                <ChaosSettingsEnumDropDown text="[[Arms]]" class="settings__page-group-item settings__page-group-item-odd" convar="prvr_arms"
+                                           id="PrvrArms" selectionpos="auto" tabindex="auto">
+                    <Label acceptsfocus="true" text="#Settings_General_Enabled" value="1" id="PrvrArms1"/>
+                    <Label acceptsfocus="true" text="#Settings_General_Disabled" value="0" id="PrvrArms0"/>
+                </ChaosSettingsEnumDropDown>
+
             </Panel>
 
             <Label text="[[GroupTurning]]" class="settings__page-group-title"/>

@@ -11,12 +11,16 @@ SeatedMode=false # false: your real eye height, the floors match. true: the eye 
 SeatedBodyHeight=167 # Seated mode only: simulated body height in cm; the eyes are where they would be standing
 Roomscale=true # true: the player follows your head when you walk in your room, and your head stops at walls
 AimMode=1 # 0 = None, 1 = Aim dot, 2 = Laser sight/beam
-ViewmodelPosCustomOffsetX=8.0 # Portal gun relative to the hand, source units
-ViewmodelPosCustomOffsetY=7.5
-ViewmodelPosCustomOffsetZ=-12.0
-ViewmodelAngCustomOffsetX=0.0 # Portal gun relative to the hand, degrees
-ViewmodelAngCustomOffsetY=0.0
-ViewmodelAngCustomOffsetZ=0.0
+Arms=true # true: you see Chell's arms and hands, and they and the portal gun press buttons
+GunPosCustomOffsetX=13.0 # Portal gun relative to the controller, source units
+GunPosCustomOffsetY=7.5
+GunPosCustomOffsetZ=-11.5
+GunAngCustomOffsetX=0.0 # Portal gun relative to the controller, degrees
+GunAngCustomOffsetY=0.0
+GunAngCustomOffsetZ=0.0
+HandPosCustomOffsetX=8.5 # Chell's hands relative to the controllers, source units: where the portal gun would sit in them
+HandPosCustomOffsetY=7.8
+HandPosCustomOffsetZ=-11.0
 ApplyPitchAndRollPortalRotationOffset=true # If `true`, the camera pitch/roll follows the exit portal's orientation when portalling
 CameraUprightRecoveryTime=0.25 # If the above is `true`, the seconds until the camera is upright again after portalling. 0 = at once
 VignetteWalking=0 # Darkens the edge of the view against nausea when walking with the stick. 0 = off, 1 = black

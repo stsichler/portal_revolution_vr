@@ -17,6 +17,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="arms.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="convars.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -46,6 +49,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="arms.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="d3d11_hooks.h">
       <Filter>Header Files</Filter>
     </ClInclude>

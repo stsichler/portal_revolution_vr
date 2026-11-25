@@ -15,6 +15,7 @@ AimDot=Точка прицілу
 Laser=Лазер
 ForceFeedback=Вібрація контролерів
 PortalGunVibration=Вібрація портальної гармати
+Arms=Руки та кисті (натискання кнопок)
 GroupTurning=Поворот
 TurnStyle=Тип повороту
 Snap=Ривками

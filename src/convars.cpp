@@ -84,6 +84,7 @@ namespace
         {"SeatedBodyHeight", "prvr_seated_body_height", "Seated mode only: the eyes are where they would be standing at this body height, centimeters", &VR::m_SeatedBodyHeight},
         {"Roomscale", "prvr_roomscale", "1: the player follows your head when you walk in your room", &VR::m_Roomscale},
         {"AimMode", "prvr_aim_mode", "0: none, 1: aim dot, 2: laser", &VR::m_AimMode},
+        {"Arms", "prvr_arms", "1: you see Chell's arms and hands, and they and the portal gun press buttons", &VR::m_Arms},
         {"ApplyPitchAndRollPortalRotationOffset", "prvr_portal_pitch_roll", "1: the camera pitch and roll follow the exit portal", &VR::m_ApplyPitchAndRollPortalRotationOffset},
         {"CameraUprightRecoveryTime", "prvr_camera_upright_ms", "Milliseconds until the camera is upright again after a portal, 0: at once", &VR::m_CameraUprightRecoveryTime, 1000},
         {"VignetteWalking", "prvr_vignette_walking", "Darkens the edge of the view when walking with the stick. 0: off, 1: black", &VR::m_VignetteWalking},

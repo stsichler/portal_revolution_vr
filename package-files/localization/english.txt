@@ -16,6 +16,7 @@ AimDot=Aim dot
 Laser=Laser
 ForceFeedback=Controller vibration
 PortalGunVibration=Portal gun vibration
+Arms=Arms and hands (press buttons)
 GroupTurning=Turning
 TurnStyle=Turn style
 Snap=Snap

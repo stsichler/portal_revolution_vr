@@ -164,6 +164,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="arms.h" />
     <ClInclude Include="convars.h" />
     <ClInclude Include="d3d11_hooks.h" />
     <ClInclude Include="game.h" />
@@ -178,6 +179,7 @@
     <ClInclude Include="vr.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="arms.cpp" />
     <ClCompile Include="convars.cpp" />
     <ClCompile Include="d3d11_hooks.cpp" />
     <ClCompile Include="d3d11_proxy.cpp" />

@@ -15,6 +15,7 @@ AimDot=Nişan noktası
 Laser=Lazer
 ForceFeedback=Kumanda titreşimi
 PortalGunVibration=Portal silahı titreşimi
+Arms=Kollar ve eller (düğmelere basma)
 GroupTurning=Dönüş
 TurnStyle=Dönüş türü
 Snap=Adımlı

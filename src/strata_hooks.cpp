@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include "MinHook.h"
+#include "arms.h"
 #include "game.h"
 #include "log.h"
 #include "sdk.h"
@@ -82,6 +83,105 @@ namespace
     constexpr int kPlayer_ViewThroughPortal = 0x3aaa;
     constexpr int kPlayer_ViewExitPortal = 0x3ab0;
     void **g_PortalPlayerVTable = nullptr;
+    // The game's eye this frame, as hkCalcViewModelView sees it (the eyes' renders change it): if
+    // it's through a portal, the arms are made on the player's side (moved back through the exit).
+    bool g_GameEyeThrough = false;
+    const uint8_t *g_GameEyeExit = nullptr;
+
+    // Chell's arms (experiment, see arms.cpp). The game skips the player in the main view
+    // (cl_skip_player_render_in_main_view), unless the eyes look through a portal: this check, called
+    // by C_Portal_Player's DrawModel (renderable at +8, [9]) at +0x45, returns true then.
+    // rva 0x3e9db0: 40 53 48 83 EC 60 48 8B 05 ?? ?? ?? ?? 48 8B D9
+    constexpr uint32_t kPlayer_Renderable = 8;
+    constexpr int kRenderable_DrawModel = 9;
+    using tDrawModel = int (*)(void *renderable, int flags, const void *instance);
+    constexpr int kDrawModel_SkipCallOffset = 0x45;
+    constexpr uint8_t kSkipPlayer_Start[] = { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x60, 0x48, 0x8B, 0x05 };
+    using tSkipPlayer = bool (*)(void *player);
+    tSkipPlayer oSkipPlayer = nullptr;
+
+    // C_Portal_Player [192] BuildTransformations(studioHdr, pos, q, cameraTransform, boneMask,
+    // boneComputed), ends in C_BaseAnimating's (rva 0x1e6ba0). Then the bones (world) are where
+    // +0x2DB8 points, 0x30 bytes each ("mov rdx, [rsi+2DB8h]" there); studioHdr is a CStudioHdr,
+    // its first field the studiohdr_t. Bones for the vertices: BONE_USED_BY_VERTEX_LOD0..7.
+    // [192] rva 0x20da80: 4C 8B DC 4D 89 4B 20 4D 89 43 18 41 55 41 57 48
+    constexpr int kPlayer_BuildTransformations = 192;
+    constexpr int kAnimating_Bones = 0x2DB8;
+    constexpr int kStudio_BoneCount = 0x9C; // studiohdr_t
+    constexpr int kBoneUsedByVertex = 0x3FC00;
+    using tBuildTransformations = void (*)(void *thisptr, void *studioHdr, void *pos, void *q, const void *cameraTransform, int boneMask, void *boneComputed);
+    tBuildTransformations oBuildTransformations = nullptr;
+    bool g_ArmsHooked = false;
+    bool g_ArmsUsable = true; // false once the model turned out not to have Chell's arm bones
+
+    // Renderable [16] GetRenderBounds(mins, maxs), relative to [1] GetRenderOrigin; the player's
+    // [17] adds the two for the frustum test. They are the player's: arms held up or far out
+    // vanish with them when they are out of view.
+    // [16] rva 0x1fa780 (C_BaseAnimating's): 40 56 41 54 41 56 41 57 48 83 EC 38 4D 8B F8 4C
+    constexpr int kRenderable_GetRenderOrigin = 1;
+    constexpr int kRenderable_GetRenderBounds = 16;
+    using tGetRenderBounds = void (*)(void *renderable, Vector &mins, Vector &maxs);
+    tGetRenderBounds oGetRenderBounds = nullptr;
+    constexpr float kArms_Reach = 1.3f; // m around the head, generous: the arms are somewhere in it
+
+    // The player's bones: the game's ones stay in its bone cache (for portals, the player's copy in
+    // a portal, the third-person gun); only while the player is drawn in its own view (portal
+    // depth 0) does the cache hold the arms.
+    std::vector<matrix3x4_t> g_EyeBones, g_GameBones;
+    std::chrono::steady_clock::time_point g_EyeBonesTime; // when g_EyeBones were made
+    matrix3x4_t *g_BonesCache = nullptr; // the cache they were made for
+    bool g_DrawingEyes = false; // the player is being drawn in its own view
+    bool g_CacheHoldsEyes = false;
+    tDrawModel oPlayerDrawModel = nullptr;
+
+    // DrawModel flags of shadow renders (STUDIO_SHADOWDEPTHTEXTURE, STUDIO_SHADOWTEXTURE). The
+    // skip check doesn't know them: the player's shadow comes from its own view too.
+    constexpr int kStudio_ShadowFlags = 0x40000000 | 0x20000000;
+    bool g_DrawingShadow = false; // the player's (or its gun's) shadow is being drawn: Chell's
+    // CurrentViewID, called by the skip check at +0x22; only for the log.
+    constexpr int kSkipPlayer_ViewIdCallOffset = 0x22;
+    using tCurrentViewId = int (*)();
+    tCurrentViewId CurrentViewId_ = nullptr;
+
+    // The portal depth being rendered (0 = the view itself): g_pPortalRender (a pointer,
+    // loaded by the skip check at +0xB4) and its depth (called at +0xBB; mov eax, [rcx+0FA0h]).
+    constexpr int kSkipPlayer_PortalRenderOffset = 0xB4;
+    constexpr int kSkipPlayer_DepthCallOffset = 0xBB;
+    constexpr uint8_t kLoadRip_Rcx[] = { 0x48, 0x8B, 0x0D };
+    void **g_PortalRender = nullptr;
+    using tPortalDepth = int (*)(void *portalRender);
+    tPortalDepth PortalDepth_ = nullptr;
+
+    // C_WeaponPortalgun (renderable at +8, [9]) DrawModel(flags, instance): the third-person gun.
+    // rva 0x3d5ef0: 40 55 56 41 56 48 83 EC 60 80 B9
+    tDrawModel oGunDrawModel = nullptr;
+
+    // C_CombatWeaponClone (renderable at +8, [9]) DrawModel: the copy of a held weapon that the
+    // game draws as its third-person one. +0x3180: the weapon (UpdateClone, called at the start).
+    // [9] rva 0x2377f0: 48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48
+    constexpr int kWeaponClone_Weapon = 0x3180;
+    tDrawModel oCloneDrawModel = nullptr;
+
+    // C_PortalGhostRenderable (renderable at +8, [9]) DrawModel: the copy of an entity on the
+    // other side of a portal it is in. Its SetupBones ([12], rva 0xf1340) takes the entity's bones
+    // through the entity's SetupBones and moves them through the portal; the entity's handle is at
+    // +0x3178 of the renderable ("mov edx, [rcx+3178h]" there).
+    // [9] rva 0xf0120: 40 53 55 56 48 83 EC 30 48 8B F1 49 8B D8 48 83
+    constexpr int kGhost_Source = 0x3178; // of the renderable
+    tDrawModel oGhostDrawModel = nullptr;
+
+    // The check the copy's DrawModel calls first (+0x14), whether to draw (entity). For the local
+    // player's copy, at portal depth 1 not through its own portal: when the view portal
+    // (g_pPortalRender +0x1038) is the copy's portal (+0x31E0 of the entity) +0x3180.
+    // rva 0xf18d0: 48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 56
+    constexpr int kGhostDraw_CheckCallOffset = 0x14;
+    constexpr uint8_t kGhostCheck_Start[] = { 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x48, 0x89, 0x7C, 0x24, 0x20, 0x41, 0x56 };
+    constexpr int kGhost_Portal = 0x31E0;
+    constexpr int kPortal_ViewId = 0x3180;
+    constexpr int kPortalRender_ViewPortal = 0x1038;
+    using tGhostCheck = bool (*)(void *ghost);
+    tGhostCheck oGhostCheck = nullptr;
+    bool g_ForceGhost = false;
 
     struct PortalPassage
     {
@@ -257,6 +357,8 @@ namespace
     int g_Portalgun_CanFirePortal2 = 0x3281;
     int g_Portalgun_LastFiredPortal = 0x3284;
     int g_Portalgun_OpenProngs = 0x3288;
+    // Player m_bIsHoldingSomething: carrying an object, also without the gun; 0 = not found.
+    int g_Player_HoldingSomething = 0;
     constexpr int kAimMode_None = 0;
     constexpr int kAimMode_Dot = 1;
     constexpr int kAimMode_Laser = 2;
@@ -395,6 +497,69 @@ namespace
         QAngle angles;
     } g_Gun;
 
+    // VModelInfoClient004 is CModelInfoClient (engine.dll): [2] GetModelIndex(name), -1 if the
+    // model isn't loaded. [1] GetModel(index) and [3] GetModelName(model) next to it.
+    // [2] rva 0x1f06d0: 48 89 5C 24 08 57 48 83 EC 20 48 8B FA 48 8B D9
+    constexpr int kModelInfo_GetModelIndex = 2;
+    void *g_ModelInfo = nullptr;
+
+    // Network fields of every entity; 0 = not found. Mins and maxs: of the collision box, in the
+    // entity's axes (x forward, y left, z up).
+    int g_Entity_ModelIndex = 0;
+    int g_Entity_Mins = 0;
+    int g_Entity_Maxs = 0;
+
+    // C_BaseEntity [10] GetAbsOrigin, [11] GetAbsAngles, the same in every entity's vtable: also
+    // with a parent. Taken from C_BaseButton's vtable and compared with the entity's before a call.
+    // [10] rva 0x202c50: 40 53 48 83 EC 20 48 8B D9 E8 ?? ?? ?? ?? 48 8D 83 E8 00 00 00
+    // [11] rva 0x202c30: 40 53 48 83 EC 20 48 8B D9 E8 ?? ?? ?? ?? 48 8D 83 0C 01 00 00
+    constexpr int kEntity_GetAbsOrigin = 10;
+    constexpr int kEntity_GetAbsAngles = 11;
+    void *g_GetAbsOrigin = nullptr;
+    void *g_GetAbsAngles = nullptr;
+
+    // Brush buttons (func_button, func_rot_button: also levers and valves) are C_BaseButton on the
+    // client. In every map of the game they activate on use.
+    void **g_BaseButtonVTable = nullptr;
+    constexpr float kButton_BrushMargin = 1; // around the collision box
+
+    // Buttons, pressed with the hands and the gun: when one touches a brush button or the cap of a
+    // pedestal button, the next command has the game's use (IN_USE), aimed from the eyes at it (a
+    // brush's center, a cap's top). The cap is a disc that stands out of the housing: from base
+    // along axis (in the model's axes: x forward, y left, z up) by height, with radius. From the
+    // models' vertices (2026-11-25):
+    // switch001's face is tilted by 30.2 degrees (its button bone by 31.1), the cap's edge bevelled
+    // by 1; underground_testchamber_button's switch has a rounded edge.
+    struct ButtonModel
+    {
+        const char *name;
+        Vector base, axis;
+        float height, radius;
+    };
+    const ButtonModel kButtonModels[] = {
+        { "models/props/switch001.mdl", { 0, -0.36f, 42.40f }, { 0, -0.504f, 0.864f }, 2.75f, 4.6f }, // prop_button
+        { "models/props_underground/underground_testchamber_button.mdl", { 0, 0, 43.9f }, { 0, 0, 1 }, 4.0f, 4.5f }, // prop_under_button
+    };
+    // So far out of the button before it presses again; 3 felt too far (Stefan, 2026-11-25).
+    constexpr float kButton_ReleaseMargin = 1;
+    // A hand presses with a ball around its grip, a bit towards the knuckles; the gun with balls
+    // along its length (both estimated).
+    constexpr float kHand_PressForward = 1.5f;
+    constexpr float kHand_PressRadius = 2.0f;
+    // And balls around Chell's wrists and the joints and tips of her fingers, while the arms are
+    // drawn. Fingers of 1.0 pressed too early (Stefan, 2026-11-25).
+    constexpr float kHand_WristRadius = 1.0f;
+    constexpr float kHand_FingerRadius = 0.5f;
+    constexpr auto kHand_BonesMaxAge = std::chrono::milliseconds(100);
+    constexpr float kGun_PressRadius = 2.5f;
+
+    struct ButtonPress
+    {
+        std::vector<int> touching; // the button entities a hand or the gun is in
+        bool pending = false; // for the next command
+        Vector target; // the button's center
+    } g_ButtonPress;
+
     // The eyes are rendered and the viewmodel is in the hand. During a video the menu overlay
     // shows it from the back buffer.
     bool VRViewActive()
@@ -513,6 +678,20 @@ namespace
         return enabled == MH_OK;
     }
 
+    // The hooks of the arms: off with the config's Arms (UpdateArmsHooks), so the game's code runs
+    // as without them.
+    std::vector<void *> g_ArmsHookTargets;
+    bool g_ArmsHooksEnabled = true;
+
+    template <typename F>
+    bool InstallArmsHook(const char *name, void *target, F detour, F &original)
+    {
+        const bool installed = InstallHook(name, target, detour, original);
+        if (installed)
+            g_ArmsHookTargets.push_back(target);
+        return installed;
+    }
+
     uint8_t *FindTraceFirePortal(const char *module, int callOffset)
     {
         uint8_t *blast = FindStringLea(reinterpret_cast<uint8_t *>(GetModuleHandleA(module)), "PortalBlast", 0x0D);
@@ -579,10 +758,17 @@ namespace
         const bool result = oCreateMove(thisptr, flInputSampleTime, cmd);
 
         VR *vr = g_StrataGame->m_VR;
+        if (!VRViewActive())
+            g_ButtonPress.pending = false;
         if (!cmd || !cmd->command_number || !VRViewActive())
             return result;
 
         QAngle aim = vr->m_RightControllerAngAbs;
+        // A button touched with the gun: use, aimed at it (the game's use starts at the eyes).
+        const bool pressButton = g_ButtonPress.pending;
+        g_ButtonPress.pending = false;
+        if (pressButton)
+            QAngle::VectorAngles(g_ButtonPress.target - g_EyePosition, aim);
         aim.x = std::clamp(aim.x, -89.0f, 89.0f);
         aim.z = 0;
 
@@ -606,6 +792,8 @@ namespace
             cmd->buttons |= IN_MOVERIGHT;
         else if (cmd->sidemove < 0)
             cmd->buttons |= IN_MOVELEFT;
+        if (pressButton)
+            cmd->buttons |= IN_USE;
 
         cmd->viewangles = aim;
 
@@ -778,6 +966,9 @@ namespace
     {
         g_ViewModelOwner = owner;
         g_EyePosition = eyePosition;
+        const bool portalPlayer = owner && *static_cast<void ***>(owner) == g_PortalPlayerVTable;
+        g_GameEyeThrough = portalPlayer && static_cast<uint8_t *>(owner)[kPlayer_ViewThroughPortal];
+        g_GameEyeExit = g_GameEyeThrough ? *reinterpret_cast<uint8_t **>(static_cast<uint8_t *>(owner) + kPlayer_ViewExitPortal) : nullptr;
         if (!VRViewActive())
             return oCalcViewModelView(thisptr, owner, eyePosition, eyeAngles);
 
@@ -1063,6 +1254,204 @@ namespace
             g_Aim = TraceShot(gun, g_ShotStart, vr->m_RightControllerForward * static_cast<float>(MAX_TRACE_LENGTH)).end;
     }
 
+    Arms::Frame HandFrame(const Vector &origin, const Vector &forward, const Vector &right, const Vector &up)
+    {
+        return { origin, forward, -right, up };
+    }
+
+    // The hands where the controllers are, in the game eye's space: the gun hand at the grip of the
+    // gun as it sits with the default offsets, the other one mirrored. The right controller is
+    // the gun hand's, also when left-handed.
+    void HandFrames(Arms::Frame &gunHand, Arms::Frame &otherHand)
+    {
+        VR *vr = g_StrataGame->m_VR;
+        const Vector eyes = g_EyePosition;
+        // The config's GunPos offsets move only the gun, HandPos ones the hands.
+        const Vector gun = vr->GetHandGunAbsPos(eyes);
+        const Vector grip = gun + vr->m_HandGunForward * kGun_GripForward + vr->m_HandGunRight * kGun_GripRight + vr->m_HandGunUp * kGun_GripUp;
+        gunHand = HandFrame(grip, vr->m_RightControllerForward, vr->m_RightControllerRight, vr->m_RightControllerUp);
+        const Vector offset = grip - vr->GetRightControllerAbsPos(eyes);
+        const Vector local(DotProduct(offset, gunHand.forward), DotProduct(offset, gunHand.left), DotProduct(offset, gunHand.up));
+        otherHand = HandFrame(vr->GetLeftControllerAbsPos(eyes), vr->m_LeftControllerForward, vr->m_LeftControllerRight, vr->m_LeftControllerUp);
+        otherHand.origin = otherHand.origin + otherHand.forward * local.x - otherHand.left * local.y + otherHand.up * local.z;
+    }
+
+    // Whether the ball (center, radius) is in the button (brush or pedestal cap), with margin added
+    // all around; center: of the button, in the world.
+    // at, for the log: of a pedestal, the ball's height above the cap's base and distance from its
+    // axis; of a brush, its distance from the box.
+    bool BallInButton(const uint8_t *entity, const ButtonModel *model, const Vector &ball, float margin, Vector &center, Vector &at)
+    {
+        const Vector origin = *CallVirtual<const Vector *>(entity, kEntity_GetAbsOrigin);
+        Vector forward, right, up;
+        QAngle::AngleVectors(*CallVirtual<const QAngle *>(entity, kEntity_GetAbsAngles), &forward, &right, &up);
+        const Vector local = ball - origin;
+
+        if (model)
+        {
+            const auto toWorld = [&](const Vector &v) { return forward * v.x - right * v.y + up * v.z; };
+            const Vector axis = toWorld(model->axis);
+            const Vector fromBase = local - toWorld(model->base);
+            const float height = DotProduct(fromBase, axis);
+            const float radial = VectorLength(fromBase - axis * height);
+            center = origin + toWorld(model->base + model->axis * model->height);
+            at = Vector(height, radial, 0);
+            // The ball's distance from the disc.
+            const float along = (std::max)({ 0.0f, height - model->height, -height });
+            const float across = (std::max)(0.0f, radial - model->radius);
+            return along * along + across * across <= margin * margin;
+        }
+
+        const Vector mins = *reinterpret_cast<const Vector *>(entity + g_Entity_Mins);
+        const Vector maxs = *reinterpret_cast<const Vector *>(entity + g_Entity_Maxs);
+        const Vector inEntity(DotProduct(local, forward), -DotProduct(local, right), DotProduct(local, up));
+        const Vector middle = (mins + maxs) * 0.5f;
+        center = origin + forward * middle.x - right * middle.y + up * middle.z;
+        const Vector nearest(std::clamp(inEntity.x, mins.x, maxs.x), std::clamp(inEntity.y, mins.y, maxs.y), std::clamp(inEntity.z, mins.z, maxs.z));
+        const float distance = VectorLength(inEntity - nearest);
+        at = Vector(distance, 0, 0);
+        return distance <= margin + kButton_BrushMargin;
+    }
+
+    // Presses a button when a hand or the gun enters it: the other hand, the gun hand, and the gun
+    // along its length, if the player has it. Not while carrying an object: the game's use would
+    // drop it.
+    void UpdateButtonPress()
+    {
+        ButtonPress &state = g_ButtonPress;
+        Game *game = g_StrataGame;
+        VR *vr = game->m_VR;
+        auto player = static_cast<uint8_t *>(g_ViewModelOwner);
+        if (!vr->m_Arms)
+        {
+            state.touching.clear();
+            state.pending = false;
+            return;
+        }
+        if (!g_GetAbsOrigin || !g_GetAbsAngles || !player || g_ViewModelOwner != game->GetClientEntity(game->m_EngineClient->GetLocalPlayer()))
+            return;
+        // A gun without a muzzle for a moment: the button it's in mustn't press again.
+        if (*reinterpret_cast<const uint32_t *>(player + g_Player_ActiveWeaponHandle) != 0xFFFFFFFF && !g_MuzzleValid)
+            return;
+
+        struct Ball
+        {
+            Vector center;
+            float radius;
+            const char *part;
+        };
+        static std::vector<Ball> balls;
+        balls.clear();
+        Arms::Frame gunHand, otherHand;
+        HandFrames(gunHand, otherHand);
+        const bool leftHanded = vr->m_LeftHanded;
+        balls.push_back({ gunHand.origin + gunHand.forward * kHand_PressForward, kHand_PressRadius, leftHanded ? "left hand" : "right hand" });
+        balls.push_back({ otherHand.origin + otherHand.forward * kHand_PressForward, kHand_PressRadius, leftHanded ? "right hand" : "left hand" });
+        // The fingers and knuckles, as the arms have just been drawn (Chell's right hand is the
+        // right controller's, also when left-handed).
+        if (!g_EyeBones.empty() && std::chrono::steady_clock::now() - g_EyeBonesTime < kHand_BonesMaxAge)
+        {
+            static std::vector<Vector> points;
+            for (int side = 0; side < 2; ++side)
+            {
+                points.clear();
+                Arms::HandPoints(g_EyeBones.data(), g_EyeBones.size(), side, points);
+                for (size_t p = 0; p < points.size(); ++p)
+                {
+                    if (p == 0)
+                        balls.push_back({ points[p], kHand_WristRadius, side == 0 ? "right wrist" : "left wrist" });
+                    else
+                        balls.push_back({ points[p], kHand_FingerRadius, side == 0 ? "right fingers" : "left fingers" });
+                }
+            }
+        }
+        if (g_MuzzleValid)
+        {
+            Vector forward, right, up;
+            QAngle::AngleVectors(g_Gun.angles, &forward, &right, &up);
+            const Vector grip = g_Gun.position + forward * kGun_GripForward + right * kGun_GripRight + up * kGun_GripUp;
+            // The front ball ends at the muzzle.
+            const float length = VectorLength(grip - g_Muzzle);
+            const Vector front = length > kGun_PressRadius ? g_Muzzle + (grip - g_Muzzle) * (kGun_PressRadius / length) : grip;
+            for (int i = 0; i <= kGun_Samples; ++i)
+                balls.push_back({ front + (grip - front) * (static_cast<float>(i) / kGun_Samples), kGun_PressRadius, "gun" });
+        }
+
+        int modelIndices[std::size(kButtonModels)];
+        for (size_t m = 0; m < std::size(kButtonModels); ++m)
+            modelIndices[m] = g_ModelInfo && g_Entity_ModelIndex ? CallVirtual<int>(g_ModelInfo, kModelInfo_GetModelIndex, kButtonModels[m].name) : -1;
+        const bool brushes = g_Entity_Mins && g_Entity_Maxs;
+
+        std::vector<int> touching;
+        int pressed = 0;
+        bool brush = false;
+        const char *part = nullptr;
+        Vector target, pressedAt, size;
+        const int highest = game->m_ClientEntityList->GetHighestEntityIndex();
+        for (int i = 1; i <= highest; ++i)
+        {
+            auto entity = reinterpret_cast<const uint8_t *>(game->GetClientEntity(i));
+            if (!entity)
+                continue;
+            void *const *vtable = *reinterpret_cast<void *const *const *>(entity);
+            const ButtonModel *model = nullptr;
+            if (!(brushes && vtable == g_BaseButtonVTable))
+            {
+                // A short or an int: the low half holds the index either way.
+                const int modelIndex = g_Entity_ModelIndex ? *reinterpret_cast<const int16_t *>(entity + g_Entity_ModelIndex) : -1;
+                for (size_t m = 0; m < std::size(kButtonModels) && !model; ++m)
+                {
+                    if (modelIndices[m] >= 0 && modelIndex == modelIndices[m])
+                        model = &kButtonModels[m];
+                }
+                if (!model)
+                    continue;
+            }
+            if (vtable[kEntity_GetAbsOrigin] != g_GetAbsOrigin || vtable[kEntity_GetAbsAngles] != g_GetAbsAngles)
+                continue;
+
+            const bool wasTouching = std::find(state.touching.begin(), state.touching.end(), i) != state.touching.end();
+            const float margin = wasTouching ? kButton_ReleaseMargin : 0;
+            for (size_t b = 0; b < balls.size(); ++b)
+            {
+                Vector center, at;
+                if (!BallInButton(entity, model, balls[b].center, balls[b].radius + margin, center, at))
+                    continue;
+                touching.push_back(i);
+                if (!wasTouching && !pressed)
+                {
+                    pressed = i;
+                    brush = !model;
+                    part = balls[b].part;
+                    target = center;
+                    pressedAt = at;
+                    if (brush)
+                        size = *reinterpret_cast<const Vector *>(entity + g_Entity_Maxs) - *reinterpret_cast<const Vector *>(entity + g_Entity_Mins);
+                }
+                break;
+            }
+        }
+
+        // Carrying, with or without the gun.
+        const bool carrying = vr->m_ViewmodelCarrying || (g_Player_HoldingSomething && player[g_Player_HoldingSomething]);
+        if (pressed && !carrying)
+        {
+            state.pending = true;
+            state.target = target;
+            static bool logged = false;
+            if (!logged || VerboseLog())
+            {
+                std::cout << "[VR] button " << pressed << " pressed with the " << part;
+                if (brush)
+                    std::cout << " (brush " << size.x << "x" << size.y << "x" << size.z << ", " << pressedAt.x << " from its box)\n";
+                else
+                    std::cout << " (pedestal, " << pressedAt.x << " above its cap's base, " << pressedAt.y << " from its axis)\n";
+            }
+            logged = true;
+        }
+        state.touching = std::move(touching);
+    }
+
     void RemoveLaser()
     {
         if (!CreatePingPointer)
@@ -1133,6 +1522,7 @@ namespace
             UpdateShotStart();
             UpdateAim();
             UpdateLaser();
+            UpdateButtonPress();
         }
         else
             g_LaserPrecacheFrames = 0;
@@ -1187,6 +1577,274 @@ namespace
         return false;
     }
 
+    // Off (config Arms, VR tab): the player as the game has it, buttons only by use.
+    bool ArmsActive()
+    {
+        return g_ArmsHooked && g_StrataGame->m_VR->m_Arms && VRViewActive();
+    }
+
+    // The local player as hkCalcViewModelView has seen it.
+    bool IsPlayerWithArms(void *entity)
+    {
+        Game *game = g_StrataGame;
+        return ArmsActive() && entity && entity == g_ViewModelOwner
+            && entity == game->GetClientEntity(game->m_EngineClient->GetLocalPlayer());
+    }
+
+    // The exit portal's matrix back to the player's side, if the game's eye is through a portal.
+    const float (*ToPlayerSide())[4]
+    {
+        if (!g_GameEyeThrough || !g_GameEyeExit || *reinterpret_cast<void **const *>(g_GameEyeExit) != g_PropPortalVTable)
+            return nullptr;
+        return reinterpret_cast<const float (*)[4]>(g_GameEyeExit + kPortal_MatrixToLinked);
+    }
+
+    int PortalDepth()
+    {
+        return g_PortalRender && *g_PortalRender && PortalDepth_ ? PortalDepth_(*g_PortalRender) : 0;
+    }
+
+    // The portal the current portal view looks through, as the game compares it.
+    const uint8_t *ViewPortal()
+    {
+        return g_PortalRender && *g_PortalRender ? *reinterpret_cast<uint8_t **>(static_cast<uint8_t *>(*g_PortalRender) + kPortalRender_ViewPortal) : nullptr;
+    }
+
+    // The player is seen from its own eyes: where the game skips it (cl_skip_player_render_in_main_view)
+    // it is drawn with the arms. That is the view at portal depth 0 with the eye on the player's
+    // side, and, with the eye through a portal, the view back through it (depth 1). Elsewhere (in
+    // portals, seen from outside) Chell is as the game has her.
+    bool DrawsArms(void *player)
+    {
+        return g_ArmsUsable && IsPlayerWithArms(player) && oSkipPlayer(player);
+    }
+
+    matrix3x4_t *BonesCache(void *player)
+    {
+        return *reinterpret_cast<matrix3x4_t **>(static_cast<uint8_t *>(player) + kAnimating_Bones);
+    }
+
+    // The player is drawn in its own view too. Only the player itself: particles that belong to
+    // it, such as the third-person gun's lights (CNewParticleEffect, renderable at +0x10, [9]
+    // DrawModel, rva 0x2ddc20), ask too and stay hidden.
+    bool hkSkipPlayer(void *player)
+    {
+        const bool skip = oSkipPlayer(player);
+        return g_DrawingEyes || g_DrawingShadow ? false : skip;
+    }
+
+    // Shadows of the player and its gun as the game would have them without the skip: Chell's.
+    int DrawShadow(tDrawModel draw, void *renderable, int flags, const void *instance)
+    {
+        g_DrawingShadow = true;
+        const int result = draw(renderable, flags, instance);
+        g_DrawingShadow = false;
+        return result;
+    }
+
+    // The flags (and view) the player is drawn with where it has arms, each once.
+    void LogArmsDraw(int flags)
+    {
+        static int logged[16];
+        static size_t count = 0;
+        if (!VerboseLog() || count == std::size(logged) || std::find(logged, logged + count, flags) != logged + count)
+            return;
+        logged[count++] = flags;
+        std::cout << "[Arms] player drawn with flags 0x" << std::hex << flags << std::dec << " in view " << (CurrentViewId_ ? CurrentViewId_() : -2)
+                  << ((flags & kStudio_ShadowFlags) ? ": shadow, Chell's" : ": arms") << "\n";
+    }
+
+    // Draws with the arms in the player's bone cache, the game's bones back afterwards. If the
+    // bones are made while drawing, hkBuildTransformations leaves the arms in the cache.
+    int DrawWithArms(void *player, tDrawModel draw, void *renderable, int flags, const void *instance)
+    {
+        matrix3x4_t *cache = BonesCache(player);
+        if (cache && cache == g_BonesCache && !g_EyeBones.empty() && !g_CacheHoldsEyes)
+        {
+            g_GameBones.assign(cache, cache + g_EyeBones.size());
+            memcpy(cache, g_EyeBones.data(), g_EyeBones.size() * sizeof(matrix3x4_t));
+            g_CacheHoldsEyes = true;
+        }
+        g_DrawingEyes = true;
+        const int result = draw(renderable, flags, instance);
+        g_DrawingEyes = false;
+        cache = BonesCache(player);
+        if (g_CacheHoldsEyes && cache && cache == g_BonesCache && g_GameBones.size() == g_EyeBones.size())
+            memcpy(cache, g_GameBones.data(), g_GameBones.size() * sizeof(matrix3x4_t));
+        g_CacheHoldsEyes = false;
+        return result;
+    }
+
+    int hkPlayerDrawModel(void *renderable, int flags, const void *instance)
+    {
+        void *player = static_cast<uint8_t *>(renderable) - kPlayer_Renderable;
+        if (!DrawsArms(player))
+            return oPlayerDrawModel(renderable, flags, instance);
+        LogArmsDraw(flags);
+        if (flags & kStudio_ShadowFlags)
+            return DrawShadow(oPlayerDrawModel, renderable, flags, instance);
+        return DrawWithArms(player, oPlayerDrawModel, renderable, flags, instance);
+    }
+
+    // The player's copy in a portal it is in (the player itself is cut off at it) likewise: with
+    // the arms where the game hides it as seen from the player's eyes (0xf18d0): at depth 0 with
+    // the eye through the portal, at depth 1 through the copy's portal with the eye on the
+    // player's side. Elsewhere as the game has it.
+    int hkGhostDrawModel(void *renderable, int flags, const void *instance)
+    {
+        const uint32_t handle = *reinterpret_cast<uint32_t *>(static_cast<uint8_t *>(renderable) + kGhost_Source);
+        auto player = static_cast<uint8_t *>(g_ViewModelOwner);
+        if (handle == 0xFFFFFFFF || !player || g_StrataGame->GetClientEntity(handle & 0xFFFF) != g_ViewModelOwner || !g_ArmsUsable || !IsPlayerWithArms(player))
+            return oGhostDrawModel(renderable, flags, instance);
+        const int depth = PortalDepth();
+        const bool through = player[kPlayer_ViewThroughPortal] != 0;
+        bool ownSight = depth == 0 && through;
+        if (depth == 1 && !through)
+        {
+            auto portal = *reinterpret_cast<uint8_t **>(static_cast<uint8_t *>(renderable) - kPlayer_Renderable + kGhost_Portal);
+            ownSight = portal && ViewPortal() == portal + kPortal_ViewId;
+        }
+        if (!ownSight)
+            return oGhostDrawModel(renderable, flags, instance);
+        g_ForceGhost = true;
+        if (flags & kStudio_ShadowFlags) // Chell's shadow, as for the player
+        {
+            const int shadow = oGhostDrawModel(renderable, flags, instance);
+            g_ForceGhost = false;
+            return shadow;
+        }
+        const int result = DrawWithArms(player, oGhostDrawModel, renderable, flags, instance);
+        g_ForceGhost = false;
+        static int loggedDepth = -1, loggedResult = -1;
+        if ((depth != loggedDepth || result != loggedResult) && VerboseLog())
+        {
+            std::cout << "[Arms] player's copy in a portal with arms at depth " << depth << (result ? ": drawn" : ": not drawn") << "\n";
+            loggedDepth = depth;
+            loggedResult = result;
+        }
+        return result;
+    }
+
+    bool hkGhostCheck(void *ghost)
+    {
+        return oGhostCheck(ghost) || g_ForceGhost;
+    }
+
+    // The third-person gun doesn't show where the player has arms: they hold the first-person one.
+    int hkGunDrawModel(void *renderable, int flags, const void *instance)
+    {
+        if (DrawsArms(g_ViewModelOwner) && g_BonesCache)
+            return flags & kStudio_ShadowFlags ? DrawShadow(oGunDrawModel, renderable, flags, instance) : 0;
+        return oGunDrawModel(renderable, flags, instance);
+    }
+
+    // The same for the copy of the gun the player holds.
+    int hkCloneDrawModel(void *renderable, int flags, const void *instance)
+    {
+        void *player = g_ViewModelOwner;
+        if (DrawsArms(player) && g_BonesCache)
+        {
+            void *weapon = *reinterpret_cast<void **>(static_cast<uint8_t *>(renderable) - kPlayer_Renderable + kWeaponClone_Weapon);
+            const uint32_t handle = *reinterpret_cast<uint32_t *>(static_cast<uint8_t *>(player) + g_Player_ActiveWeaponHandle);
+            if (weapon && handle != 0xFFFFFFFF && weapon == g_StrataGame->GetClientEntity(handle & 0xFFFF))
+                return flags & kStudio_ShadowFlags ? DrawShadow(oCloneDrawModel, renderable, flags, instance) : 0;
+        }
+        return oCloneDrawModel(renderable, flags, instance);
+    }
+
+    // The player's bounds include everything the arms can reach from the head.
+    void hkGetRenderBounds(void *renderable, Vector &mins, Vector &maxs)
+    {
+        oGetRenderBounds(renderable, mins, maxs);
+        void *player = static_cast<uint8_t *>(renderable) - kPlayer_Renderable;
+        if (!g_ArmsUsable || !IsPlayerWithArms(player))
+            return;
+        VR *vr = g_StrataGame->m_VR;
+        const Vector origin = *CallVirtual<const Vector *>(renderable, kRenderable_GetRenderOrigin);
+        Vector head = vr->m_6DOF ? g_EyePosition + vr->m_HmdPosRelative : g_EyePosition;
+        if (const auto m = ToPlayerSide())
+            head = MovedByPortal(m, head);
+        head = head - origin;
+        const float reach = kArms_Reach * vr->m_VRScale;
+        mins = Vector((std::min)(mins.x, head.x - reach), (std::min)(mins.y, head.y - reach), (std::min)(mins.z, head.z - reach));
+        maxs = Vector((std::max)(maxs.x, head.x + reach), (std::max)(maxs.y, head.y + reach), (std::max)(maxs.z, head.z + reach));
+    }
+
+    // The hands where the controllers are, the head and the aim, for the arms.
+    Arms::Input ArmsInput()
+    {
+        VR *vr = g_StrataGame->m_VR;
+        const Vector eyes = g_EyePosition;
+        Arms::Input input;
+        input.head = vr->m_6DOF ? eyes + vr->m_HmdPosRelative : eyes;
+        input.eyes = vr->GetViewOrigin(eyes);
+        input.headYaw = Heading(vr->m_HmdForward, vr->m_HmdUp);
+        input.unitsPerMeter = vr->m_VRScale;
+
+        QAngle aim = vr->m_RightControllerAngAbs; // as in hkCreateMove
+        aim.x = std::clamp(aim.x, -89.0f, 89.0f);
+        aim.z = 0;
+        Vector forward, right, up;
+        QAngle::AngleVectors(aim, &forward, &right, &up);
+        input.aim = HandFrame(Vector(0, 0, 0), forward, right, up);
+
+        HandFrames(input.gunHand, input.otherHand);
+        input.gunInRightHand = !vr->m_LeftHanded;
+
+        // With the game's eye through a portal, all of it back on the player's side.
+        if (const auto m = ToPlayerSide())
+        {
+            const auto turn = [m](Arms::Frame &frame, bool move)
+            {
+                if (move)
+                    frame.origin = MovedByPortal(m, frame.origin);
+                frame.forward = RotatedByPortal(m, frame.forward);
+                frame.left = RotatedByPortal(m, frame.left);
+                frame.up = RotatedByPortal(m, frame.up);
+            };
+            input.head = MovedByPortal(m, input.head);
+            input.eyes = MovedByPortal(m, input.eyes);
+            input.headYaw = Heading(RotatedByPortal(m, vr->m_HmdForward), RotatedByPortal(m, vr->m_HmdUp));
+            turn(input.aim, false);
+            turn(input.gunHand, true);
+            turn(input.otherHand, true);
+        }
+        return input;
+    }
+
+    // The arms from the game's bones, for the player's own view; the cache keeps the game's ones,
+    // unless the player is being drawn there.
+    void hkBuildTransformations(void *thisptr, void *studioHdr, void *pos, void *q, const void *cameraTransform, int boneMask, void *boneComputed)
+    {
+        oBuildTransformations(thisptr, studioHdr, pos, q, cameraTransform, boneMask, boneComputed);
+        if (!studioHdr || !ArmsActive() || !IsPlayerWithArms(thisptr))
+            return;
+        matrix3x4_t *bones = BonesCache(thisptr);
+        const void *hdr = *static_cast<void **>(studioHdr);
+        // Bones only for other purposes (attachments, the gun's bone merge) stay the game's.
+        if (!bones || !hdr || !(boneMask & kBoneUsedByVertex))
+            return;
+        const int count = *reinterpret_cast<const int *>(static_cast<const uint8_t *>(hdr) + kStudio_BoneCount);
+        g_GameBones.assign(bones, bones + count);
+        const bool applied = Arms::Apply(hdr, bones, ArmsInput());
+        g_ArmsUsable = Arms::Usable();
+        if (applied)
+        {
+            g_EyeBones.assign(bones, bones + count);
+            g_EyeBonesTime = std::chrono::steady_clock::now();
+            g_BonesCache = bones;
+        }
+        else
+        {
+            g_EyeBones.clear();
+            g_BonesCache = nullptr;
+        }
+        if (applied && g_DrawingEyes)
+            g_CacheHoldsEyes = true;
+        else
+            memcpy(bones, g_GameBones.data(), count * sizeof(matrix3x4_t));
+    }
+
     // The game's network tables, as in client.dll. They name the fields, so these survive a patch
     // that moves them.
     struct RecvTable;
@@ -1235,10 +1893,14 @@ namespace
         { "DT_Prop_Portal", "m_fNetworkHalfHeight", &g_Portal_HalfHeight },
         { "DT_Portal_Player", "m_fFlags", &g_Player_Flags },
         { "DT_Portal_Player", "m_hActiveWeapon", &g_Player_ActiveWeaponHandle },
+        { "DT_Portal_Player", "m_bIsHoldingSomething", &g_Player_HoldingSomething },
         { "DT_WeaponPortalgun", "m_bCanFirePortal1", &g_Portalgun_CanFirePortal1 },
         { "DT_WeaponPortalgun", "m_bCanFirePortal2", &g_Portalgun_CanFirePortal2 },
         { "DT_WeaponPortalgun", "m_iLastFiredPortal", &g_Portalgun_LastFiredPortal },
         { "DT_WeaponPortalgun", "m_bOpenProngs", &g_Portalgun_OpenProngs },
+        { "DT_BaseEntity", "m_nModelIndex", &g_Entity_ModelIndex },
+        { "DT_BaseEntity", "m_vecMins", &g_Entity_Mins },
+        { "DT_BaseEntity", "m_vecMaxs", &g_Entity_Maxs },
     };
 
     // From the start of the table, including its nested tables; -1 if it isn't there.
@@ -1308,9 +1970,27 @@ namespace
     // Renders both eyes into the VR textures instead of the one view into the back buffer. Menus
     // (main menu with its background map, pause menu) keep rendering to the back buffer, which
     // the menu overlay shows.
+    // The arms' hooks follow the config's Arms; switched here, outside of any drawing.
+    void UpdateArmsHooks()
+    {
+        const bool wanted = g_StrataGame->m_VR->m_Arms;
+        if (wanted == g_ArmsHooksEnabled || g_ArmsHookTargets.empty())
+            return;
+        int failed = 0;
+        for (void *target : g_ArmsHookTargets)
+            failed += (wanted ? MH_EnableHook(target) : MH_DisableHook(target)) != MH_OK;
+        g_ArmsHooksEnabled = wanted;
+        g_EyeBones.clear();
+        g_BonesCache = nullptr;
+        g_CacheHoldsEyes = false;
+        std::cout << "[Hooks] arms " << (wanted ? "on" : "off") << ": " << g_ArmsHookTargets.size() << " hooks "
+                  << (wanted ? "enabled" : "disabled") << (failed ? ", some failed" : "") << "\n";
+    }
+
     void hkRenderView(void *thisptr, const CViewSetup &view, const CViewSetup &hudView, int nClearFlags, int whatToDraw)
     {
         static const bool networkFieldsRead = (FindNetworkFields(), true);
+        UpdateArmsHooks();
 
         VR *vr = g_StrataGame->m_VR;
         if (!VRViewActive())
@@ -1892,6 +2572,21 @@ bool StrataHooks::Init(Game *game)
     }
     ok &= InstallHook("AddViewmodelBob", g_PortalgunVTable[kPortalgun_AddViewmodelBob], &hkAddViewmodelBob, oAddViewmodelBob);
 
+    void *modelInfo = game->GetInterface("engine.dll", "VModelInfoClient004");
+    void **modelInfoVTable = FindCheckedVTable("engine.dll", "CModelInfoClient", 69);
+    if (modelInfo && modelInfoVTable && *static_cast<void ***>(modelInfo) == modelInfoVTable)
+        g_ModelInfo = modelInfo;
+    else
+        std::cout << "[Hooks] model info not usable, no pressing pedestal buttons with the gun\n";
+    g_BaseButtonVTable = FindCheckedVTable("client.dll", "C_BaseButton", 190);
+    if (g_BaseButtonVTable)
+    {
+        g_GetAbsOrigin = g_BaseButtonVTable[kEntity_GetAbsOrigin];
+        g_GetAbsAngles = g_BaseButtonVTable[kEntity_GetAbsAngles];
+    }
+    else
+        std::cout << "[Hooks] C_BaseButton vtable not found, no pressing buttons with the gun\n";
+
     void **videoPanel = FindCheckedVTable("client.dll", "VideoPanel", 241);
     if (videoPanel)
         InstallHook("VideoPanel Paint", videoPanel[kVideoPanel_Paint], &hkVideoPanelPaint, oVideoPanelPaint);
@@ -1928,6 +2623,37 @@ bool StrataHooks::Init(Game *game)
         return false;
     }
     ok &= InstallHook("ApplyPortalTeleportation", player[kPlayer_ApplyPortalTeleportation], &hkApplyPortalTeleportation, oApplyPortalTeleportation);
+
+    void **playerRenderable = FindCheckedVTable("client.dll", "C_Portal_Player", 45, kPlayer_Renderable);
+    uint8_t *skipPlayer = playerRenderable ? CallTarget(static_cast<uint8_t *>(playerRenderable[kRenderable_DrawModel]) + kDrawModel_SkipCallOffset) : nullptr;
+    uint8_t *loadPortalRender = skipPlayer ? skipPlayer + kSkipPlayer_PortalRenderOffset : nullptr;
+    uint8_t *depth = skipPlayer ? CallTarget(skipPlayer + kSkipPlayer_DepthCallOffset) : nullptr;
+    void **gun = FindCheckedVTable("client.dll", "C_WeaponPortalgun", 45, kPlayer_Renderable);
+    if (skipPlayer && memcmp(skipPlayer, kSkipPlayer_Start, sizeof(kSkipPlayer_Start)) == 0
+        && memcmp(loadPortalRender, kLoadRip_Rcx, sizeof(kLoadRip_Rcx)) == 0 && depth && gun)
+    {
+        g_PortalRender = reinterpret_cast<void **>(loadPortalRender + 7 + *reinterpret_cast<int32_t *>(loadPortalRender + 3));
+        PortalDepth_ = reinterpret_cast<tPortalDepth>(depth);
+        CurrentViewId_ = reinterpret_cast<tCurrentViewId>(CallTarget(skipPlayer + kSkipPlayer_ViewIdCallOffset));
+        g_ArmsHooked = InstallArmsHook("SkipPlayer", skipPlayer, &hkSkipPlayer, oSkipPlayer)
+            && InstallArmsHook("Player DrawModel", playerRenderable[kRenderable_DrawModel], &hkPlayerDrawModel, oPlayerDrawModel)
+            && InstallArmsHook("Portalgun DrawModel", gun[kRenderable_DrawModel], &hkGunDrawModel, oGunDrawModel)
+            && InstallArmsHook("BuildTransformations", player[kPlayer_BuildTransformations], &hkBuildTransformations, oBuildTransformations);
+    }
+    if (!g_ArmsHooked)
+        std::cout << "[Hooks] player drawing not found, no arms\n";
+    void **clone = g_ArmsHooked ? FindCheckedVTable("client.dll", "C_CombatWeaponClone", 45, kPlayer_Renderable) : nullptr;
+    if (g_ArmsHooked && !(clone && InstallArmsHook("WeaponClone DrawModel", clone[kRenderable_DrawModel], &hkCloneDrawModel, oCloneDrawModel)))
+        std::cout << "[Hooks] C_CombatWeaponClone not hooked, the third-person gun shows with the arms\n";
+    void **ghost = g_ArmsHooked ? FindCheckedVTable("client.dll", "C_PortalGhostRenderable", 45, kPlayer_Renderable) : nullptr;
+    if (g_ArmsHooked && !(ghost && InstallArmsHook("PortalGhost DrawModel", ghost[kRenderable_DrawModel], &hkGhostDrawModel, oGhostDrawModel)))
+        std::cout << "[Hooks] C_PortalGhostRenderable not hooked, the arms end at portals\n";
+    uint8_t *ghostCheck = ghost && oGhostDrawModel ? CallTarget(static_cast<uint8_t *>(ghost[kRenderable_DrawModel]) + kGhostDraw_CheckCallOffset) : nullptr;
+    if (oGhostDrawModel && !(ghostCheck && memcmp(ghostCheck, kGhostCheck_Start, sizeof(kGhostCheck_Start)) == 0
+                             && InstallArmsHook("PortalGhost check", ghostCheck, &hkGhostCheck, oGhostCheck)))
+        std::cout << "[Hooks] PortalGhost check not hooked, the arms end at portals one looks through\n";
+    if (g_ArmsHooked && !InstallArmsHook("GetRenderBounds", playerRenderable[kRenderable_GetRenderBounds], &hkGetRenderBounds, oGetRenderBounds))
+        std::cout << "[Hooks] GetRenderBounds not hooked, the arms vanish when the player is out of view\n";
 
     auto client = reinterpret_cast<uint8_t *>(GetModuleHandleA("client.dll"));
 

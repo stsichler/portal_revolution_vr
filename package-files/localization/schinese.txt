@@ -15,6 +15,7 @@ AimDot=瞄准点
 Laser=激光
 ForceFeedback=控制器振动
 PortalGunVibration=传送门枪振动
+Arms=手臂和手（按按钮）
 GroupTurning=转向
 TurnStyle=转向方式
 Snap=分段
