@@ -41,7 +41,25 @@
     <ClCompile Include="settings_menu.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="strata_arms.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="strata_buttons.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="strata_gun.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="strata_hooks.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="strata_menu.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="strata_movement.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="strata_vtables.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="vr.cpp">
