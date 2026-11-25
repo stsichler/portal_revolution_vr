@@ -108,7 +108,10 @@ namespace
     constexpr int kPlayer_BuildTransformations = 192;
     constexpr int kAnimating_Bones = 0x2DB8;
     constexpr int kStudio_BoneCount = 0x9C; // studiohdr_t
+    constexpr int kStudio_BoneIndex = 0xA0; // studiohdr_t: where the bones start
+    constexpr int kBone_Size = 0xD8, kBone_Flags = 0xA0; // mstudiobone_t
     constexpr int kBoneUsedByVertex = 0x3FC00;
+    constexpr float kChell_Height = 76.0f; // units, her crown standing upright (bind pose)
     using tBuildTransformations = void (*)(void *thisptr, void *studioHdr, void *pos, void *q, const void *cameraTransform, int boneMask, void *boneComputed);
     tBuildTransformations oBuildTransformations = nullptr;
     bool g_ArmsHooked = false;
@@ -1780,6 +1783,7 @@ namespace
         input.eyes = vr->GetViewOrigin(eyes);
         input.headYaw = Heading(vr->m_HmdForward, vr->m_HmdUp);
         input.unitsPerMeter = vr->m_VRScale;
+        input.bodyHeight = vr->m_BodyHeight;
 
         QAngle aim = vr->m_RightControllerAngAbs; // as in hkCreateMove
         aim.x = std::clamp(aim.x, -89.0f, 89.0f);
@@ -1812,20 +1816,66 @@ namespace
         return input;
     }
 
-    // The arms from the game's bones, for the player's own view; the cache keeps the game's ones,
-    // unless the player is being drawn there.
+    // Chell as tall as the player (BodyHeight), around her feet: the game's bones, so in portals,
+    // in her shadow and with the third-person gun; the arms in the player's own view stay.
+    std::vector<matrix3x4_t> g_ScaledBones; // as last scaled: a bone the game didn't make anew isn't scaled twice
+    void ScaleChell(void *player, const uint8_t *hdr, matrix3x4_t *bones, int count, int boneMask)
+    {
+        VR *vr = g_StrataGame->m_VR;
+        const float scale = std::clamp(vr->m_BodyHeight / 100 * vr->m_VRScale / kChell_Height, 0.5f, 2.0f);
+        // The first always, the changes (many while the slider is dragged) only in the verbose log.
+        static float loggedScale = 0;
+        if (scale != loggedScale && (loggedScale == 0 || VerboseLog()))
+        {
+            std::cout << "[Arms] Chell scaled by " << scale << " (BodyHeight " << vr->m_BodyHeight << ")\n";
+            loggedScale = scale;
+        }
+        if (std::fabs(scale - 1) < 1e-4f)
+            return;
+        const Vector feet = *CallVirtual<const Vector *>(static_cast<uint8_t *>(player) + kPlayer_Renderable, kRenderable_GetRenderOrigin);
+        const float origin[3] = { feet.x, feet.y, feet.z };
+        const uint8_t *bone = hdr + *reinterpret_cast<const int *>(hdr + kStudio_BoneIndex);
+        g_ScaledBones.resize(count);
+        for (int i = 0; i < count; ++i)
+        {
+            if (!(*reinterpret_cast<const int *>(bone + i * kBone_Size + kBone_Flags) & boneMask) ||
+                !memcmp(&bones[i], &g_ScaledBones[i], sizeof(matrix3x4_t)))
+                continue;
+            for (int row = 0; row < 3; ++row)
+            {
+                float *m = bones[i][row];
+                m[0] *= scale;
+                m[1] *= scale;
+                m[2] *= scale;
+                m[3] = origin[row] + (m[3] - origin[row]) * scale;
+            }
+            g_ScaledBones[i] = bones[i];
+        }
+    }
+
+    // Chell scaled (also without the arms); the arms from the game's bones, for the player's own
+    // view; the cache keeps the game's ones, unless the player is being drawn there.
     void hkBuildTransformations(void *thisptr, void *studioHdr, void *pos, void *q, const void *cameraTransform, int boneMask, void *boneComputed)
     {
         oBuildTransformations(thisptr, studioHdr, pos, q, cameraTransform, boneMask, boneComputed);
-        if (!studioHdr || !ArmsActive() || !IsPlayerWithArms(thisptr))
+        Game *game = g_StrataGame;
+        if (!studioHdr || !thisptr || thisptr != game->GetClientEntity(game->m_EngineClient->GetLocalPlayer()))
             return;
         matrix3x4_t *bones = BonesCache(thisptr);
-        const void *hdr = *static_cast<void **>(studioHdr);
-        // Bones only for other purposes (attachments, the gun's bone merge) stay the game's.
-        if (!bones || !hdr || !(boneMask & kBoneUsedByVertex))
+        const auto hdr = *static_cast<const uint8_t **>(studioHdr);
+        if (!bones || !hdr)
             return;
-        const int count = *reinterpret_cast<const int *>(static_cast<const uint8_t *>(hdr) + kStudio_BoneCount);
+        const int count = *reinterpret_cast<const int *>(hdr + kStudio_BoneCount);
+        // Bones only for other purposes (attachments, the gun's bone merge) stay the game's, scaled.
+        if (!IsPlayerWithArms(thisptr) || !(boneMask & kBoneUsedByVertex))
+        {
+            if (!g_CacheHoldsEyes)
+                ScaleChell(thisptr, hdr, bones, count, boneMask);
+            return;
+        }
+        // The arms below from the game's bones as they are; the cache gets them back scaled.
         g_GameBones.assign(bones, bones + count);
+        ScaleChell(thisptr, hdr, g_GameBones.data(), count, boneMask);
         const bool applied = Arms::Apply(hdr, bones, ArmsInput());
         g_ArmsUsable = Arms::Usable();
         if (applied)
@@ -2635,10 +2685,11 @@ bool StrataHooks::Init(Game *game)
         g_PortalRender = reinterpret_cast<void **>(loadPortalRender + 7 + *reinterpret_cast<int32_t *>(loadPortalRender + 3));
         PortalDepth_ = reinterpret_cast<tPortalDepth>(depth);
         CurrentViewId_ = reinterpret_cast<tCurrentViewId>(CallTarget(skipPlayer + kSkipPlayer_ViewIdCallOffset));
-        g_ArmsHooked = InstallArmsHook("SkipPlayer", skipPlayer, &hkSkipPlayer, oSkipPlayer)
+        // Always on: it scales Chell, with or without the arms.
+        g_ArmsHooked = InstallHook("BuildTransformations", player[kPlayer_BuildTransformations], &hkBuildTransformations, oBuildTransformations)
+            && InstallArmsHook("SkipPlayer", skipPlayer, &hkSkipPlayer, oSkipPlayer)
             && InstallArmsHook("Player DrawModel", playerRenderable[kRenderable_DrawModel], &hkPlayerDrawModel, oPlayerDrawModel)
-            && InstallArmsHook("Portalgun DrawModel", gun[kRenderable_DrawModel], &hkGunDrawModel, oGunDrawModel)
-            && InstallArmsHook("BuildTransformations", player[kPlayer_BuildTransformations], &hkBuildTransformations, oBuildTransformations);
+            && InstallArmsHook("Portalgun DrawModel", gun[kRenderable_DrawModel], &hkGunDrawModel, oGunDrawModel);
     }
     if (!g_ArmsHooked)
         std::cout << "[Hooks] player drawing not found, no arms\n";

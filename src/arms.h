@@ -18,6 +18,7 @@ namespace Arms
         Vector eyes; // between the eyes: hidden bones shrink to this point
         float headYaw; // degrees
         float unitsPerMeter;
+        float bodyHeight; // the player's, cm: arms, hands and shoulders grow with it
         Frame aim; // the command's aim: the left arm mirrors the right one across it (origin unused)
         Frame gunHand; // where the gun's grip is, axes of the gun hand's controller
         Frame otherHand; // the mirror image of that for the other controller

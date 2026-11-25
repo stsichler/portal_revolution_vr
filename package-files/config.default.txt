@@ -7,8 +7,8 @@ HeadOrientedWalking=false # true: the stick walks where your head looks. false: 
 VRScale=44.7 # Source units per meter. 44.7: the game's player is 1.70 m tall
 IPDScale=1.0 # Scale of interpupillary distance 
 6DOF=true # false: only the head's rotation counts, not its position (Roomscale has no effect then)
-SeatedMode=false # false: your real eye height, the floors match. true: the eye height of SeatedBodyHeight
-SeatedBodyHeight=167 # Seated mode only: simulated body height in cm; the eyes are where they would be standing
+SeatedMode=false # false: your real eye height, the floors match. true: the eye height of BodyHeight
+BodyHeight=170 # Your body height in cm: Chell is as tall; seated, the eyes are where they would be standing
 Roomscale=true # true: the player follows your head when you walk in your room, and your head stops at walls
 AimMode=1 # 0 = None, 1 = Aim dot, 2 = Laser sight/beam
 Arms=true # true: you see Chell's arms and hands, and they and the portal gun press buttons

@@ -26,6 +26,9 @@ namespace
     constexpr float kArmLength = 1.2f;
     constexpr float kArmThickness = 1.25f;
     constexpr float kHandSize = 1.2f;
+    // The body height (cm) all the above is for: Stefan's, who set them. Other heights scale them
+    // all, the hands around the grip, so the controllers stay where they are in them.
+    constexpr float kMeasuresBodyHeight = 182.0f;
 
     // Which part of an arm a bone moves with. Shoulder: clavicle and scapula, shrunk into the
     // shoulder joint; Hidden: shrunk into the eyes, where it can't be seen.
@@ -274,10 +277,12 @@ namespace
     // The component of v perpendicular to n (length 1).
     Vector Across(const Vector &v, const Vector &n) { return v - n * DotProduct(v, n); }
 
-    // Two bones from the shoulder to the wrist, the elbow bent down, outward and back.
+    // Two bones from the shoulder to the wrist, the elbow bent down, outward and back; body: the
+    // player's body height over kMeasuresBodyHeight.
     ArmPose SolveArm(const matrix3x4_t *bones, int s, const Vector &shoulder, const Mat3 &wristAxes, Vector wrist,
-                     const Vector &forward, const Vector &outward, const Vector &up)
+                     const Vector &forward, const Vector &outward, const Vector &up, float body)
     {
+        const float length = kArmLength * body, thickness = kArmThickness * body;
         const Skeleton &skeleton = g_Skeleton;
         ArmPose pose;
         const matrix3x4_t &wristBefore = bones[skeleton.wrist[s]];
@@ -288,8 +293,8 @@ namespace
         if (upper0 < 0.1f || fore0 < 0.1f || distance < 0.1f)
             return pose;
 
-        const float stretch = std::clamp(distance / ((upper0 + fore0) * kArmLength), 1.0f, kMaxStretch);
-        const float upper = upper0 * kArmLength * stretch, fore = fore0 * kArmLength * stretch;
+        const float stretch = std::clamp(distance / ((upper0 + fore0) * length), 1.0f, kMaxStretch);
+        const float upper = upper0 * length * stretch, fore = fore0 * length * stretch;
         const float d = std::clamp(distance, std::fabs(upper - fore) + 0.01f, upper + fore);
         const Vector direction = toWrist * (1.0f / distance);
         wrist = shoulder + direction * d; // out of reach: at the end of the arm
@@ -301,10 +306,10 @@ namespace
 
         const Vector upperDirection = Unit(elbow - shoulder);
         const Mat3 upperTurn = RotationBetween(Unit(e0 - s0), upperDirection);
-        pose.upper = ScaleAlong(upperDirection, upper / upper0, kArmThickness) * upperTurn;
+        pose.upper = ScaleAlong(upperDirection, upper / upper0, thickness) * upperTurn;
         const Vector foreDirection = Unit(wrist - elbow);
         const Mat3 foreTurn = RotationBetween(Unit(upperTurn * (w0 - e0)), foreDirection) * upperTurn;
-        pose.fore = ScaleAlong(foreDirection, fore / fore0, kArmThickness) * foreTurn;
+        pose.fore = ScaleAlong(foreDirection, fore / fore0, thickness) * foreTurn;
 
         // The wrist turned around the forearm against how the animation had it: the axis of the
         // wrist most across the forearm, carried along with the forearm, and where the hand has it.
@@ -362,6 +367,8 @@ bool Arms::Apply(const void *studioHdr, matrix3x4_t *bones, const Input &input)
     const float yaw = DEG2RAD(input.headYaw);
     const Vector forward(std::cos(yaw), std::sin(yaw), 0), left(-std::sin(yaw), std::cos(yaw), 0), up(0, 0, 1);
     const float meter = input.unitsPerMeter;
+    const float body = std::clamp(input.bodyHeight / kMeasuresBodyHeight, 0.5f, 2.0f);
+    const float handSize = kHandSize * body;
 
     // The grip of the right wrist, and its mirror image for the left one: positions
     // mirrored in the hand's frame (left to right), and the left bones' axes are those of the
@@ -381,10 +388,12 @@ bool Arms::Apply(const void *studioHdr, matrix3x4_t *bones, const Input &input)
         const Frame &hand = (s == 0) == input.gunInRightHand ? input.gunHand : input.otherHand;
         const Mat3 handAxes = Axes(hand);
         const Mat3 wristAxes = handAxes * (s == 0 ? grip : gripLeft);
-        const Vector wrist = hand.origin + handAxes * (s == 0 ? kGripPosition : mirror(kGripPosition));
+        // The grip stays at the controller: the wrist moves away from it as the hand grows.
+        const Vector wrist = hand.origin + handAxes * ((s == 0 ? kGripPosition : mirror(kGripPosition)) * body);
         const Vector outward = s == 0 ? -left : left;
-        const Vector shoulder = input.head - up * (kShoulderBelowHead * meter) - forward * (kShoulderBehindHead * meter) + outward * (kShoulderHalfWidth * meter);
-        poses[s] = SolveArm(bones, s, shoulder, wristAxes, wrist, forward, outward, up);
+        const float bodyMeter = meter * body;
+        const Vector shoulder = input.head - up * (kShoulderBelowHead * bodyMeter) - forward * (kShoulderBehindHead * bodyMeter) + outward * (kShoulderHalfWidth * bodyMeter);
+        poses[s] = SolveArm(bones, s, shoulder, wristAxes, wrist, forward, outward, up, body);
         if (!poses[s].valid)
             return false;
     }
@@ -420,7 +429,7 @@ bool Arms::Apply(const void *studioHdr, matrix3x4_t *bones, const Input &input)
             const Mat3 toWrist = Transposed(Rotation(pose.wristBefore));
             const Mat3 axes = toWrist * Rotation(bone);
             const Vector position = toWrist * (Column(bone, 3) - Column(pose.wristBefore, 3));
-            Set(bone, Scaled(pose.wristAxes * axes, kHandSize), pose.wrist + pose.wristAxes * (position * kHandSize));
+            Set(bone, Scaled(pose.wristAxes * axes, handSize), pose.wrist + pose.wristAxes * (position * handSize));
             break;
         }
         }

@@ -189,8 +189,9 @@ public:
 	float m_IpdScale = 1.0;
 	bool m_6DOF = true;
 	bool m_SeatedMode = false;
-	// Seated, the eyes are where they'd be standing at this body height (cm), kEyeBelowCrown lower.
-	float m_SeatedBodyHeight = 167.0f;
+	// The player's body height (cm): Chell is as tall; seated, the eyes are where they'd be
+	// standing, kEyeBelowCrown lower.
+	float m_BodyHeight = 170.0f;
 	static constexpr float kEyeBelowCrown = 11.0f; // cm, about the same for all adults
 	bool m_Roomscale = true;
 	int m_AimMode = 1;

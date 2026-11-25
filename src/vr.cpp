@@ -2238,7 +2238,7 @@ void VR::UpdateHeadPose()
     if (!m_SeatedMode)
         m_HmdPosRelative.z -= 64;
     else
-        m_HmdPosRelative.z += (m_SeatedBodyHeight - kEyeBelowCrown) / 100 * m_VRScale - 64;
+        m_HmdPosRelative.z += (m_BodyHeight - kEyeBelowCrown) / 100 * m_VRScale - 64;
 
     GetViewParameters();
     m_Ipd = m_EyeToHeadTransformPosRight.x * 2;
@@ -2601,21 +2601,29 @@ static void CompleteConfigFile()
     formerGunPos = formerGunPos && anyGunPos;
 
     // Until v1.6.1 SeatedHeightOffset moved the eyes by source units from the game's eye height
-    // (64). SeatedBodyHeight takes its place with the eye height the player had, in meters at the
-    // VRScale of then. The defaults (43.2 with 4, 46.1 with 8) give the current default line; the
-    // VR tab writes all its values, so 4 counts as untouched. Without the key in
-    // config.default.txt (older package files) the offset stays.
-    const auto bodyHeightDefault = defaultLines.find("SeatedBodyHeight");
-    const auto bodyHeightLine = [&](const std::string &offsetText)
+    // (64). BodyHeight takes its place with the eye height the player had, in meters at the
+    // VRScale of then. The defaults (43.2 with 4, 46.1 with 8) give the default line (46.1 with 8
+    // via 167, below); the VR tab writes all its values, so 4 counts as untouched. Without the key
+    // in config.default.txt (older package files) the offset stays.
+    // v1.8.0: BodyHeight (Chell's height too) is SeatedBodyHeight of v1.7 to v1.7.2, renamed; its
+    // default there, 167, gets the current one (170: Chell's height at VRScale 44.7).
+    const std::string kBodyHeightKey = "BodyHeight", kOldBodyHeightKey = "SeatedBodyHeight";
+    const auto bodyHeightDefault = defaultLines.find(kBodyHeightKey);
+    const bool hasBodyHeight = values.count(kBodyHeightKey) || values.count(kOldBodyHeightKey);
+    const bool formerBodyHeight = fileVersion < Version{ 1, 8, 0 };
+    const auto bodyHeightLine = [&](const std::string &value)
     {
         const std::string &line = bodyHeightDefault->second;
+        const size_t comment = line.find(" #");
+        return kBodyHeightKey + "=" + value + (comment == std::string::npos ? "" : line.substr(comment));
+    };
+    const auto offsetBodyHeightLine = [&](const std::string &offsetText)
+    {
         char *end = nullptr;
         const float offset = std::strtof(offsetText.c_str(), &end);
         if (offsetText.empty() || *end != '\0' || !(oldScale > 0) || (oldScale == 43.2f && offset == 4.0f))
-            return line;
-        const long height = std::lround((64 + offset) / oldScale * 100 + VR::kEyeBelowCrown);
-        const size_t comment = line.find(" #");
-        return "SeatedBodyHeight=" + std::to_string(height) + (comment == std::string::npos ? "" : line.substr(comment));
+            return bodyHeightDefault->second;
+        return bodyHeightLine(std::to_string(std::lround((64 + offset) / oldScale * 100 + VR::kEyeBelowCrown)));
     };
 
     std::string updated = newVersionLine + newline;
@@ -2628,14 +2636,33 @@ static void CompleteConfigFile()
         if (key == "SeatedHeightOffset" && bodyHeightDefault != defaultLines.end())
         {
             changed = true;
-            if (values.count("SeatedBodyHeight"))
+            if (hasBodyHeight)
             {
-                std::cout << "Config entry 'SeatedHeightOffset' removed, SeatedBodyHeight replaces it\n";
+                std::cout << "Config entry 'SeatedHeightOffset' removed, BodyHeight replaces it\n";
+                continue;
+            }
+            line = offsetBodyHeightLine(valueOf(line));
+            values.emplace(kBodyHeightKey, valueOf(line));
+            std::cout << "Config entry 'SeatedHeightOffset' became BodyHeight=" << valueOf(line) << "\n";
+        }
+        if (key == kOldBodyHeightKey && bodyHeightDefault != defaultLines.end())
+        {
+            changed = true;
+            if (values.count(kBodyHeightKey))
+            {
+                std::cout << "Config entry 'SeatedBodyHeight' removed, BodyHeight replaces it\n";
                 continue;
             }
             line = bodyHeightLine(valueOf(line));
-            values.emplace("SeatedBodyHeight", valueOf(line));
-            std::cout << "Config entry 'SeatedHeightOffset' became SeatedBodyHeight=" << valueOf(line) << "\n";
+            values.emplace(kBodyHeightKey, valueOf(line));
+            std::cout << "Config entry 'SeatedBodyHeight' became BodyHeight\n";
+        }
+        if (formerBodyHeight && keyOf(line) == kBodyHeightKey && isNumber(valueOf(line), 167.0f) &&
+            bodyHeightDefault != defaultLines.end() && bodyHeightDefault->second != line)
+        {
+            line = bodyHeightDefault->second;
+            changed = true;
+            std::cout << "Config entry 'BodyHeight' was at the former default, now " << valueOf(line) << "\n";
         }
         // Until v1.7 the portal gun's offsets were ViewmodelPos/AngCustomOffsetX/Y/Z: the values
         // stay, with the new names and comments.
@@ -2752,7 +2779,7 @@ void VR::ParseConfigFile()
     parseOrDefault("IPDScale", m_IpdScale, 1.0f);
     parseOrDefault("6DOF", m_6DOF, true);
     parseOrDefault("SeatedMode", m_SeatedMode, false);
-    parseOrDefault("SeatedBodyHeight", m_SeatedBodyHeight, 167.0f);
+    parseOrDefault("BodyHeight", m_BodyHeight, 170.0f);
     parseOrDefault("Roomscale", m_Roomscale, true);
     parseOrDefault("AimMode", m_AimMode, 1);
     parseOrDefault("Arms", m_Arms, true);
