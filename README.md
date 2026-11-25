@@ -14,17 +14,18 @@
 * Walking where the left (or right) controller points, snap or smooth turning, jumping, crouching
 * Portal gun in the right (or left) hand with aim laser or aim dot, shots start at its muzzle
 * View turns with the portal when passing through it (can be switched off)
-* Picking up cubes, activating buttons
+* Picking up cubes
+* Chell's arms and hands follow your controllers; press buttons with your hand or the portal gun (can be switched off on the VR tab)
+* Chell is as tall as you: set your body height on the VR tab
 * Roomscale: the player follows your head when you walk in your room
 * Comfort options, see [If you feel sick](#if-you-feel-sick)
 * VR tab integrated into the game's settings, in all languages of the game
 * HUD, hints and subtitles in front of your eyes, configurable distance on the VR tab
 * Hints show the buttons of your VR controllers
-* Controller vibration from the game (portal gun, damage), on/off and strength on the VR tab
+* Controller vibration from the game (portal gun, damage) and when you press a button, on/off and strength on the VR tab
 
 ## Known issues
 * After quitting, a black square can stay in the headset for about 10 seconds. It is Steam's Desktop Game Theatre, not the mod.
-* No hands. Buttons can only be activated by pressing a controller button.
 
 Tested with Oculus Touch controllers. The bindings for Index and Vive Cosmos controllers are untested.
 
@@ -59,7 +60,7 @@ Change these on the VR tab of the game's settings or in `Portal Revolution/VR/co
 * `WalkWithRightStick=true`: the right stick walks, the left one turns.
 * `HeadOrientedWalking=true`: the stick walks where you look, not where the hand points.
 * `SeatedMode=true`: for playing seated, also in a wheelchair. Roomscale keeps working.
-* `SeatedBodyHeight=167`: seated, you see as if you stood at this body height (cm).
+* `BodyHeight=170`: your body height (cm). Chell is as tall as you; seated, you see as if you stood.
 
 ## If you feel sick
 Change these on the VR tab of the game's settings or in `Portal Revolution/VR/config.txt`, one after the other. They apply at once, no restart needed.
@@ -68,7 +69,7 @@ Change these on the VR tab of the game's settings or in `Portal Revolution/VR/co
 3. Leave `SnapTurning=true`: the view jumps when you turn. With `false` it turns smoothly, and `VignetteTurning` darkens the edges meanwhile.
 
 ## Problems
-Please [open an issue](https://github.com/stsichler/portal_revolution_vr/issues) right after the game ended and attach `prvr_debug.log` from the game folder. It starts over with each game start. It can contain your Windows user name, so check it first. For more details in it, add `-prvr_verbose` to the game's launch options.
+Please [open an issue](https://github.com/stsichler/portal_revolution_vr/issues) right after the game ended and attach `prvr_debug.log` from the game folder. It starts over with each game start. It can contain your Windows user name, so check it first. For more details in it, add `-prvr_verbose` to the game's launch options. If the arms cause trouble, switch them off on the VR tab (`Arms=false`).
 
 ## Build instructions
 1. Clone the repository
