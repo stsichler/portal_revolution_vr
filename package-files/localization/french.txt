@@ -27,6 +27,7 @@ HeadTracking=Suivi de la position de la tête
 Roomscale=Marcher dans la pièce
 PlaySeated=Jouer assis
 BodyHeight=Votre taille (cm)
+BodyCrouch=S'accroupir quand vous vous accroupissez
 GroupComfort=Confort
 PortalTilt=La vue s'incline avec le portail de sortie
 UprightTime=Vue redressée après (ms)

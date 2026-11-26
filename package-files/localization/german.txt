@@ -27,6 +27,7 @@ HeadTracking=Kopfposition verfolgen
 Roomscale=Im Raum herumgehen
 PlaySeated=Im Sitzen spielen
 BodyHeight=Deine Körpergröße (cm)
+BodyCrouch=Ducken, wenn du in die Hocke gehst
 GroupComfort=Komfort
 PortalTilt=Blick neigt sich mit dem Ausgangsportal
 UprightTime=Blick wieder aufrecht nach (ms)

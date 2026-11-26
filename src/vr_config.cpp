@@ -413,6 +413,8 @@ void VR::ParseConfigFile()
     parseOrDefault("6DOF", m_6DOF, true);
     parseOrDefault("SeatedMode", m_SeatedMode, false);
     parseOrDefault("BodyHeight", m_BodyHeight, 170.0f);
+    parseOrDefault("BodyCrouch", m_BodyCrouch, true);
+    parseOrDefault("CrouchEyeHeight", m_CrouchEyeHeight, 0.75f);
     parseOrDefault("Roomscale", m_Roomscale, true);
     parseOrDefault("AimMode", m_AimMode, 1);
     parseOrDefault("Arms", m_Arms, true);

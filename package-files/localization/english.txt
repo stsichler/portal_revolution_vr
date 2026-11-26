@@ -28,6 +28,7 @@ HeadTracking=Head position tracking
 Roomscale=Walking in your room
 PlaySeated=Play seated
 BodyHeight=Your body height (cm)
+BodyCrouch=Duck when you crouch
 GroupComfort=Comfort
 PortalTilt=View tilts with the exit portal
 UprightTime=View upright again after (ms)

@@ -366,6 +366,9 @@ void VR::UpdateActiveActionSet()
     {
         for (const char *command : { "-attack", "-attack2", "-jump", "-duck", "-use" })
             m_Game->ClientCmd_Unrestricted(command);
+        // ProcessInput sends +duck again if the player crouches.
+        m_CrouchButton = false;
+        m_DuckSent = false;
     }
     m_ActiveSet = active;
     std::cout << "[VR] action set: " << kActionSets[active] << "\n";
@@ -692,8 +695,12 @@ void VR::ProcessInput()
     }
 
     if (CheckDigitalActionChanged(m_ActionCrouch, state))
+        m_CrouchButton = state;
+    UpdateBodyCrouch();
+    if ((m_CrouchButton || m_CrouchedByBody) != m_DuckSent)
     {
-        m_Game->ClientCmd_Unrestricted(state ? "+duck" : "-duck");
+        m_DuckSent = !m_DuckSent;
+        m_Game->ClientCmd_Unrestricted(m_DuckSent ? "+duck" : "-duck");
     }
 
     if (CheckDigitalActionChanged(m_ActionUse, state))
@@ -711,6 +718,31 @@ void VR::ProcessInput()
         m_Game->ClientCmd_Unrestricted("gameui_activate");
         RepositionOverlays();
     }
+}
+
+// BodyCrouch, not seated: Chell ducks while the player's eyes are lower than CrouchEyeHeight of
+// their standing height, and stands up a bit above it. Only on the ground: in the air the game
+// ducks without lowering the eyes, which would make m_EyeLift lift them.
+void VR::UpdateBodyCrouch()
+{
+    constexpr float kStandUpAbove = 0.05f; // share of the standing eye height above CrouchEyeHeight
+    const float standing = (m_BodyHeight - kEyeBelowCrown) / 100; // meters
+    const float eyes = m_HmdPose.TrackedDevicePos.z;
+    bool crouched = m_CrouchedByBody; // stays without tracking
+    if (m_SeatedMode || !m_BodyCrouch)
+        crouched = false;
+    else if (!m_Poses[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid)
+        ;
+    else if (eyes < standing * m_CrouchEyeHeight)
+        crouched = true;
+    else if (eyes > standing * (m_CrouchEyeHeight + kStandUpAbove))
+        crouched = false;
+
+    if (crouched == m_CrouchedByBody || !StrataHooks::PlayerOnGround())
+        return;
+    m_CrouchedByBody = crouched;
+    if (VerboseLog())
+        std::cout << "[VR] body crouch: " << (crouched ? "ducks" : "stands up") << ", eyes at " << eyes << " m of " << standing << "\n";
 }
 
 vr::HmdMatrix34_t VR::GetControllerTipMatrix(vr::ETrackedControllerRole controllerRole)

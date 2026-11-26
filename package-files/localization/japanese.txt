@@ -27,6 +27,7 @@ HeadTracking=頭の位置のトラッキング
 Roomscale=部屋の中を歩く
 PlaySeated=座ってプレイ
 BodyHeight=あなたの身長（cm）
+BodyCrouch=実際にしゃがむとしゃがむ
 GroupComfort=快適性
 PortalTilt=出口ポータルに合わせて視点を傾ける
 UprightTime=視点が水平に戻るまでの時間（ミリ秒）

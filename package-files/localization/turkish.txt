@@ -27,6 +27,7 @@ HeadTracking=Baş konumu takibi
 Roomscale=Odada yürüme
 PlaySeated=Oturarak oyna
 BodyHeight=Boyunuz (cm)
+BodyCrouch=Sen çömelince çömel
 GroupComfort=Konfor
 PortalTilt=Bakış açısı çıkış portalıyla birlikte eğilir
 UprightTime=Bakış açısının düzelme süresi (ms)

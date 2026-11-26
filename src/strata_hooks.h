@@ -32,6 +32,9 @@ namespace StrataHooks
     // A full screen video (VGUI VideoPanel) is on the screen.
     bool VideoVisible();
 
+    // The player stands on the ground; false without a player.
+    bool PlayerOnGround();
+
     // The height of the part of the back buffer Panorama lays out for: in the aspect ratio of the
     // video mode, or all of it if the hooks aren't in place. Changes with the video settings.
     int PanoramaHeight(int width, int height);
@@ -104,6 +107,7 @@ namespace StrataHooks
     };
     extern RoomscaleState g_Roomscale;
     extern int g_Player_Flags;
+    extern int g_Player_ViewHeight;
     Vector RotatedByPortal(const float (*m)[4], const Vector &v);
     Vector MovedByPortal(const float (*m)[4], const Vector &v);
     QAngle TurnedByPortal(const float (*m)[4], const QAngle &angles);

@@ -260,6 +260,7 @@ namespace StrataHooks
         { "DT_Prop_Portal", "m_fNetworkHalfWidth", &g_Portal_HalfWidth },
         { "DT_Prop_Portal", "m_fNetworkHalfHeight", &g_Portal_HalfHeight },
         { "DT_Portal_Player", "m_fFlags", &g_Player_Flags },
+        { "DT_Portal_Player", "m_vecViewOffset[2]", &g_Player_ViewHeight },
         { "DT_Portal_Player", "m_hActiveWeapon", &g_Player_ActiveWeaponHandle },
         { "DT_Portal_Player", "m_bIsHoldingSomething", &g_Player_HoldingSomething },
         { "DT_WeaponPortalgun", "m_bCanFirePortal1", &g_Portalgun_CanFirePortal1 },

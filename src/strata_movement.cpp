@@ -42,6 +42,10 @@ namespace StrataHooks
     // moves along, so the view doesn't move with the player. Distances in game units.
     int g_Player_Flags = 0x150; // network field m_fFlags
     constexpr int kPlayerFlag_OnGround = 1;
+    // Network field m_vecViewOffset[2]: the eyes above the feet, 64 standing (kPlayer_EyeHeight),
+    // less while Chell ducks. 0 if it wasn't found.
+    int g_Player_ViewHeight = 0;
+    constexpr float kPlayer_EyeHeight = 64;
     constexpr float kRoomscale_StartDistance = 6; // about 14 cm
     constexpr float kRoomscale_StopDistance = 2;
     constexpr float kRoomscale_SpeedPerDistance = 8; // per second
@@ -366,9 +370,48 @@ namespace StrataHooks
             vr->MoveRoom(offset * (std::min)(1.0f, kRoomscale_PullBackShare * movedDistance / distance));
     }
 
+    // When Chell ducks because the player crouches (VR::UpdateBodyCrouch), the game lowers her eyes,
+    // but the player's are lower already: m_EyeLift gives back what the game takes, until she stands
+    // again. Not through a ceiling, e.g. in a low passage.
+    void UpdateEyeLift(const Vector &eyes)
+    {
+        static bool lifting = false;
+        Game *game = g_StrataGame;
+        VR *vr = game->m_VR;
+        auto player = reinterpret_cast<uint8_t *>(game->GetClientEntity(game->m_EngineClient->GetLocalPlayer()));
+        float lift = 0;
+        if (player && g_Player_ViewHeight)
+        {
+            const float viewHeight = *reinterpret_cast<const float *>(player + g_Player_ViewHeight);
+            if (vr->m_CrouchedByBody)
+                lifting = true;
+            else if (viewHeight >= kPlayer_EyeHeight - 0.1f)
+                lifting = false;
+            if (lifting)
+                lift = (std::max)(0.0f, kPlayer_EyeHeight - viewHeight);
+        }
+
+        // The head above the game's eyes with this lift.
+        const float head = vr->m_HmdPosRelative.z - vr->m_EyeLift + lift;
+        if (lift > 0 && head > 0 && TraceFilterConstructor && TraceFilterList && game->m_EngineTrace)
+        {
+            const Vector ray(0, 0, head + kRoomscale_WallMargin);
+            float fraction = g_PropPortalVTable && FindPortalBetween(eyes, eyes + ray) ? 1.0f : TraceShot(player, eyes, ray).fraction;
+            if (fraction <= 0)
+                fraction = 1; // the eyes are in something
+            const float allowed = (std::max)(0.0f, fraction * (head + kRoomscale_WallMargin) - kRoomscale_WallMargin);
+            if (allowed < head)
+                lift = (std::max)(0.0f, lift - (head - allowed));
+        }
+
+        vr->m_HmdPosRelative.z += lift - vr->m_EyeLift;
+        vr->m_EyeLift = lift;
+    }
+
     // Once per frame, before anything is placed relative to the head.
     void UpdateRoomscale(const Vector &eyes)
     {
+        UpdateEyeLift(eyes);
         RoomscaleState &state = g_Roomscale;
         if (!RoomscaleEnabled())
         {

@@ -27,6 +27,7 @@ HeadTracking=Seguimiento de la posición de la cabeza
 Roomscale=Caminar por la habitación
 PlaySeated=Jugar sentado
 BodyHeight=Tu altura (cm)
+BodyCrouch=Agacharse cuando te agachas
 GroupComfort=Comodidad
 PortalTilt=La vista se inclina con el portal de salida
 UprightTime=Vista recta de nuevo tras (ms)

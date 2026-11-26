@@ -194,6 +194,10 @@ public:
 	// standing, kEyeBelowCrown lower.
 	float m_BodyHeight = 170.0f;
 	static constexpr float kEyeBelowCrown = 11.0f; // cm, about the same for all adults
+	// Not seated, Chell ducks when the eyes are lower than m_CrouchEyeHeight of their standing
+	// height (from m_BodyHeight). See UpdateBodyCrouch.
+	bool m_BodyCrouch = true;
+	float m_CrouchEyeHeight = 0.75f;
 	bool m_Roomscale = true;
 	int m_AimMode = 1;
 	bool m_Arms = true; // Chell's arms and hands are seen; they and the portal gun press buttons
@@ -207,6 +211,13 @@ public:
 	bool m_ForceFeedback = true; // the controllers vibrate with the game's rumble
 	float m_ForceFeedbackPortalGun = 0.5f; // scale of the portal gun hand's vibration, 0..1
 	float m_HudPlacedDistance = 0; // the distance the HUD overlay is placed at
+
+	bool m_CrouchButton = false; // the Crouch action is held
+	bool m_CrouchedByBody = false; // the player crouches, see UpdateBodyCrouch
+	bool m_DuckSent = false; // +duck is in effect
+	// Game units the eyes are higher than the game puts them: it lowers them when Chell ducks
+	// because the player crouches, whose eyes are lower already. Set by the hooks each frame.
+	float m_EyeLift = 0;
 
 	float m_SmoothTurnRate = 0; // degrees per second the stick turns right now, 0 with snap turning
 	float m_VignetteMoving = 0; // current alpha from walking and turning, fades in and out
@@ -261,6 +272,7 @@ public:
 	void GetViewParameters();
 	void ProcessMenuInput();
 	void ProcessInput();
+	void UpdateBodyCrouch();
 	void UpdateRumble(bool menuVisible);
 	// A short pulse in the hand that pressed a button; the physical hand, not swapped for LeftHanded.
 	void PulseButtonPress(bool rightHand);

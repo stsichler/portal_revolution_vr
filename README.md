@@ -17,6 +17,7 @@
 * Picking up cubes
 * Chell's arms and hands follow your controllers; press buttons with your hand or the portal gun (can be switched off on the VR tab)
 * Chell is as tall as you: set your body height on the VR tab
+* Chell crouches when you do, unless you play seated (can be switched off on the VR tab)
 * Roomscale: the player follows your head when you walk in your room
 * Comfort options, see [If you feel sick](#if-you-feel-sick)
 * VR tab integrated into the game's settings, in all languages of the game

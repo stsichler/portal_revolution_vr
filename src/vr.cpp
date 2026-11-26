@@ -768,6 +768,7 @@ void VR::UpdateHeadPose()
         m_HmdPosRelative.z -= 64;
     else
         m_HmdPosRelative.z += (m_BodyHeight - kEyeBelowCrown) / 100 * m_VRScale - 64;
+    m_HmdPosRelative.z += m_EyeLift;
 
     GetViewParameters();
     m_Ipd = m_EyeToHeadTransformPosRight.x * 2;

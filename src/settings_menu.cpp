@@ -107,6 +107,7 @@ class PrvrSettings {
             PrvrTurnSpeed: !snap,
             PrvrVignetteTurning: !snap,
             PrvrRoomscale: int("prvr_6dof") !== 0,
+            PrvrBodyCrouch: int("prvr_seated_mode") === 0,
             PrvrCameraUprightTime: tilt,
             PrvrVignetteAfterPortal: afterPortal,
             PrvrVignetteClearAngle: vignette,
@@ -245,6 +246,12 @@ class PrvrSettings {
                                      convar="prvr_body_height" id="PrvrBodyHeight"
                                      min="140" max="210" increment="0.0142857" snaptoincrement="true"
                                      selectionpos="auto" tabindex="auto"/>
+
+                <ChaosSettingsEnumDropDown text="[[BodyCrouch]]" class="settings__page-group-item" convar="prvr_body_crouch"
+                                           id="PrvrBodyCrouch" selectionpos="auto" tabindex="auto">
+                    <Label acceptsfocus="true" text="#Settings_General_Enabled" value="1" id="PrvrBodyCrouch1"/>
+                    <Label acceptsfocus="true" text="#Settings_General_Disabled" value="0" id="PrvrBodyCrouch0"/>
+                </ChaosSettingsEnumDropDown>
 
             </Panel>
 

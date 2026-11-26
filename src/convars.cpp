@@ -83,6 +83,7 @@ namespace
         {"6DOF", "prvr_6dof", "0: only the head's rotation counts, not its position", &VR::m_6DOF},
         {"SeatedMode", "prvr_seated_mode", "0: your real eye height. 1: the eye height of prvr_body_height", &VR::m_SeatedMode},
         {"BodyHeight", "prvr_body_height", "Your body height, centimeters: Chell is as tall; seated, the eyes are where they would be standing", &VR::m_BodyHeight},
+        {"BodyCrouch", "prvr_body_crouch", "1: Chell ducks when you crouch (not seated)", &VR::m_BodyCrouch},
         {"Roomscale", "prvr_roomscale", "1: the player follows your head when you walk in your room", &VR::m_Roomscale},
         {"AimMode", "prvr_aim_mode", "0: none, 1: aim dot, 2: laser", &VR::m_AimMode},
         {"Arms", "prvr_arms", "1: you see Chell's arms and hands, and they and the portal gun press buttons", &VR::m_Arms},
