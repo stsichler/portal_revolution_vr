@@ -9,23 +9,24 @@
 [<img src="https://www.paypalobjects.com/en_US/DK/i/btn/btn_donateCC_LG.gif" align="right" />](https://www.paypal.com/donate/?hosted_button_id=HLFSYXSE3SDVE)
 
 ## Things that work
-* Stereo view with head tracking; portals, smoke and glass render correctly
-* Menu as an overlay in the headset, used with laser pointer or stick
-* Walking where the left (or right) controller points, snap or smooth turning, jumping, crouching
-* Portal gun in the right (or left) hand with aim laser or aim dot, shots start at its muzzle
-* View turns with the portal when passing through it (can be switched off)
+* Stereo view, head tracking, roomscale
+* Portals, smoke and glass render correctly
+* Menu as headset overlay: laser pointer or stick
+* Walking where the controller points; snap or smooth turning; jumping, crouching
+* Portal gun in your hand: aim laser or dot, shots from the muzzle
 * Picking up cubes
-* Chell's arms and hands follow your controllers; press buttons with your hand or the portal gun (can be switched off on the VR tab)
-* Chell is as tall as you: set your body height on the VR tab
-* Chell crouches when you do, unless you play seated (can be switched off on the VR tab)
-* Roomscale: the player follows your head when you walk in your room
+* Chell's arms and hands follow your controllers; press buttons by hand or with the gun*
+* Chell has your body height and crouches with you (not when seated)*
+* View turns with the portal you pass through*
 * Comfort options, see [If you feel sick](#if-you-feel-sick)
-* VR tab integrated into the game's settings, in all languages of the game
-* HUD, hints and subtitles in front of your eyes, configurable distance on the VR tab
-* Hints show the buttons of your VR controllers
-* Controller vibration from the game (portal gun, damage) and when you press a button, on/off and strength on the VR tab
+* HUD, hints and subtitles in the headset*; hints show your controller's buttons
+* Controller vibration: portal gun, damage, button presses*
+* VR tab in the game's settings, all languages of the game
+
+\* can be switched off or adjusted on the VR tab
 
 ## Known issues
+* After a snap turn, a held object such as a cube catches up a moment later.
 * After quitting, a black square can stay in the headset for about 10 seconds. It is Steam's Desktop Game Theatre, not the mod.
 
 Tested with Oculus Touch controllers. The bindings for Index and Vive Cosmos controllers are untested.
