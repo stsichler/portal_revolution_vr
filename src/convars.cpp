@@ -8,6 +8,7 @@
 #include <iterator>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <variant>
 #include "strata_hooks.h"
 #include "vr.h"
@@ -62,7 +63,7 @@ namespace
         std::variant<bool VR::*, int VR::*, float VR::*, BoolPair> member;
         double scale = 1; // variable = member * scale: the menu's sliders only take whole numbers
         uint8_t *convar = nullptr;
-        std::string defaultValue; // the value at the start; Create keeps the pointer
+        std::string defaultValue; // from config.default.txt, see DefaultValue; Create keeps the pointer
         double lastConVar = 0;
         double lastMember = 0;
         bool unwritten = false; // changed, but not in config.txt yet
@@ -157,6 +158,58 @@ namespace
         return text.str();
     }
 
+    // The values of VR\config.default.txt, without comments.
+    std::unordered_map<std::string, std::string> ReadDefaults()
+    {
+        std::unordered_map<std::string, std::string> values;
+        std::ifstream file("VR\\config.default.txt");
+        std::string line;
+        while (std::getline(file, line))
+        {
+            const size_t equals = line.find('=');
+            if (equals == std::string::npos)
+                continue;
+            std::string value = line.substr(equals + 1, line.find('#', equals) - equals - 1);
+            value.erase(0, value.find_first_not_of(" \t"));
+            value.erase(value.find_last_not_of(" \t\r") + 1);
+            values.emplace(line.substr(0, equals), value);
+        }
+        return values;
+    }
+
+    // The variable's default (the slider's mark in the menu): the value of config.default.txt, the
+    // current one if it isn't there.
+    std::string DefaultValue(const VR &vr, const Setting &setting, const std::unordered_map<std::string, std::string> &defaults)
+    {
+        const auto number = [&defaults](const char *key, double &value)
+        {
+            const auto found = defaults.find(key);
+            if (found == defaults.end())
+                return false;
+            if (found->second == "true" || found->second == "false")
+            {
+                value = found->second == "true";
+                return true;
+            }
+            char *end = nullptr;
+            value = strtod(found->second.c_str(), &end);
+            return !found->second.empty() && *end == '\0';
+        };
+        double value = 0, high = 0;
+        bool found = number(setting.key, value);
+        if (const BoolPair *pair = std::get_if<BoolPair>(&setting.member))
+        {
+            found = found && number(pair->highKey, high);
+            value = (value != 0) + 2 * (high != 0);
+        }
+        if (!found)
+        {
+            std::cout << "[ConVars] " << setting.key << " not in config.default.txt, its default is the current value\n";
+            value = MemberValue(vr, setting);
+        }
+        return Text(setting, value * setting.scale, false);
+    }
+
     // Replaces the value of the key in config.txt and keeps the comment, or adds a line.
     void WriteConfig(const char *key, const std::string &value)
     {
@@ -220,6 +273,7 @@ namespace
         g_InternalSetValue = reinterpret_cast<tInternalSetValue>(vtable[kConVar_InternalSetValue]);
 
         static const Callback noCallback;
+        const auto defaults = ReadDefaults();
         int registered = 0;
         for (Setting &setting : g_Settings)
         {
@@ -229,13 +283,14 @@ namespace
                 break;
             *reinterpret_cast<void ***>(convar) = vtable;
             *reinterpret_cast<void ***>(convar + kConVar_IConVar) = iconvarVTable;
-            setting.defaultValue = Text(setting, MemberValue(vr, setting) * setting.scale, false);
+            setting.defaultValue = DefaultValue(vr, setting, defaults);
             create(convar, setting.name, setting.defaultValue.c_str(), FCVAR_UNREGISTERED, setting.help, false, 0, false, 0,
                    &noCallback, &noCallback);
             *reinterpret_cast<int *>(convar + kConVar_Flags) &= ~FCVAR_UNREGISTERED;
             if (!convar[kConVar_Registered])
                 registerConCommand(cvar, convar, false);
             setting.convar = convar;
+            g_InternalSetValue(convar, Text(setting, MemberValue(vr, setting) * setting.scale, false).c_str());
             setting.lastConVar = ConVarValue(setting);
             setting.lastMember = MemberValue(vr, setting);
             ++registered;
