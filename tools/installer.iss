@@ -82,6 +82,47 @@ russian.GameNotFound=Portal: Revolution не найдена. Нажмите «О
 spanish.GameNotFound=No se encontró Portal: Revolution. Haz clic en Examinar y elige su carpeta, normalmente ...\steamapps\common\Portal Revolution.
 turkish.GameNotFound=Portal: Revolution bulunamadı. Göz at'a tıklayıp oyunun klasörünü seçin, genellikle ...\steamapps\common\Portal Revolution.
 ukrainian.GameNotFound=Portal: Revolution не знайдено. Натисніть «Огляд» і виберіть теку гри, зазвичай ...\steamapps\common\Portal Revolution.
+; The question at the start when the game wasn't found.
+english.GameMissing=Portal: Revolution wasn't found.
+english.GameMissingText=Install the game with Steam first, then run this setup again.
+english.GameMissingStore=&Open the Steam page
+english.GameMissingContinue=&Continue anyway%nThe game is installed: select its folder yourself.
+brazilian.GameMissing=Portal: Revolution não foi encontrado.
+brazilian.GameMissingText=Instale primeiro o jogo pela Steam e depois execute este instalador novamente.
+brazilian.GameMissingStore=&Abrir a página da Steam
+brazilian.GameMissingContinue=&Continuar mesmo assim%nO jogo está instalado: escolha você mesmo a pasta dele.
+french.GameMissing=Portal: Revolution est introuvable.
+french.GameMissingText=Installez d'abord le jeu avec Steam, puis relancez ce programme d'installation.
+french.GameMissingStore=&Ouvrir la page Steam
+french.GameMissingContinue=&Continuer quand même%nLe jeu est installé : choisissez vous-même son dossier.
+german.GameMissing=Portal: Revolution wurde nicht gefunden.
+german.GameMissingText=Installiere zuerst das Spiel über Steam und starte dieses Setup dann erneut.
+german.GameMissingStore=Steam-Seite &öffnen
+german.GameMissingContinue=&Trotzdem fortfahren%nDas Spiel ist installiert: wähle seinen Ordner selbst.
+italian.GameMissing=Portal: Revolution non è stato trovato.
+italian.GameMissingText=Installa prima il gioco con Steam, poi avvia di nuovo questo setup.
+italian.GameMissingStore=&Apri la pagina di Steam
+italian.GameMissingContinue=&Continua comunque%nIl gioco è installato: scegli tu la sua cartella.
+japanese.GameMissing=Portal: Revolution が見つかりません。
+japanese.GameMissingText=先に Steam でゲームをインストールしてから、このセットアップをもう一度実行してください。
+japanese.GameMissingStore=Steam のページを開く(&O)
+japanese.GameMissingContinue=このまま続ける(&C)%nゲームはインストール済みです。フォルダーを自分で選んでください。
+russian.GameMissing=Portal: Revolution не найдена.
+russian.GameMissingText=Сначала установите игру через Steam, затем снова запустите установщик.
+russian.GameMissingStore=&Открыть страницу в Steam
+russian.GameMissingContinue=&Всё равно продолжить%nИгра установлена: выберите её папку вручную.
+spanish.GameMissing=No se encontró Portal: Revolution.
+spanish.GameMissingText=Instala primero el juego con Steam y luego vuelve a ejecutar este instalador.
+spanish.GameMissingStore=&Abrir la página de Steam
+spanish.GameMissingContinue=&Continuar de todos modos%nEl juego está instalado: elige tú su carpeta.
+turkish.GameMissing=Portal: Revolution bulunamadı.
+turkish.GameMissingText=Önce oyunu Steam ile kurun, ardından bu kurulumu yeniden çalıştırın.
+turkish.GameMissingStore=Steam sayfasını &aç
+turkish.GameMissingContinue=Yine de &devam et%nOyun kurulu: klasörünü kendiniz seçin.
+ukrainian.GameMissing=Portal: Revolution не знайдено.
+ukrainian.GameMissingText=Спочатку встановіть гру через Steam, а потім знову запустіть інсталятор.
+ukrainian.GameMissingStore=&Відкрити сторінку в Steam
+ukrainian.GameMissingContinue=&Усе одно продовжити%nГру встановлено: виберіть її теку вручну.
 ; The page when VR\config.txt already exists.
 english.ConfigCaption=VR settings
 english.ConfigDescription=You already have VR settings (VR\config.txt).
@@ -143,6 +184,9 @@ Type: files; Name: "{app}\prvr_frame_*.txt"
 [Code]
 const
   SteamAppKey = 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 601360';
+  StoreURL = 'https://store.steampowered.com/app/601360/';
+  // This setup's own uninstall entry, from the AppId.
+  SetupKey = 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{2B7B446F-DAEA-4E32-A6D4-E19EAA3ACE99}_is1';
 
 var
   ConfigPage: TInputOptionWizardPage;
@@ -245,6 +289,28 @@ begin
      not RegQueryStringValue(HKLM64, SteamAppKey, 'InstallLocation', Result) and
      not RegQueryStringValue(HKLM32, SteamAppKey, 'InstallLocation', Result) then
     Result := ExpandConstant('{commonpf32}\Steam\steamapps\common\Portal Revolution');
+end;
+
+// Not found, not even where the mod was installed before: install the game first?
+function InitializeSetup: Boolean;
+var
+  PrevDir: String;
+  ErrorCode: Integer;
+begin
+  Result := True;
+  if WizardSilent or IsGameDir(GameDir('')) or
+     (RegQueryStringValue(HKLM64, SetupKey, 'Inno Setup: App Path', PrevDir) and IsGameDir(PrevDir)) then
+    Exit;
+  case TaskDialogMsgBox(CustomMessage('GameMissing'), CustomMessage('GameMissingText'), mbInformation,
+      MB_YESNOCANCEL, [CustomMessage('GameMissingStore'), CustomMessage('GameMissingContinue')], 0) of
+    IDYES:
+      begin
+        ShellExecAsOriginalUser('open', StoreURL, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
+        Result := False;
+      end;
+    IDCANCEL:
+      Result := False;
+  end;
 end;
 
 // Not found: the folder page says to select the game's folder.
