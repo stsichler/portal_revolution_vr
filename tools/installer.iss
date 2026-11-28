@@ -173,16 +173,78 @@ begin
     FileCopy(AddBackslash(WizardDirValue) + 'VR\config.default.txt', ConfigFile, False);
 end;
 
-function GameDir(Param: String): String;
-begin
-  if not RegQueryStringValue(HKLM64, SteamAppKey, 'InstallLocation', Result) and
-     not RegQueryStringValue(HKLM32, SteamAppKey, 'InstallLocation', Result) then
-    Result := ExpandConstant('{commonpf32}\Steam\steamapps\common\Portal Revolution');
-end;
-
 function IsGameDir(Dir: String): Boolean;
 begin
   Result := FileExists(AddBackslash(Dir) + 'bin\win64\engine.dll') and DirExists(AddBackslash(Dir) + 'revolution');
+end;
+
+// Value of a line "Key" "Value" of a Steam .vdf or .acf file.
+function VdfValue(Line, Key: String; var Value: String): Boolean;
+begin
+  Line := Trim(Line);
+  Key := '"' + Key + '"';
+  Result := CompareText(Copy(Line, 1, Length(Key)), Key) = 0;
+  if Result then
+  begin
+    Value := Trim(Copy(Line, Length(Key) + 1, MaxInt));
+    Result := (Length(Value) >= 2) and (Value[1] = '"') and (Value[Length(Value)] = '"');
+    if Result then
+    begin
+      Value := Copy(Value, 2, Length(Value) - 2);
+      StringChangeEx(Value, '\\', '\', True);
+    end;
+  end;
+end;
+
+// The game's folder in a Steam library, from its appmanifest; '' if it isn't there.
+function GameDirInLibrary(LibDir: String): String;
+var
+  Lines: TArrayOfString;
+  I: Integer;
+  InstallDir: String;
+begin
+  Result := '';
+  LibDir := AddBackslash(LibDir) + 'steamapps\';
+  if LoadStringsFromFile(LibDir + 'appmanifest_601360.acf', Lines) then
+    for I := 0 to GetArrayLength(Lines) - 1 do
+      if VdfValue(Lines[I], 'installdir', InstallDir) and IsGameDir(LibDir + 'common\' + InstallDir) then
+      begin
+        Result := LibDir + 'common\' + InstallDir;
+        Exit;
+      end;
+end;
+
+// Searches Steam's own folder and every library of steamapps\libraryfolders.vdf.
+function SteamGameDir: String;
+var
+  Steam, LibDir: String;
+  Lines: TArrayOfString;
+  I: Integer;
+begin
+  Result := '';
+  if not RegQueryStringValue(HKLM32, 'SOFTWARE\Valve\Steam', 'InstallPath', Steam) and
+     not RegQueryStringValue(HKCU, 'Software\Valve\Steam', 'SteamPath', Steam) then
+    Exit;
+  StringChangeEx(Steam, '/', '\', True);
+  Result := GameDirInLibrary(Steam);
+  if (Result = '') and LoadStringsFromFile(AddBackslash(Steam) + 'steamapps\libraryfolders.vdf', Lines) then
+    for I := 0 to GetArrayLength(Lines) - 1 do
+      if VdfValue(Lines[I], 'path', LibDir) then
+      begin
+        Result := GameDirInLibrary(LibDir);
+        if Result <> '' then
+          Exit;
+      end;
+end;
+
+// Steam's libraries first: the uninstall entry can be missing or outdated.
+function GameDir(Param: String): String;
+begin
+  Result := SteamGameDir;
+  if (Result = '') and
+     not RegQueryStringValue(HKLM64, SteamAppKey, 'InstallLocation', Result) and
+     not RegQueryStringValue(HKLM32, SteamAppKey, 'InstallLocation', Result) then
+    Result := ExpandConstant('{commonpf32}\Steam\steamapps\common\Portal Revolution');
 end;
 
 // Not found: the folder page says to select the game's folder.
