@@ -25,6 +25,11 @@ AppendDefaultDirName=no
 DirExistsWarning=no
 DisableDirPage=no
 DisableProgramGroupPage=yes
+; For the banner, see InitializeWizard.
+DisableWelcomePage=no
+SetupIconFile=..\imgs\icon.ico
+WizardSmallImageFile=..\imgs\icon.png
+UninstallDisplayIcon={uninstallexe}
 UninstallFilesDir={app}\VR\uninstall
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
@@ -49,6 +54,19 @@ Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"
 Name: "ukrainian"; MessagesFile: "compiler:Languages\Ukrainian.isl"
+
+[Messages]
+; Instead of the advice to close all other applications.
+english.WelcomeLabel2=This installs [name/ver] into the game's folder.
+brazilian.WelcomeLabel2=Isto instala [name/ver] na pasta do jogo.
+french.WelcomeLabel2=Ceci installe [name/ver] dans le dossier du jeu.
+german.WelcomeLabel2=Das installiert [name/ver] in den Ordner des Spiels.
+italian.WelcomeLabel2=Questo installa [name/ver] nella cartella del gioco.
+japanese.WelcomeLabel2=[name/ver] をゲームのフォルダーにインストールします。
+russian.WelcomeLabel2=[name/ver] будет установлен в папку игры.
+spanish.WelcomeLabel2=Esto instala [name/ver] en la carpeta del juego.
+turkish.WelcomeLabel2=[name/ver] oyunun klasörüne kurulacak.
+ukrainian.WelcomeLabel2=[name/ver] буде встановлено в теку гри.
 
 [CustomMessages]
 english.NotGameFolder=This is not the folder of Portal: Revolution. Select the game's folder, usually ...\steamapps\common\Portal Revolution.
@@ -82,6 +100,47 @@ russian.GameNotFound=Portal: Revolution не найдена. Нажмите «О
 spanish.GameNotFound=No se encontró Portal: Revolution. Haz clic en Examinar y elige su carpeta, normalmente ...\steamapps\common\Portal Revolution.
 turkish.GameNotFound=Portal: Revolution bulunamadı. Göz at'a tıklayıp oyunun klasörünü seçin, genellikle ...\steamapps\common\Portal Revolution.
 ukrainian.GameNotFound=Portal: Revolution не знайдено. Натисніть «Огляд» і виберіть теку гри, зазвичай ...\steamapps\common\Portal Revolution.
+; The question at the start when the game wasn't found.
+english.GameMissing=Portal: Revolution wasn't found.
+english.GameMissingText=Install the game with Steam first, then run this setup again.
+english.GameMissingStore=&Open the Steam page
+english.GameMissingContinue=&Continue anyway%nThe game is installed: select its folder yourself.
+brazilian.GameMissing=Portal: Revolution não foi encontrado.
+brazilian.GameMissingText=Instale primeiro o jogo pela Steam e depois execute este instalador novamente.
+brazilian.GameMissingStore=&Abrir a página da Steam
+brazilian.GameMissingContinue=&Continuar mesmo assim%nO jogo está instalado: escolha você mesmo a pasta dele.
+french.GameMissing=Portal: Revolution est introuvable.
+french.GameMissingText=Installez d'abord le jeu avec Steam, puis relancez ce programme d'installation.
+french.GameMissingStore=&Ouvrir la page Steam
+french.GameMissingContinue=&Continuer quand même%nLe jeu est installé : choisissez vous-même son dossier.
+german.GameMissing=Portal: Revolution wurde nicht gefunden.
+german.GameMissingText=Installiere zuerst das Spiel über Steam und starte dieses Setup dann erneut.
+german.GameMissingStore=Steam-Seite &öffnen
+german.GameMissingContinue=&Trotzdem fortfahren%nDas Spiel ist installiert: wähle seinen Ordner selbst.
+italian.GameMissing=Portal: Revolution non è stato trovato.
+italian.GameMissingText=Installa prima il gioco con Steam, poi avvia di nuovo questo setup.
+italian.GameMissingStore=&Apri la pagina di Steam
+italian.GameMissingContinue=&Continua comunque%nIl gioco è installato: scegli tu la sua cartella.
+japanese.GameMissing=Portal: Revolution が見つかりません。
+japanese.GameMissingText=先に Steam でゲームをインストールしてから、このセットアップをもう一度実行してください。
+japanese.GameMissingStore=Steam のページを開く(&O)
+japanese.GameMissingContinue=このまま続ける(&C)%nゲームはインストール済みです。フォルダーを自分で選んでください。
+russian.GameMissing=Portal: Revolution не найдена.
+russian.GameMissingText=Сначала установите игру через Steam, затем снова запустите установщик.
+russian.GameMissingStore=&Открыть страницу в Steam
+russian.GameMissingContinue=&Всё равно продолжить%nИгра установлена: выберите её папку вручную.
+spanish.GameMissing=No se encontró Portal: Revolution.
+spanish.GameMissingText=Instala primero el juego con Steam y luego vuelve a ejecutar este instalador.
+spanish.GameMissingStore=&Abrir la página de Steam
+spanish.GameMissingContinue=&Continuar de todos modos%nEl juego está instalado: elige tú su carpeta.
+turkish.GameMissing=Portal: Revolution bulunamadı.
+turkish.GameMissingText=Önce oyunu Steam ile kurun, ardından bu kurulumu yeniden çalıştırın.
+turkish.GameMissingStore=Steam sayfasını &aç
+turkish.GameMissingContinue=Yine de &devam et%nOyun kurulu: klasörünü kendiniz seçin.
+ukrainian.GameMissing=Portal: Revolution не знайдено.
+ukrainian.GameMissingText=Спочатку встановіть гру через Steam, а потім знову запустіть інсталятор.
+ukrainian.GameMissingStore=&Відкрити сторінку в Steam
+ukrainian.GameMissingContinue=&Усе одно продовжити%nГру встановлено: виберіть її теку вручну.
 ; The page when VR\config.txt already exists.
 english.ConfigCaption=VR settings
 english.ConfigDescription=You already have VR settings (VR\config.txt).
@@ -130,6 +189,8 @@ Type: files; Name: "{app}\Uninstall_Portal_Revolution_VR_Mod.cmd"
 
 [Files]
 Source: "{#Stage}\*"; DestDir: "{app}"; Excludes: "\Uninstall_Portal_Revolution_VR_Mod.cmd"; Flags: recursesubdirs ignoreversion
+; The README's logo, the banner of the welcome page.
+Source: "..\imgs\logo.png"; Flags: dontcopy
 
 [UninstallDelete]
 ; Written by the mod. Folders of a ZIP installation aren't the setup's, so they are named here.
@@ -143,6 +204,9 @@ Type: files; Name: "{app}\prvr_frame_*.txt"
 [Code]
 const
   SteamAppKey = 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 601360';
+  StoreURL = 'https://store.steampowered.com/app/601360/';
+  // This setup's own uninstall entry, from the AppId.
+  SetupKey = 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{2B7B446F-DAEA-4E32-A6D4-E19EAA3ACE99}_is1';
 
 var
   ConfigPage: TInputOptionWizardPage;
@@ -152,9 +216,33 @@ begin
   Result := AddBackslash(WizardDirValue) + 'VR\config.txt';
 end;
 
+// The welcome page shows the logo over its full width instead of the side image, the text below.
+procedure ShowBanner;
+var
+  Banner: TBitmapImage;
+  Page: TNewNotebookPage;
+  Margin: Integer;
+begin
+  Page := WizardForm.WelcomePage;
+  ExtractTemporaryFile('logo.png');
+  Banner := TBitmapImage.Create(WizardForm);
+  Banner.Parent := Page;
+  Banner.PngImage.LoadFromFile(ExpandConstant('{tmp}\logo.png'));
+  Banner.Stretch := True;
+  Banner.SetBounds(0, 0, Page.ClientWidth, Page.ClientWidth * Banner.PngImage.Height div Banner.PngImage.Width);
+  WizardForm.WizardBitmapImage.Visible := False;
+  // The margin the text has on the right.
+  Margin := Page.ClientWidth - WizardForm.WelcomeLabel1.Left - WizardForm.WelcomeLabel1.Width;
+  WizardForm.WelcomeLabel1.SetBounds(Margin, Banner.Height + Margin, Page.ClientWidth - 2 * Margin, WizardForm.WelcomeLabel1.Height);
+  WizardForm.AdjustLabelHeight(WizardForm.WelcomeLabel1);
+  WizardForm.WelcomeLabel2.SetBounds(Margin, WizardForm.WelcomeLabel1.Top + WizardForm.WelcomeLabel1.Height,
+    Page.ClientWidth - 2 * Margin, Page.ClientHeight - WizardForm.WelcomeLabel1.Top - WizardForm.WelcomeLabel1.Height);
+end;
+
 // Keep or replace an existing config; keep is preselected and the choice of silent setups.
 procedure InitializeWizard;
 begin
+  ShowBanner;
   ConfigPage := CreateInputOptionPage(wpSelectDir, CustomMessage('ConfigCaption'),
     CustomMessage('ConfigDescription'), '', True, False);
   ConfigPage.Add(CustomMessage('ConfigKeep'));
@@ -173,16 +261,100 @@ begin
     FileCopy(AddBackslash(WizardDirValue) + 'VR\config.default.txt', ConfigFile, False);
 end;
 
+function IsGameDir(Dir: String): Boolean;
+begin
+  Result := FileExists(AddBackslash(Dir) + 'bin\win64\engine.dll') and DirExists(AddBackslash(Dir) + 'revolution');
+end;
+
+// Value of a line "Key" "Value" of a Steam .vdf or .acf file.
+function VdfValue(Line, Key: String; var Value: String): Boolean;
+begin
+  Line := Trim(Line);
+  Key := '"' + Key + '"';
+  Result := CompareText(Copy(Line, 1, Length(Key)), Key) = 0;
+  if Result then
+  begin
+    Value := Trim(Copy(Line, Length(Key) + 1, MaxInt));
+    Result := (Length(Value) >= 2) and (Value[1] = '"') and (Value[Length(Value)] = '"');
+    if Result then
+    begin
+      Value := Copy(Value, 2, Length(Value) - 2);
+      StringChangeEx(Value, '\\', '\', True);
+    end;
+  end;
+end;
+
+// The game's folder in a Steam library, from its appmanifest; '' if it isn't there.
+function GameDirInLibrary(LibDir: String): String;
+var
+  Lines: TArrayOfString;
+  I: Integer;
+  InstallDir: String;
+begin
+  Result := '';
+  LibDir := AddBackslash(LibDir) + 'steamapps\';
+  if LoadStringsFromFile(LibDir + 'appmanifest_601360.acf', Lines) then
+    for I := 0 to GetArrayLength(Lines) - 1 do
+      if VdfValue(Lines[I], 'installdir', InstallDir) and IsGameDir(LibDir + 'common\' + InstallDir) then
+      begin
+        Result := LibDir + 'common\' + InstallDir;
+        Exit;
+      end;
+end;
+
+// Searches Steam's own folder and every library of steamapps\libraryfolders.vdf.
+function SteamGameDir: String;
+var
+  Steam, LibDir: String;
+  Lines: TArrayOfString;
+  I: Integer;
+begin
+  Result := '';
+  if not RegQueryStringValue(HKLM32, 'SOFTWARE\Valve\Steam', 'InstallPath', Steam) and
+     not RegQueryStringValue(HKCU, 'Software\Valve\Steam', 'SteamPath', Steam) then
+    Exit;
+  StringChangeEx(Steam, '/', '\', True);
+  Result := GameDirInLibrary(Steam);
+  if (Result = '') and LoadStringsFromFile(AddBackslash(Steam) + 'steamapps\libraryfolders.vdf', Lines) then
+    for I := 0 to GetArrayLength(Lines) - 1 do
+      if VdfValue(Lines[I], 'path', LibDir) then
+      begin
+        Result := GameDirInLibrary(LibDir);
+        if Result <> '' then
+          Exit;
+      end;
+end;
+
+// Steam's libraries first: the uninstall entry can be missing or outdated.
 function GameDir(Param: String): String;
 begin
-  if not RegQueryStringValue(HKLM64, SteamAppKey, 'InstallLocation', Result) and
+  Result := SteamGameDir;
+  if (Result = '') and
+     not RegQueryStringValue(HKLM64, SteamAppKey, 'InstallLocation', Result) and
      not RegQueryStringValue(HKLM32, SteamAppKey, 'InstallLocation', Result) then
     Result := ExpandConstant('{commonpf32}\Steam\steamapps\common\Portal Revolution');
 end;
 
-function IsGameDir(Dir: String): Boolean;
+// Not found, not even where the mod was installed before: install the game first?
+function InitializeSetup: Boolean;
+var
+  PrevDir: String;
+  ErrorCode: Integer;
 begin
-  Result := FileExists(AddBackslash(Dir) + 'bin\win64\engine.dll') and DirExists(AddBackslash(Dir) + 'revolution');
+  Result := True;
+  if WizardSilent or IsGameDir(GameDir('')) or
+     (RegQueryStringValue(HKLM64, SetupKey, 'Inno Setup: App Path', PrevDir) and IsGameDir(PrevDir)) then
+    Exit;
+  case TaskDialogMsgBox(CustomMessage('GameMissing'), CustomMessage('GameMissingText'), mbInformation,
+      MB_YESNOCANCEL, [CustomMessage('GameMissingStore'), CustomMessage('GameMissingContinue')], 0) of
+    IDYES:
+      begin
+        ShellExecAsOriginalUser('open', StoreURL, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
+        Result := False;
+      end;
+    IDCANCEL:
+      Result := False;
+  end;
 end;
 
 // Not found: the folder page says to select the game's folder.

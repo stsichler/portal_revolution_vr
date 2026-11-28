@@ -21,6 +21,7 @@ package-files/config.default.txt  text eol=crlf
 # Binary
 *.png   binary
 *.jpg   binary
+*.ico   binary
 *.dll   binary
 *.lib   binary
 *.pdb   binary
