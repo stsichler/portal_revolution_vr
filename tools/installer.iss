@@ -25,6 +25,8 @@ AppendDefaultDirName=no
 DirExistsWarning=no
 DisableDirPage=no
 DisableProgramGroupPage=yes
+; For the banner, see InitializeWizard.
+DisableWelcomePage=no
 UninstallFilesDir={app}\VR\uninstall
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
@@ -49,6 +51,19 @@ Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"
 Name: "ukrainian"; MessagesFile: "compiler:Languages\Ukrainian.isl"
+
+[Messages]
+; Instead of the advice to close all other applications.
+english.WelcomeLabel2=This installs [name/ver] into the game's folder.
+brazilian.WelcomeLabel2=Isto instala [name/ver] na pasta do jogo.
+french.WelcomeLabel2=Ceci installe [name/ver] dans le dossier du jeu.
+german.WelcomeLabel2=Das installiert [name/ver] in den Ordner des Spiels.
+italian.WelcomeLabel2=Questo installa [name/ver] nella cartella del gioco.
+japanese.WelcomeLabel2=[name/ver] をゲームのフォルダーにインストールします。
+russian.WelcomeLabel2=[name/ver] будет установлен в папку игры.
+spanish.WelcomeLabel2=Esto instala [name/ver] en la carpeta del juego.
+turkish.WelcomeLabel2=[name/ver] oyunun klasörüne kurulacak.
+ukrainian.WelcomeLabel2=[name/ver] буде встановлено в теку гри.
 
 [CustomMessages]
 english.NotGameFolder=This is not the folder of Portal: Revolution. Select the game's folder, usually ...\steamapps\common\Portal Revolution.
@@ -171,6 +186,8 @@ Type: files; Name: "{app}\Uninstall_Portal_Revolution_VR_Mod.cmd"
 
 [Files]
 Source: "{#Stage}\*"; DestDir: "{app}"; Excludes: "\Uninstall_Portal_Revolution_VR_Mod.cmd"; Flags: recursesubdirs ignoreversion
+; The README's logo, the banner of the welcome page.
+Source: "..\imgs\logo.png"; Flags: dontcopy
 
 [UninstallDelete]
 ; Written by the mod. Folders of a ZIP installation aren't the setup's, so they are named here.
@@ -196,9 +213,33 @@ begin
   Result := AddBackslash(WizardDirValue) + 'VR\config.txt';
 end;
 
+// The welcome page shows the logo over its full width instead of the side image, the text below.
+procedure ShowBanner;
+var
+  Banner: TBitmapImage;
+  Page: TNewNotebookPage;
+  Margin: Integer;
+begin
+  Page := WizardForm.WelcomePage;
+  ExtractTemporaryFile('logo.png');
+  Banner := TBitmapImage.Create(WizardForm);
+  Banner.Parent := Page;
+  Banner.PngImage.LoadFromFile(ExpandConstant('{tmp}\logo.png'));
+  Banner.Stretch := True;
+  Banner.SetBounds(0, 0, Page.ClientWidth, Page.ClientWidth * Banner.PngImage.Height div Banner.PngImage.Width);
+  WizardForm.WizardBitmapImage.Visible := False;
+  // The margin the text has on the right.
+  Margin := Page.ClientWidth - WizardForm.WelcomeLabel1.Left - WizardForm.WelcomeLabel1.Width;
+  WizardForm.WelcomeLabel1.SetBounds(Margin, Banner.Height + Margin, Page.ClientWidth - 2 * Margin, WizardForm.WelcomeLabel1.Height);
+  WizardForm.AdjustLabelHeight(WizardForm.WelcomeLabel1);
+  WizardForm.WelcomeLabel2.SetBounds(Margin, WizardForm.WelcomeLabel1.Top + WizardForm.WelcomeLabel1.Height,
+    Page.ClientWidth - 2 * Margin, Page.ClientHeight - WizardForm.WelcomeLabel1.Top - WizardForm.WelcomeLabel1.Height);
+end;
+
 // Keep or replace an existing config; keep is preselected and the choice of silent setups.
 procedure InitializeWizard;
 begin
+  ShowBanner;
   ConfigPage := CreateInputOptionPage(wpSelectDir, CustomMessage('ConfigCaption'),
     CustomMessage('ConfigDescription'), '', True, False);
   ConfigPage.Add(CustomMessage('ConfigKeep'));
