@@ -27,6 +27,9 @@ DisableDirPage=no
 DisableProgramGroupPage=yes
 ; For the banner, see InitializeWizard.
 DisableWelcomePage=no
+SetupIconFile=..\imgs\icon.ico
+WizardSmallImageFile=..\imgs\icon.png
+UninstallDisplayIcon={uninstallexe}
 UninstallFilesDir={app}\VR\uninstall
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
