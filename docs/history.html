@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Version history – Portal: Revolution VR Mod</title>
+<meta name="description" content="Release notes of all versions of the Portal: Revolution VR Mod.">
+<link rel="icon" type="image/png" href="imgs/icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <a class="small-logo" href="./"><img src="imgs/logo.png" alt="Portal: Revolution VR Mod" width="640" height="201"></a>
+  <h1>Version history</h1>
+  <p class="since">
+    <label>Your version: <select id="since"><option value="">show all</option></select></label>
+    &ndash; shows what changed since then.
+  </p>
+  <div id="releases"><p>Loading&hellip;</p></div>
+  <noscript><p>Needs JavaScript. All release notes are also on <a href="https://github.com/stsichler/portal_revolution_vr/releases">GitHub</a>.</p></noscript>
+  <footer>
+    <p><a href="./">Download the latest version</a> &middot; <a href="https://github.com/stsichler/portal_revolution_vr/releases">Releases on GitHub</a> &middot; <a href="https://www.paypal.com/donate/?hosted_button_id=HLFSYXSE3SDVE">Donate</a></p>
+  </footer>
+</main>
+<script>
+  // Reads the release notes from GitHub, so the page is always up to date.
+  const api = 'https://api.github.com/repos/stsichler/portal_revolution_vr/releases?per_page=100&page=';
+  const list = document.getElementById('releases');
+  const since = document.getElementById('since');
+
+  async function load() {
+    let all = [];
+    for (let page = 1; ; page++) {
+      const r = await fetch(api + page, { headers: { Accept: 'application/vnd.github.html+json' } });
+      if (!r.ok) throw new Error(r.status);
+      const part = await r.json();
+      all = all.concat(part);
+      if (part.length < 100) break;
+    }
+    return all.filter(rel => !rel.draft && !rel.prerelease)
+              .sort((a, b) => b.published_at.localeCompare(a.published_at));
+  }
+
+  function show(releases) {
+    list.textContent = '';
+    for (const rel of releases) {
+      const section = document.createElement('section');
+      section.className = 'release';
+      section.id = rel.tag_name;
+      const h = document.createElement('h2');
+      const a = document.createElement('a');
+      a.href = rel.html_url;
+      a.textContent = rel.name || rel.tag_name;
+      h.append(a);
+      const date = document.createElement('p');
+      date.className = 'date';
+      date.textContent = new Date(rel.published_at).toLocaleDateString('en', { year: 'numeric', month: 'long', day: 'numeric' });
+      const notes = document.createElement('div');
+      notes.className = 'notes';
+      notes.innerHTML = rel.body_html || '';  // rendered and sanitized by GitHub
+      section.append(h, date, notes);
+      list.append(section);
+    }
+    hideRepeatedAlerts();
+  }
+
+  // Release notes repeat their "Important" paragraphs: keep only the newest one.
+  // The version filter only hides older releases, so the one kept stays visible.
+  function hideRepeatedAlerts() {
+    const seen = new Set();
+    for (const alert of list.querySelectorAll('.markdown-alert')) {
+      const paragraphs = [...alert.children].filter(el => !el.classList.contains('markdown-alert-title'));
+      for (const p of paragraphs) {
+        const text = p.textContent.trim();
+        if (seen.has(text)) p.hidden = true; else seen.add(text);
+      }
+      if (paragraphs.every(p => p.hidden)) alert.hidden = true;
+    }
+  }
+
+  function filter(releases) {
+    const i = releases.findIndex(rel => rel.tag_name === since.value);
+    releases.forEach((rel, j) => {
+      document.getElementById(rel.tag_name).hidden = i >= 0 && j >= i;
+    });
+    const url = new URL(location.href);
+    if (since.value) url.searchParams.set('since', since.value); else url.searchParams.delete('since');
+    history.replaceState(null, '', url);
+  }
+
+  load().then(releases => {
+    show(releases);
+    for (const rel of releases.slice(1)) since.add(new Option(rel.tag_name, rel.tag_name));
+    since.value = new URLSearchParams(location.search).get('since') || '';
+    if (since.selectedIndex < 0) since.value = '';
+    since.onchange = () => filter(releases);
+    filter(releases);
+    if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
+  }).catch(() => {
+    list.innerHTML = '<p>Could not load the release notes. They are also on <a href="https://github.com/stsichler/portal_revolution_vr/releases">GitHub</a>.</p>';
+  });
+</script>
+</body>
+</html>

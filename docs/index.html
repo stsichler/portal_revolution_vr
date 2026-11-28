@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portal: Revolution VR Mod</title>
+<meta name="description" content="Free VR mod for Portal: Revolution: stereo view, head tracking, roomscale, motion controls. Setup for Windows, ZIP for Linux.">
+<meta property="og:title" content="Portal: Revolution VR Mod">
+<meta property="og:description" content="Play Portal: Revolution in VR. Free mod, setup for Windows, ZIP for Linux.">
+<meta property="og:image" content="https://stsichler.github.io/portal_revolution_vr/imgs/logo.png">
+<link rel="icon" type="image/png" href="imgs/icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <img class="logo" src="imgs/logo.png" alt="Portal: Revolution VR Mod" width="640" height="201">
+  <p class="tagline">Play Portal: Revolution in virtual reality.</p>
+  <p class="sub">Free mod. Needs the game on Steam, a PC VR headset and SteamVR.</p>
+
+  <div class="downloads">
+    <a class="btn primary" href="https://github.com/stsichler/portal_revolution_vr/releases/latest/download/PortalRevolutionVR-Setup.exe">
+      <strong>Download for Windows</strong>
+      <span>Setup (.exe) &middot; finds the game itself</span>
+    </a>
+    <a class="btn secondary" href="https://github.com/stsichler/portal_revolution_vr/releases/latest/download/PortalRevolutionVR.zip">
+      <strong>Download for Linux</strong>
+      <span>ZIP &middot; also for manual install on Windows</span>
+    </a>
+  </div>
+  <p class="version"><span id="version"></span><a href="history.html">Version history</a></p>
+
+  <div class="donate">
+    <p><strong>Enjoying the mod?</strong> It's free and won't get much further development, but a donation is a welcome thank-you for the work.</p>
+    <a href="https://www.paypal.com/donate/?hosted_button_id=HLFSYXSE3SDVE"><img src="https://www.paypalobjects.com/en_US/DK/i/btn/btn_donateCC_LG.gif" alt="Donate with PayPal" width="92" height="47"></a>
+  </div>
+
+  <div class="note">
+    The setup isn't signed, so Windows SmartScreen can warn: click &ldquo;More info&rdquo;, then &ldquo;Run anyway&rdquo;.
+    Windows Defender can flag <code>d3d11.dll</code> as a false alarm, see the
+    <a href="https://github.com/stsichler/portal_revolution_vr#how-to-use">README</a>.
+    Only download the mod from here or its GitHub page.
+  </div>
+
+  <h2>Getting started</h2>
+  <ol>
+    <li>Windows: run the setup. Linux: extract the ZIP to <code>steamapps/common/Portal Revolution</code>.</li>
+    <li>Start the game with SteamVR.</li>
+    <li>Adjust the VR settings on the VR tab of the game's settings menu.</li>
+  </ol>
+
+  <h2>Features</h2>
+  <ul class="features">
+    <li>Stereo view, head tracking, roomscale</li>
+    <li>Portals, smoke and glass render correctly</li>
+    <li>Menu as headset overlay: laser pointer or stick</li>
+    <li>Walking where the controller points; snap or smooth turning</li>
+    <li>Portal gun in your hand, shots from the muzzle</li>
+    <li>Chell's arms and hands follow your controllers</li>
+    <li>Press buttons by hand, pick up cubes</li>
+    <li>Chell has your body height and crouches with you</li>
+    <li>Left-handed and seated play</li>
+    <li>Comfort options against motion sickness</li>
+    <li>HUD, hints and subtitles in the headset</li>
+    <li>Controller vibration</li>
+    <li>VR tab in the game's settings, all languages of the game</li>
+  </ul>
+
+  <h2>More</h2>
+  <ul class="links">
+    <li><a href="https://github.com/stsichler/portal_revolution_vr#controls">Controls &amp; settings</a></li>
+    <li><a href="history.html">Version history</a></li>
+    <li><a href="https://github.com/stsichler/portal_revolution_vr/issues">Report a problem</a></li>
+    <li><a href="https://github.com/stsichler/portal_revolution_vr">Source code</a></li>
+    <li><a href="https://www.paypal.com/donate/?hosted_button_id=HLFSYXSE3SDVE">Donate</a></li>
+  </ul>
+
+  <footer>
+    <p>Unofficial mod, not endorsed by <a href="https://store.steampowered.com/app/601360/Portal_Revolution/">Second Face Software</a> or the <a href="https://stratasource.org">Strata Source</a> team.</p>
+    <p>Code under the <a href="https://github.com/stsichler/portal_revolution_vr/blob/main/COPYING">GNU GPL v3</a>, with exceptions listed in the <a href="https://github.com/stsichler/portal_revolution_vr#license">README</a>. The Portal: Revolution logo belongs to the game's makers.</p>
+  </footer>
+</main>
+<script>
+  // Shows the latest version; the buttons work without it.
+  fetch('https://api.github.com/repos/stsichler/portal_revolution_vr/releases/latest')
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(rel => {
+      const date = new Date(rel.published_at).toLocaleDateString('en', { year: 'numeric', month: 'short', day: 'numeric' });
+      document.getElementById('version').textContent = 'Latest version: ' + rel.tag_name + ' (' + date + ') · ';
+    })
+    .catch(() => {});
+</script>
+</body>
+</html>

@@ -38,7 +38,7 @@ Tested with Oculus Touch controllers. The bindings for Index and Vive Cosmos con
 2. Start the game with SteamVR.
 3. Adjust VR settings on the VR tab of the game's settings menu.
 
-To remove the mod, uninstall "Portal: Revolution VR Mod" under Windows Settings > Apps. Updates keep your settings. An update of the game can break the mod.
+To remove the mod, uninstall "Portal: Revolution VR Mod" under Windows Settings > Apps. Updates keep your settings; the [version history](https://stsichler.github.io/portal_revolution_vr/history.html) shows what changed since your version. An update of the game can break the mod.
 
 Windows Defender can flag `d3d11.dll` as a potential threat. This is a false alarm: the mod takes the place of a system DLL and hooks functions of the game, as malware also does. If it gets blocked, allow it under Windows Security > Virus & threat protection > Protection history, or build the mod yourself from this source code. Only download it from this page.
 

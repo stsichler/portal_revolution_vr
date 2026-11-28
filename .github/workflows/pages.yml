@@ -1,0 +1,42 @@
+name: Pages
+
+# Publishes docs/ with the images from imgs/ to https://stsichler.github.io/portal_revolution_vr/.
+# Needs Settings > Pages > Source: "GitHub Actions".
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**', 'imgs/logo.png', 'imgs/icon.png', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Assemble the site
+        run: |
+          mkdir -p _site/imgs
+          cp -r docs/. _site/
+          cp imgs/logo.png imgs/icon.png _site/imgs/
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+
+      - id: deployment
+        uses: actions/deploy-pages@v5
